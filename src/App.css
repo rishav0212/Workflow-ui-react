@@ -2,22 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* --- BPMN Diagram Highlights --- */
-
-/* 1. Completed Steps (Green) */
-.highlight-completed .djs-visual > :nth-child(1) {
-    stroke: #22c55e !important; /* Green-500 border */
-    fill: #dcfce7 !important;   /* Green-100 background */
+@layer base {
+  body {
+    /* Uses your config's bg-canvas and text-ink-primary */
+    @apply bg-canvas text-ink-primary antialiased;
+  }
 }
 
-/* 2. Active Steps (Blue) */
-.highlight-active .djs-visual > :nth-child(1) {
-    stroke: #3b82f6 !important; /* Blue-500 border */
-    fill: #dbeafe !important;   /* Blue-100 background */
-    stroke-width: 2px !important;
+/* --- Clean Form.io Overrides for Theme --- */
+.formio-clean-wrapper .form-group {
+  @apply mb-5;
+}
+.formio-clean-wrapper label {
+  @apply block text-sm font-medium text-ink-secondary mb-1;
+}
+.formio-clean-wrapper .form-control {
+  @apply block w-full rounded-md border-stone-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 bg-white border text-ink-primary;
+}
+.formio-clean-wrapper .btn {
+  @apply inline-flex justify-center rounded-md border border-transparent bg-brand-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-all;
 }
 
-/* Optional: Make arrows green if completed */
-.highlight-completed.djs-connection .djs-visual > :nth-child(1) {
-    stroke: #22c55e !important;
+/* Custom Scrollbar matches Stone/Canvas theme */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-stone-300 rounded-full hover:bg-stone-400;
 }

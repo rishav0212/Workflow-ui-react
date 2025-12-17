@@ -80,281 +80,271 @@
 //   );
 // }
 
-// export default App;
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 // @ts-ignore
 import { Form } from "react-formio";
+import { cn } from "./lib/utils";
 
 // --- Components ---
 import { Sidebar } from "./components/layout/Sidebar";
 import { SmartToolbar } from "./components/tasks/SmartToolbar";
 import { HistoryTimeline } from "./components/tasks/HistoryTimeline";
+import TaskActionModal from "./components/tasks/TaskActionModal";
 import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { Skeleton } from "./components/ui/Skeleton";
+import { Search, Filter, Inbox, ArrowLeft, LogIn } from "lucide-react";
 
-// --- Icons & Utils ---
-import {
-  Search,
-  Filter,
-  ArrowLeft,
-  CheckSquare,
-  AlertCircle,
-} from "lucide-react";
-import { cn } from "./lib/utils";
-// --- API Logic ---
+// --- API & Types ---
 import {
   fetchTasks,
   fetchTaskView,
   fetchProcessHistory,
-  completeTask,
+  fetchFormSchema,
+  submitTask,
+} from "./api";
+import {
+  type User,
   type Task,
   type ActionButton,
-} from "./api";
-
-// --- Types ---
-interface User {
-  username: string;
-  email: string;
-}
-
-interface TaskDetailState {
-  task: Task | null;
-  schema: any;
-  submission: any;
-  history: any[];
-  buttons: ActionButton[];
-  loading: boolean;
-}
+  type HistoryEvent,
+} from "./types";
 
 export default function App() {
-  // --- Global State ---
   const [user, setUser] = useState<User | null>(null);
-  const [appLoading, setAppLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // --- Task List State ---
+  // Task List
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [listLoading, setListLoading] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isListLoading, setIsListLoading] = useState(false);
 
-  // --- Detailed View State ---
-  const [activeTab, setActiveTab] = useState<"actions" | "history">("actions");
-  const [detail, setDetail] = useState<TaskDetailState>({
-    task: null,
-    schema: null,
-    submission: null,
-    history: [],
-    buttons: [],
-    loading: false,
-  });
+  // Detail View
+  const [taskDetail, setTaskDetail] = useState<{
+    task: Task | null;
+    schema: any;
+    submission: any;
+    buttons: ActionButton[];
+    history: HistoryEvent[];
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<"details" | "history">("details");
 
-  // 1. Initial Auth Check
+  // Modal Action State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeAction, setActiveAction] = useState<ActionButton | null>(null);
+  const [modalSchema, setModalSchema] = useState<any>(null);
+
+  // 1. Init (Check Auth)
   useEffect(() => {
     axios
       .get<User>("http://localhost:8080/api/auth/me")
       .then((res) => {
         setUser(res.data);
-        fetchUserTasks(res.data.username);
+        loadTasks(res.data.username);
       })
       .catch(() => {
-        console.log("Not logged in");
+        console.log("User not logged in");
         setUser(null);
       })
-      .finally(() => setAppLoading(false));
+      .finally(() => setLoading(false));
   }, []);
-
-  // 2. Fetch Tasks Helper
-  const fetchUserTasks = async (username: string) => {
-    setListLoading(true);
-    try {
-      const data = await fetchTasks(username);
-      setTasks(data);
-    } catch (error) {
-      console.error("Failed to fetch tasks", error);
-    } finally {
-      setListLoading(false);
-    }
-  };
-
-  // 3. Load Task Detail (Logic from old TaskViewer)
-  useEffect(() => {
-    if (!selectedTaskId) return;
-
-    const loadTaskDetail = async () => {
-      setDetail((prev) => ({ ...prev, loading: true }));
-      try {
-        // A. Fetch Task View (Schema + Data + Task Info)
-        const viewData = await fetchTaskView(selectedTaskId);
-
-        // B. Parse Actions/Buttons from Schema
-        const components = viewData.schema?.components || [];
-        const configComp = components.find(
-          (c: any) => c.key === "externalActions"
-        );
-        let parsedButtons: ActionButton[] = [];
-
-        if (configComp?.defaultValue) {
-          parsedButtons =
-            typeof configComp.defaultValue === "string"
-              ? JSON.parse(configComp.defaultValue)
-              : configComp.defaultValue;
-        }
-
-        // C. Fetch History
-        let historyData = [];
-        if (viewData.task.processInstanceId) {
-          historyData = await fetchProcessHistory(
-            viewData.task.processInstanceId
-          );
-        }
-
-        setDetail({
-          task: viewData.task,
-          schema: viewData.schema,
-          submission: { data: viewData.formData }, // Form.io expects { data: ... }
-          history: historyData,
-          buttons: parsedButtons,
-          loading: false,
-        });
-      } catch (err) {
-        console.error(err);
-        alert("Failed to load task details.");
-        setDetail((prev) => ({ ...prev, loading: false }));
-      }
-    };
-
-    loadTaskDetail();
-  }, [selectedTaskId]);
-
-  // 4. Handle Task Completion
-  const handleAction = async (actionBtn: ActionButton, submissionData: any) => {
-    if (!selectedTaskId) return;
-
-    // If form data is needed but not provided yet (clicked from toolbar without submit),
-    // you might need a ref to the form. For now, assuming standard buttons or form submission triggers.
-    // NOTE: In this design, usually the Form handles the 'submit' event.
-
-    // Construct Payload
-    const variables = [
-      { name: "action", value: actionBtn.action },
-      // Add other form variables if needed
-    ];
-
-    // Merge form data if we are inside the form submit handler
-    // If you are using external buttons, this requires the Form.io instance reference.
-    // For simplicity, we assume the user clicks the "Submit" button inside the form
-    // OR we use the SmartToolbar buttons to trigger a complete with the current data state.
-
-    try {
-      // Simplified complete call matching your api.ts
-      await axios.post(
-        `http://localhost:8080/process-api/runtime/tasks/${selectedTaskId}`,
-        {
-          action: "complete",
-          variables: [
-            { name: "action", value: actionBtn.action },
-            // Map formData to variables if your backend requires it flatten,
-            // or send it as a single JSON variable
-            { name: "formData", value: JSON.stringify(submissionData) },
-          ],
-        }
-      );
-
-      alert("Task Completed!");
-      setSelectedTaskId(null);
-      if (user) fetchUserTasks(user.username); // Refresh list
-    } catch (err) {
-      alert("Submission failed");
-      console.error(err);
-    }
-  };
-
-  // 5. Handle Form.io internal submit
-  const onFormSubmit = (submission: any) => {
-    // Check if we have a primary action or default
-    const primaryAction =
-      detail.buttons.find((b) => b.color === "success") || detail.buttons[0];
-    if (primaryAction) {
-      handleAction(primaryAction, submission.data);
-    } else {
-      // Fallback for simple forms
-      completeTask(selectedTaskId!, []).then(() => {
-        alert("Form Submitted");
-        setSelectedTaskId(null);
-        if (user) fetchUserTasks(user.username);
-      });
-    }
-  };
-
-  // --- Renders ---
 
   const handleLogin = () => {
     window.location.href = "http://localhost:8080/oauth2/authorization/google";
   };
 
-  if (appLoading)
-    return (
-      <div className="flex items-center justify-center h-screen text-ink-muted">
-        Loading Application...
-      </div>
-    );
+  const loadTasks = async (username: string) => {
+    setIsListLoading(true);
+    try {
+      const data = await fetchTasks(username);
+      setTasks(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsListLoading(false);
+    }
+  };
 
-  if (!user) {
+  // 2. Load Detail
+  useEffect(() => {
+    if (!selectedTaskId) return;
+
+    const loadDetail = async () => {
+      setTaskDetail(null);
+      try {
+        const view = await fetchTaskView(selectedTaskId);
+
+        // Parse Buttons
+        const components = view.schema?.components || [];
+        const actionsComp = components.find(
+          (c: any) => c.key === "externalActions"
+        );
+        let parsedButtons: ActionButton[] = [];
+        if (actionsComp?.defaultValue) {
+          parsedButtons =
+            typeof actionsComp.defaultValue === "string"
+              ? JSON.parse(actionsComp.defaultValue)
+              : actionsComp.defaultValue;
+        }
+
+        // Fetch History
+        let history = [];
+        if (view.task.processInstanceId) {
+          history = await fetchProcessHistory(view.task.processInstanceId);
+        }
+
+        setTaskDetail({
+          task: view.task,
+          schema: view.schema,
+          submission: { data: view.formData },
+          buttons: parsedButtons,
+          history,
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadDetail();
+  }, [selectedTaskId]);
+
+  // 3. Toolbar Action -> Open Modal
+  const handleActionClick = async (btn: ActionButton) => {
+    setActiveAction(btn);
+    setModalSchema(null);
+    setModalOpen(true);
+
+    try {
+      const schema = await fetchFormSchema(btn.targetForm);
+      setModalSchema(schema);
+    } catch (err) {
+      alert("Error loading action form.");
+      setModalOpen(false);
+    }
+  };
+
+  // 4. Modal Submit
+  const handleModalSubmit = async (submission: any) => {
+    if (!selectedTaskId || !activeAction) return;
+    const payload = {
+      action: activeAction.action,
+      formData: submission.data,
+      submittedFormKey: activeAction.targetForm,
+    };
+    try {
+      await submitTask(selectedTaskId, payload);
+      alert("Task Completed!");
+      setModalOpen(false);
+      setSelectedTaskId(null);
+      if (user) loadTasks(user.username);
+    } catch (err) {
+      alert("Submission Failed");
+    }
+  };
+
+  // --- RENDER STATES ---
+
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-canvas">
-        <h1 className="text-3xl font-serif font-bold mb-6 text-ink-primary">
-          Acme Corp Workflow
-        </h1>
-        <Button onClick={handleLogin} size="md">
-          Login with Google
-        </Button>
+      <div className="h-screen flex items-center justify-center bg-canvas text-ink-muted">
+        <div className="animate-spin h-8 w-8 border-4 border-brand-200 border-t-brand-600 rounded-full mr-3"></div>
+        Loading Application...
       </div>
     );
   }
 
+  // --- LOGIN SCREEN (Restored) ---
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-canvas">
+        <div className="w-full max-w-md bg-surface p-8 rounded-2xl shadow-premium border border-stone-200 text-center">
+          <div className="h-12 w-12 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-xl shadow-lg mb-6">
+            A
+          </div>
+          <h1 className="text-2xl font-serif font-bold text-ink-primary mb-2">
+            Welcome Back
+          </h1>
+          <p className="text-ink-secondary mb-8">
+            Sign in to access your workflow dashboard.
+          </p>
+
+          <button
+            onClick={handleLogin}
+            className="w-full flex items-center justify-center gap-3 bg-white border border-stone-300 hover:bg-stone-50 text-ink-primary font-medium py-3 px-4 rounded-lg transition-all shadow-sm hover:shadow-md group"
+          >
+            {/* Google Icon SVG */}
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.26.81-.58z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+        </div>
+        <p className="mt-8 text-xs text-ink-muted">
+          &copy; 2024 Acme Corp. Secure Workflow System.
+        </p>
+      </div>
+    );
+  }
+
+  // --- MAIN APP ---
   return (
-    <div className="flex min-h-screen bg-canvas font-sans text-ink-primary">
-      {/* 1. Static Sidebar */}
+    <div className="flex h-screen bg-canvas font-sans text-ink-primary overflow-hidden">
+      {/* Sidebar (Warm/Medium) */}
       <Sidebar user={user} />
 
-      {/* 2. Main Content Area */}
-      <main className="flex-1 flex flex-col md:flex-row md:pl-64 h-screen overflow-hidden">
-        {/* --- LEFT PANEL: Master List --- */}
-        <section
+      <div className="flex-1 flex flex-col md:flex-row md:pl-64 h-full">
+        {/* --- LEFT: Task List --- */}
+        <div
           className={cn(
-            "flex flex-col border-r border-stone-200 bg-surface w-full md:w-96 transition-all duration-300",
+            "w-full md:w-96 bg-surface border-r border-stone-200 flex flex-col z-10 transition-transform",
             selectedTaskId ? "hidden md:flex" : "flex"
           )}
         >
-          {/* List Header */}
-          <div className="h-16 px-4 border-b border-stone-100 flex items-center justify-between sticky top-0 bg-surface z-10">
-            <h1 className="font-serif text-lg font-bold text-ink-primary">
+          {/* Header */}
+          <div className="h-16 px-4 border-b border-stone-100 flex items-center justify-between sticky top-0 bg-surface">
+            <h2 className="font-serif font-bold text-ink-primary text-lg">
               Inbox
-            </h1>
+            </h2>
             <div className="flex gap-1">
               <Button size="icon" variant="ghost">
-                <Search className="h-4 w-4" />
+                <Search className="w-4 h-4" />
               </Button>
               <Button size="icon" variant="ghost">
-                <Filter className="h-4 w-4" />
+                <Filter className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
-          {/* List Content */}
+          {/* List */}
           <div className="flex-1 overflow-y-auto">
-            {listLoading ? (
+            {isListLoading ? (
               <div className="p-4 space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
+                  <Skeleton
+                    key={i}
+                    className="h-20 w-full rounded-xl bg-stone-100"
+                  />
                 ))}
               </div>
             ) : tasks.length === 0 ? (
-              <div className="p-8 text-center text-ink-muted">
-                <CheckSquare className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                <p>No active tasks. You're all caught up!</p>
+              <div className="flex flex-col items-center justify-center h-64 text-ink-muted">
+                <Inbox className="w-10 h-10 mb-2 opacity-30" />
+                <span className="text-sm">All caught up</span>
               </div>
             ) : (
               tasks.map((task) => (
@@ -362,10 +352,9 @@ export default function App() {
                   key={task.id}
                   onClick={() => setSelectedTaskId(task.id)}
                   className={cn(
-                    "p-4 border-b border-stone-100 cursor-pointer transition-all hover:bg-canvas-subtle group",
-                    selectedTaskId === task.id
-                      ? "bg-stone-50 border-l-4 border-l-brand-600"
-                      : "border-l-4 border-l-transparent"
+                    "p-4 border-b border-stone-50 cursor-pointer hover:bg-canvas-subtle transition-colors relative group",
+                    selectedTaskId === task.id &&
+                      "bg-brand-50/50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-brand-600"
                   )}
                 >
                   <div className="flex justify-between items-start mb-1">
@@ -373,133 +362,122 @@ export default function App() {
                       className={cn(
                         "text-sm font-medium",
                         selectedTaskId === task.id
-                          ? "text-ink-primary"
-                          : "text-ink-secondary"
+                          ? "text-brand-900"
+                          : "text-ink-primary"
                       )}
                     >
                       {task.name}
                     </span>
-                    <Badge variant="neutral">Active</Badge>
+                    <Badge
+                      variant="neutral"
+                      className="text-[10px] bg-white border-stone-200"
+                    >
+                      Active
+                    </Badge>
                   </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-ink-muted">
-                      Created: {new Date(task.createTime).toLocaleDateString()}
-                    </span>
-                  </div>
+                  <span className="text-xs text-ink-muted">
+                    {new Date(task.createTime).toLocaleDateString()}
+                  </span>
                 </div>
               ))
             )}
           </div>
-        </section>
+        </div>
 
-        {/* --- RIGHT PANEL: Detail View --- */}
-        <section
+        {/* --- RIGHT: Task Viewer --- */}
+        <div
           className={cn(
-            "flex-1 flex flex-col bg-canvas transition-all duration-300 relative",
+            "flex-1 bg-canvas flex flex-col h-full overflow-hidden",
             !selectedTaskId ? "hidden md:flex" : "flex"
           )}
         >
-          {selectedTaskId && detail.loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-ink-muted flex flex-col items-center">
-                <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full mb-4"></div>
-                Loading Task...
+          {!selectedTaskId ? (
+            <div className="flex-1 flex items-center justify-center text-ink-muted/50">
+              <div className="text-center">
+                <Inbox className="w-20 h-20 mx-auto mb-4 opacity-20" />
+                <p>Select a task to view details</p>
               </div>
             </div>
-          ) : selectedTaskId && detail.task ? (
+          ) : !taskDetail ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="animate-spin h-10 w-10 border-4 border-brand-200 border-t-brand-600 rounded-full"></div>
+            </div>
+          ) : (
             <>
-              {/* Mobile Only: Back Button */}
-              <div className="md:hidden flex items-center px-4 py-2 bg-surface border-b border-stone-200">
-                <Button
-                  variant="ghost"
-                  size="sm"
+              {/* Mobile Back Button */}
+              <div className="md:hidden bg-surface px-4 py-2 border-b border-stone-200 flex items-center">
+                <button
                   onClick={() => setSelectedTaskId(null)}
-                  className="-ml-2"
+                  className="flex items-center text-sm text-ink-secondary"
                 >
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Back
-                </Button>
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                </button>
               </div>
 
-              {/* Smart Toolbar (Sticky Header) */}
+              {/* Toolbar */}
               <SmartToolbar
-                title={detail.task.name}
-                subtitle={`Case ID: ${detail.task.businessKey || "N/A"}`}
-                actions={detail.buttons}
-                onAction={(btn) => {
-                  // Trigger form submission manually if button clicked from toolbar
-                  // This often requires a ref to the Form.io instance to get data
-                  // For now, we assume buttons inside the form are used,
-                  // or we handle simple actions without data here.
-                  const confirm = window.confirm(
-                    `Execute action: ${btn.label}?`
-                  );
-                  if (confirm) handleAction(btn, detail.submission?.data || {});
-                }}
+                title={taskDetail.task?.name || "Task"}
+                subtitle={`ID: ${taskDetail.task?.businessKey || "N/A"}`}
+                actions={taskDetail.buttons}
+                onAction={handleActionClick}
               />
 
               {/* Tabs */}
-              <div className="px-6 border-b border-stone-200 bg-surface">
-                <div className="flex space-x-8">
+              <div className="px-6 bg-surface border-b border-stone-200 shadow-sm z-10">
+                <div className="flex space-x-6">
                   <button
-                    onClick={() => setActiveTab("actions")}
+                    onClick={() => setActiveTab("details")}
                     className={cn(
-                      "py-4 text-sm font-medium border-b-2 transition-colors",
-                      activeTab === "actions"
+                      "py-3 text-sm font-medium border-b-2 transition-colors",
+                      activeTab === "details"
                         ? "border-brand-600 text-brand-700"
-                        : "border-transparent text-ink-secondary hover:text-ink-primary"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     )}
                   >
-                    Form & Actions
+                    Task Form
                   </button>
                   <button
                     onClick={() => setActiveTab("history")}
                     className={cn(
-                      "py-4 text-sm font-medium border-b-2 transition-colors",
+                      "py-3 text-sm font-medium border-b-2 transition-colors",
                       activeTab === "history"
                         ? "border-brand-600 text-brand-700"
-                        : "border-transparent text-ink-secondary hover:text-ink-primary"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     )}
                   >
-                    History
+                    Audit Trail
                   </button>
                 </div>
               </div>
 
-              {/* Tab Content Area */}
-              <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-canvas">
-                <div className="max-w-4xl mx-auto bg-surface rounded-xl shadow-premium border border-stone-200 p-6 md:p-8 min-h-[500px]">
-                  {activeTab === "actions" ? (
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-canvas">
+                <div className="max-w-4xl mx-auto bg-surface rounded-xl shadow-premium border border-stone-200/60 min-h-[500px] p-6">
+                  {activeTab === "details" ? (
                     <div className="formio-clean-wrapper">
-                      {/* Replaced TaskForm with Form.io */}
-                      {detail.schema ? (
-                        <Form
-                          form={detail.schema}
-                          submission={detail.submission}
-                          onSubmit={onFormSubmit}
-                          options={{ noAlerts: true }}
-                        />
-                      ) : (
-                        <div className="text-center py-10 text-ink-muted">
-                          No form schema available for this task.
-                        </div>
-                      )}
+                      <Form
+                        form={taskDetail.schema}
+                        submission={taskDetail.submission}
+                        options={{ readOnly: true, noAlerts: true }}
+                      />
                     </div>
                   ) : (
-                    <HistoryTimeline events={detail.history} />
+                    <HistoryTimeline events={taskDetail.history} />
                   )}
                 </div>
               </div>
             </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-ink-muted flex-col">
-              <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4">
-                <CheckSquare className="h-8 w-8 text-stone-300" />
-              </div>
-              <p>Select a task to view details</p>
-            </div>
           )}
-        </section>
-      </main>
+        </div>
+      </div>
+
+      <TaskActionModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={activeAction?.label || "Complete Task"}
+        formSchema={modalSchema}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 }
