@@ -1,0 +1,177 @@
+/* src/FormBuilderOverrides.css */
+
+/* 1. IMPORT DEPENDENCIES */
+@import url("https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css");
+@import url("https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css");
+
+/* 2. GLOBAL DRAG & DROP FIX (CRITICAL) */
+/* When dragging, the item moves to the <body> tag. We must style it globally. */
+.gu-mirror {
+  position: fixed !important;
+  margin: 0 !important;
+  z-index: 9999 !important;
+  opacity: 0.9;
+  list-style-type: none;
+  pointer-events: none;
+
+  /* Make the ghost item look like a nice button */
+  background-color: #4f46e5 !important; /* Indigo-600 */
+  color: white !important;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+  border: 1px solid #4338ca;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 3. SCOPED BUILDER STYLING */
+/* We target #formio-wrapper to keep these styles contained */
+
+#formio-wrapper {
+  /* Restore fonts that Bootstrap might have messed up */
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+}
+
+/* --- SIDEBAR (TOOLBOX) --- */
+#formio-wrapper .builder-sidebar {
+  background: #f8fafc; /* Slate-50 */
+  border-right: 1px solid #e2e8f0; /* Slate-200 */
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Hide the ugly Accordion Headers (Basic, Advanced, etc) */
+#formio-wrapper .card-header {
+  background-color: transparent;
+  border: none;
+  padding: 8px 0;
+}
+#formio-wrapper .card-header button {
+  color: #64748b; /* Slate-500 */
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  padding: 0;
+}
+
+/* Transform the component buttons into modern cards */
+#formio-wrapper .builder-sidebar .btn {
+  background: #ffffff !important;
+  color: #334155 !important; /* Slate-700 */
+  border: 1px solid #cbd5e1 !important; /* Slate-300 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 100%;
+}
+
+/* Hover effect */
+#formio-wrapper .builder-sidebar .btn:hover {
+  border-color: #6366f1 !important; /* Indigo-500 */
+  color: #4f46e5 !important;
+  background: #eef2ff !important; /* Indigo-50 */
+  transform: translateY(-1px);
+}
+
+/* Icons inside buttons */
+#formio-wrapper .builder-sidebar .btn i {
+  margin-right: 12px;
+  color: #94a3b8; /* Slate-400 */
+  font-size: 1rem;
+}
+#formio-wrapper .builder-sidebar .btn:hover i {
+  color: #6366f1;
+}
+
+/* --- MAIN CANVAS --- */
+#formio-wrapper .builder-component {
+  border: 1px dashed #e2e8f0;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 16px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+#formio-wrapper .builder-component:hover {
+  background: #f8fafc;
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.1);
+}
+
+/* Hover Action Buttons (Edit/Remove) */
+#formio-wrapper .component-btn-group {
+  background: #1e293b !important; /* Slate-800 */
+  border-radius: 6px;
+  padding: 4px;
+  top: -12px !important;
+  right: 12px !important;
+  opacity: 0; /* Hide by default, show on hover */
+  transition: opacity 0.2s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#formio-wrapper .builder-component:hover .component-btn-group {
+  opacity: 1;
+}
+
+#formio-wrapper .component-btn-group .btn {
+  color: white !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  background: transparent !important;
+  border: none !important;
+}
+#formio-wrapper .component-btn-group .btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px;
+}
+
+/* --- INPUTS & LABELS (Match Tailwind) --- */
+#formio-wrapper .form-group label {
+  font-weight: 500;
+  color: #334155; /* Slate-700 */
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+#formio-wrapper .form-control {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  height: auto; /* Fix Bootstrap forcing height */
+}
+
+#formio-wrapper .form-control:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  outline: 0;
+}
+
+/* Remove Clean-up */
+#formio-wrapper .formio-component-placeholder {
+  display: none;
+}

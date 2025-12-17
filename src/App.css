@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- BPMN Diagram Highlights --- */
+
+/* 1. Completed Steps (Green) */
+.highlight-completed .djs-visual > :nth-child(1) {
+    stroke: #22c55e !important; /* Green-500 border */
+    fill: #dcfce7 !important;   /* Green-100 background */
+}
+
+/* 2. Active Steps (Blue) */
+.highlight-active .djs-visual > :nth-child(1) {
+    stroke: #3b82f6 !important; /* Blue-500 border */
+    fill: #dbeafe !important;   /* Blue-100 background */
+    stroke-width: 2px !important;
+}
+
+/* Optional: Make arrows green if completed */
+.highlight-completed.djs-connection .djs-visual > :nth-child(1) {
+    stroke: #22c55e !important;
+}
