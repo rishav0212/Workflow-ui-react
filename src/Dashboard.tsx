@@ -1,8 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { fetchDashboardStats, fetchCompletedTasks } from "./api";
+import { fetchDashboardStats, fetchCompletedTasks, parseApiError } from "./api"; // 🟢 Import helper
 import { useNavigate } from "react-router-dom";
 
-export default function Dashboard() {
+// 🟢 NEW: Accept addNotification prop
+export default function Dashboard({
+  addNotification,
+}: {
+  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+}) {
   const navigate = useNavigate();
 
   // Data State
@@ -30,8 +35,17 @@ export default function Dashboard() {
 
   // Load Stats
   useEffect(() => {
-    fetchDashboardStats().then(setStats).catch(console.error);
-  }, []);
+    fetchDashboardStats()
+      .then(setStats)
+      .catch((err) => {
+        console.error(err);
+        // 🟢 Show error toast
+        addNotification(
+          `Failed to load dashboard stats: ${parseApiError(err)}`,
+          "error"
+        );
+      });
+  }, [addNotification]);
 
   // Load History Table
   const loadHistory = useCallback(async () => {
@@ -41,12 +55,17 @@ export default function Dashboard() {
       const data = await fetchCompletedTasks(page, 10, debouncedSearch);
       setTasks(data.content || []);
       setTotalPages(data.totalPages || 0);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      // 🟢 Show error toast
+      addNotification(
+        `Failed to load task history: ${parseApiError(err)}`,
+        "error"
+      );
     } finally {
       setLoadingHistory(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, addNotification]);
 
   useEffect(() => {
     loadHistory();
@@ -151,7 +170,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* 3. HISTORY TABLE */}
       {/* 3. HISTORY TABLE */}
       <div className="panel-rounded overflow-hidden bg-surface border border-slate-200 shadow-sm">
         {/* INTEGRATED HEADER: Title + Pagination + Search */}

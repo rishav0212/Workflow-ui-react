@@ -15,6 +15,7 @@ import TaskViewer from "./TaskViewer";
 import LoginScreen from "./LoginScreen";
 import Dashboard from "./Dashboard";
 import "./App.css";
+// Admin Imports
 import AdminDashboard from "./AdminDashboard";
 import ProcessManager from "./ProcessManager";
 import ProcessViewer from "./ProcessViewer";
@@ -186,7 +187,7 @@ const TopHeader = ({
     </header>
   );
 };
-// --- COMPONENT: OAuth Redirect ---
+
 function OAuth2RedirectHandler() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -239,7 +240,11 @@ const InboxLayout = ({
     <div className="flex h-full overflow-hidden bg-slate-50">
       {/* LEFT PANE (Task List) */}
       <div className="w-[400px] xl:w-[450px] flex-shrink-0 bg-white border-r border-slate-200 flex flex-col z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
-        <TaskList currentUser={user.username} refreshTrigger={refreshTrigger} />
+        <TaskList
+          currentUser={user.username}
+          refreshTrigger={refreshTrigger}
+          addNotification={addNotification} 
+        />
       </div>
 
       {/* RIGHT PANE (Task Viewer) */}
@@ -400,6 +405,7 @@ export default function App() {
           />
           <div className="flex-1 overflow-hidden relative">
             <Routes>
+              {/* ADMIN ROUTES */}
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/processes" element={<ProcessManager />} />
               <Route
@@ -416,6 +422,8 @@ export default function App() {
               />
               <Route path="/admin/jobs" element={<JobManager />} />
               <Route path="/admin/dmn" element={<DmnViewer />} />
+
+              {/* USER ROUTES */}
               <Route
                 path="/"
                 element={
@@ -433,7 +441,10 @@ export default function App() {
                   element={<TaskViewer currentUser={user.username} />}
                 />
               </Route>
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route
+                path="/dashboard"
+                element={<Dashboard addNotification={addNotification} />} // 🟢 PASSED DOWN
+              />
               <Route
                 path="/inbox"
                 element={

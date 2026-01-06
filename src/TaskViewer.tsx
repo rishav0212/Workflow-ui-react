@@ -16,6 +16,7 @@ import api, {
   fetchProcessHistory,
   fetchSubmissionData,
   claimTask,
+  parseApiError, // 🟢 Added: Import helper for backend errors
 } from "./api";
 import SubmissionModal from "./SubmissionModal";
 
@@ -674,10 +675,16 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      addNotification("Task not found or already completed.", "error"); // 🟢 Updated
-      navigate("/", { replace: true });
+      // 🟢 UPDATED: Improved Error Handling using parseApiError
+      const msg = parseApiError(err);
+      if (err.response?.status === 404) {
+        addNotification("Task not found or already completed.", "error");
+        navigate("/", { replace: true });
+      } else {
+        addNotification(`Failed to load task: ${msg}`, "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -690,9 +697,10 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       const historyData = await fetchProcessHistory(taskData.processInstanceId);
       setHistory(historyData);
       setHistoryLoaded(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      addNotification("Failed to load history.", "error"); // 🟢 Updated
+      // 🟢 UPDATED: Parse specific API error
+      addNotification(`History unavailable: ${parseApiError(err)}`, "error");
     } finally {
       setHistoryLoading(false);
     }
@@ -707,12 +715,18 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       // 🟢 TRIGGER REFRESH in TaskList (Sidebar)
       refreshTasks();
       addNotification("Task assigned to you successfully.", "success");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      addNotification(
-        "Error: Someone else may have claimed this task.",
-        "error"
-      );
+      // 🟢 UPDATED: Handle 409 Conflict
+      const msg = parseApiError(err);
+      if (err.response?.status === 409) {
+        addNotification(
+          "Conflict: This task is already owned by another user.",
+          "error"
+        );
+      } else {
+        addNotification(`Claim failed: ${msg}`, "error");
+      }
       navigate("/", { replace: true });
     } finally {
       setClaiming(false);
@@ -771,7 +785,13 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       setShowModal(false);
       navigate("/", { replace: true });
     } catch (err: any) {
-      addNotification(err.message || "Submission failed.", "error");
+      // 🟢 UPDATED: Handle 422 Business Logic Errors (e.g. Email failure)
+      const msg = parseApiError(err);
+      if (err.response?.status === 422) {
+        addNotification(msg, "error");
+      } else {
+        addNotification(`Submission failed: ${msg}`, "error");
+      }
     } finally {
       setSubmitting(false);
     }

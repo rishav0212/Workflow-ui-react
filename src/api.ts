@@ -9,8 +9,7 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
-// --- 2. THE JWT INTERCEPTOR (The Guard) ---
-// This automatically grabs the token from storage and adds it to every request
+// --- 2. THE JWT INTERCEPTOR ---
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("jwt_token");
   if (token) {
@@ -19,8 +18,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// --- 3. THE 401 INTERCEPTOR (Auto Logout) ---
-// If the server says "Token Expired", this logs the user out immediately
+// --- 3. THE 401 INTERCEPTOR ---
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -32,21 +30,41 @@ api.interceptors.response.use(
   }
 );
 
+// 🟢 NEW: Error Parsing Helper
+// This extracts the "message" field from your Spring Boot GlobalExceptionHandler
+export const parseApiError = (error: any): string => {
+  if (error.response) {
+    // Server responded with a status code (4xx, 5xx)
+    const data = error.response.data;
+
+    // Check for your specific JSON structure: { message: "...", error: "...", status: "..." }
+    if (data && data.message) {
+      return data.message;
+    }
+    // Fallback for standard Spring errors
+    if (data && data.error) {
+      return data.error;
+    }
+  } else if (error.request) {
+    // Request made but no response received (Network Error)
+    return "Server unreachable. Please check your connection.";
+  }
+  // Something else happened
+  return error.message || "An unexpected error occurred.";
+};
+
 // --- 4. EXPORTED API FUNCTIONS ---
 
-// Fetch the Task & Main Config
 export const fetchTaskRender = async (taskId: string) => {
   const res = await api.get(`/api/workflow/tasks/${taskId}/render`);
   return res.data;
 };
 
-// Fetch a Sub-Form Schema (for the Modal)
 export const fetchFormSchema = async (formPath: string) => {
-  const res = await api.get(`/api/forms/${formPath}`); // Proxied through Spring Boot
+  const res = await api.get(`/api/forms/${formPath}`);
   return res.data;
 };
 
-// Submit the Final Data to Spring Boot
 export const submitTask = async (taskId: string, payload: any) => {
   return await api.post(`/api/workflow/tasks/${taskId}/submit`, payload);
 };
@@ -58,7 +76,6 @@ export const fetchProcessHistory = async (processInstanceId: string) => {
   return res.data;
 };
 
-// Fetch Submission Data (The "Filled Form")
 export const fetchSubmissionData = async (
   formKey: string,
   submissionId: string
@@ -67,77 +84,21 @@ export const fetchSubmissionData = async (
   return res.data;
 };
 
-// Fetch Tasks for the Sidebar
 export const fetchTasks = async (assignee: string): Promise<Task[]> => {
-  // Use the flowable process-api directly
   const res = await api.get(
-    `/process-api/runtime/tasks?assignee=${assignee}&size=1000`
+    `/process-api/runtime/tasks?assignee=${assignee}&size=1000&sort=createTime&order=desc`
   );
   return res.data.data;
-};
-const myRoles = ["rates-team", "management"];
-
-export const fetchGroupTasks = async (
-  userRoles: string[] = myRoles
-): Promise<Task[]> => {
-  const groupsString = userRoles.join(",");
-
-  // Note: Standard Flowable simple GET might not support 'unassigned=true' combined easily without POST query.
-  // Simple Fix: Fetch them, then filter in JavaScript before returning.
-  const res = await api.get(
-    `/process-api/runtime/tasks?candidateGroups=${groupsString}&size=1000`
-  );
-
-  // Filter: Only return tasks where assignee is NULL
-  return res.data.data.filter((t: any) => !t.assignee);
-};
-// Fetch Task Context (Details about formKey and businessKey)
-export const getTaskContext = async (taskId: string) => {
-  const taskRes = await api.get(`/process-api/runtime/tasks/${taskId}`);
-  let { formKey, businessKey, processInstanceId } = taskRes.data;
-
-  if (!businessKey && processInstanceId) {
-    try {
-      const procRes = await api.get(
-        `/process-api/runtime/process-instances/${processInstanceId}`
-      );
-      businessKey = procRes.data.businessKey;
-    } catch (err) {
-      console.warn("Could not fetch process instance details");
-    }
-  }
-
-  if (!formKey) throw new Error("Task is missing formKey.");
-
-  return {
-    formKey,
-    submissionId: businessKey,
-    taskName: taskRes.data.name,
-  };
-};
-
-// Complete Task (Direct Flowable API)
-export const completeTask = async (taskId: string, variables: any[]) => {
-  return api.post(`/process-api/runtime/tasks/${taskId}`, {
-    action: "complete",
-    variables: variables,
-  });
-};
-
-export const saveSubmission = async (businessKey: string, data: any) => {
-  return api.put(`/api/submissions/${businessKey}`, data);
 };
 
 export const claimTask = async (
   taskId: string,
   userId: string
 ): Promise<void> => {
-  const payload = {
-    action: "claim", // The magic keyword
-    assignee: userId, // The ID to assign it to
-  };
-
-  await api.post(`/process-api/runtime/tasks/${taskId}`, payload);
+  // Use your custom endpoint which handles claims safely
+  await api.post(`/api/workflow/claim-task?taskId=${taskId}`, null, {
+    headers: { userId },
+  });
 };
 
 // --- DASHBOARD API ---
@@ -157,17 +118,15 @@ export const fetchCompletedTasks = async (
   return res.data;
 };
 
-// Updated src/api.ts using Native Flowable REST APIs
+// --- ADMIN APIs (Kept as is) ---
 export const fetchAdminProcesses = async () => {
-  // latest=true gives you the most recent version of each process
   const res = await api.get(
     "/process-api/repository/process-definitions?latest=true"
   );
-  return res.data.data; // Flowable REST wraps results in a 'data' array
+  return res.data.data;
 };
 
 export const fetchProcessVersions = async (key: string) => {
-  // Get all versions for a specific key, ordered by version descending
   const res = await api.get(
     `/process-api/repository/process-definitions?key=${key}&sort=version&order=desc`
   );
@@ -175,35 +134,23 @@ export const fetchProcessVersions = async (key: string) => {
 };
 
 export const fetchProcessXml = async (id: string) => {
-  // resourcedata returns the actual BPMN XML string
   const res = await api.get(
     `/process-api/repository/process-definitions/${id}/resourcedata`
   );
   return res.data;
 };
 
-// --- src/api.ts ---
-
-/**
- * Deploys a new BPMN process definition to Flowable.
- * Uses the native Flowable REST API.
- */
 export const deployProcess = async (file: File, deploymentName: string) => {
   const formData = new FormData();
-  // Flowable expects the file in the 'file' field
   formData.append("file", file);
-  // Optional: Add a name for the deployment
   formData.append("deploymentName", deploymentName);
 
   const res = await api.post("/process-api/repository/deployments", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+    headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data;
 };
 
-// --- ADMIN: PROCESS INSTANCE MANAGEMENT ---
 export const fetchProcessInstances = async () => {
   const res = await api.get("/process-api/runtime/process-instances?size=1000");
   return res.data.data;
@@ -225,7 +172,6 @@ export const updateInstanceVariable = async (
   varName: string,
   value: any
 ) => {
-  // Flowable uses an array of variable objects for updates
   const payload = [
     {
       name: varName,
@@ -239,9 +185,7 @@ export const updateInstanceVariable = async (
   );
 };
 
-// --- ADMIN: GLOBAL TASK SUPERVISION ---
 export const fetchAllSystemTasks = async () => {
-  // No assignee filter returns every task in the system
   const res = await api.get(
     "/process-api/runtime/tasks?size=1000&sort=createTime&order=desc"
   );
@@ -250,7 +194,7 @@ export const fetchAllSystemTasks = async () => {
 
 export const reassignTask = async (taskId: string, userId: string) => {
   return await api.post(`/process-api/runtime/tasks/${taskId}`, {
-    action: "delegate", // Or "assign" to change the permanent owner
+    action: "delegate",
     assignee: userId,
   });
 };
@@ -261,33 +205,18 @@ export const updateTaskDueDate = async (taskId: string, dueDate: string) => {
   });
 };
 
-// --- ADMIN: SYSTEM-WIDE ANALYTICS ---
 export const fetchSystemStats = async () => {
   const res = await api.get("/api/admin/stats/system-overview");
   return res.data;
 };
 
-// --- ADMIN: PATH VISUALIZATION ---
 export const fetchHistoricActivities = async (processInstanceId: string) => {
-  // Returns all steps taken by this specific instance
   const res = await api.get(
     `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc`
   );
   return res.data.data;
 };
 
-export const fetchProcessInstance = async (processInstanceId: string) => {
-  const res = await api.get(
-    `/process-api/runtime/process-instances/${processInstanceId}`
-  );
-  return res.data;
-};
-
-// --- ADMIN: HISTORY MANAGEMENT ---
-
-/**
- * Fetches historical process instances (Completed and Terminated).
- */
 export const fetchHistoricProcessInstances = async (
   finished: boolean = true
 ) => {
@@ -297,9 +226,6 @@ export const fetchHistoricProcessInstances = async (
   return res.data.data;
 };
 
-/**
- * Fetches historical task instances (Completed).
- */
 export const fetchHistoricTasks = async () => {
   const res = await api.get(
     "/process-api/history/historic-task-instances?finished=true&size=1000&sort=endTime&order=desc"
@@ -307,9 +233,6 @@ export const fetchHistoricTasks = async () => {
   return res.data.data;
 };
 
-// Add these to your existing src/api.ts
-
-// --- JOB & INCIDENT MANAGEMENT ---
 export const fetchJobs = async (
   type: "timer" | "executable" | "deadletter" | "suspended"
 ) => {
@@ -319,14 +242,7 @@ export const fetchJobs = async (
   return res.data.data;
 };
 
-export const moveJobToDeadLetter = async (jobId: string) => {
-  return await api.post(`/process-api/management/jobs/${jobId}`, {
-    action: "move",
-  });
-};
-
 export const retryJob = async (jobId: string) => {
-  // Moving from deadletter back to executable is effectively a retry
   return await api.post(`/process-api/management/jobs/${jobId}`, {
     action: "move",
   });
@@ -336,9 +252,7 @@ export const deleteJob = async (jobId: string) => {
   return await api.delete(`/process-api/management/jobs/${jobId}`);
 };
 
-// --- BATCH OPERATIONS ---
 export const bulkReassignTasks = async (taskIds: string[], userId: string) => {
-  // Standard Flowable REST requires individual calls if no custom batch endpoint exists
   return Promise.all(taskIds.map((id) => reassignTask(id, userId)));
 };
 
@@ -346,7 +260,6 @@ export const bulkTerminateInstances = async (instanceIds: string[]) => {
   return Promise.all(instanceIds.map((id) => terminateProcessInstance(id)));
 };
 
-// --- VARIABLE AUDIT ---
 export const fetchVariableHistory = async (processInstanceId: string) => {
   const res = await api.get(
     `/process-api/history/historic-variable-instances?processInstanceId=${processInstanceId}&sort=variableName`
@@ -354,14 +267,13 @@ export const fetchVariableHistory = async (processInstanceId: string) => {
   return res.data.data;
 };
 
-// --- GOVERNANCE ---
 export const suspendProcessDefinition = async (
   id: string,
   suspend: boolean
 ) => {
   return await api.put(`/process-api/repository/process-definitions/${id}`, {
     action: suspend ? "suspend" : "activate",
-    includeProcessInstances: true, // Also suspends running instances
+    includeProcessInstances: true,
   });
 };
 
@@ -371,7 +283,6 @@ export const deleteDeployment = async (deploymentId: string) => {
   );
 };
 
-// --- SIGNALS & MESSAGES ---
 export const fireGlobalSignal = async (
   signalName: string,
   variables: any[] = []
@@ -382,7 +293,6 @@ export const fireGlobalSignal = async (
   });
 };
 
-// --- DMN (DECISION TABLES) ---
 export const fetchDecisionTables = async () => {
   const res = await api.get("/dmn-api/dmn-repository/decision-tables");
   return res.data.data;
@@ -397,19 +307,18 @@ export const fetchHistoricActivitiesForDefinition = async (
     )
   ).data.data;
 
-// --- NEW GOD-MODE: GOVERNANCE & DMN ---
 export const fetchDecisionTableXml = async (id: string) =>
   (await api.get(`/dmn-api/dmn-repository/decision-tables/${id}/resourcedata`))
     .data;
-
 
 export const migrateProcessInstance = async (
   instanceId: string,
   targetDefinitionId: string
 ) => {
   return await api.post(
-    `/process-api/runtime/process-instances/${instanceId}/migrate`, // Correct Endpoint
-    { toProcessDefinitionId: targetDefinitionId } // Correct Key
+    `/process-api/runtime/process-instances/${instanceId}/migrate`,
+    { toProcessDefinitionId: targetDefinitionId }
   );
 };
+
 export default api;

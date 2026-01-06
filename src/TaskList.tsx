@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { fetchTasks } from "./api";
+import { fetchTasks, parseApiError } from "./api"; // 🟢 Added helper
 import { type Task } from "./types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+// @ts-ignore
 import { Formio } from "formiojs";
 
 interface ExtendedTask extends Task {
@@ -13,6 +14,7 @@ interface ExtendedTask extends Task {
 interface TaskListProps {
   currentUser: string;
   refreshTrigger?: number;
+  addNotification: (msg: string, type: "success" | "error" | "info") => void; // 🟢 Added Prop
 }
 
 const timeAgo = (dateStr: string) => {
@@ -45,6 +47,7 @@ const TaskListSkeleton = () => (
 export default function TaskList({
   currentUser,
   refreshTrigger = 0,
+  addNotification,
 }: TaskListProps) {
   const navigate = useNavigate();
   const { taskId: activeTaskId } = useParams();
@@ -72,7 +75,7 @@ export default function TaskList({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🟢 Data Loading Logic
+  // 🟢 Updated Data Loading Logic
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -80,12 +83,14 @@ export default function TaskList({
       if (token) Formio.setToken(token);
       const data = await fetchTasks(currentUser);
       setTasks(data as ExtendedTask[]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      // 🟢 Display Toast on error
+      addNotification(`Inbox Error: ${parseApiError(err)}`, "error");
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, addNotification]);
 
   useEffect(() => {
     if (currentUser) loadData();
@@ -149,7 +154,6 @@ export default function TaskList({
             <h2 className="text-lg font-serif font-bold text-ink-primary">
               Inbox
             </h2>
-            {/* Dashboard Link Button */}
             <button
               onClick={() => navigate("/dashboard")}
               className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full hover:bg-brand-100 transition-colors"
@@ -158,7 +162,6 @@ export default function TaskList({
               <i className="fas fa-chart-pie mr-1"></i> Dashboard
             </button>
           </div>
-          {/* 🟢 Right Side: Refresh Button + Dual Count */}
           <div className="flex items-center gap-2">
             <button
               onClick={loadData}
@@ -174,9 +177,7 @@ export default function TaskList({
             </button>
 
             <span className="text-xs font-bold bg-canvas-subtle px-2 py-0.5 rounded border border-canvas-active flex items-center gap-1">
-              {/* Filtered Count */}
               <span className="text-ink-primary">{filteredTasks.length}</span>
-              {/* Divider / Total Count */}
               <span className="text-ink-tertiary opacity-60 font-medium">
                 / {tasks.length}
               </span>
@@ -217,7 +218,6 @@ export default function TaskList({
             </button>
           </div>
 
-          {/* Popover Menu */}
           {showFilterMenu && (
             <div className="absolute top-full right-0 mt-1 w-64 bg-white rounded-lg shadow-premium border border-canvas-subtle p-2 z-50">
               <div className="mb-2">
