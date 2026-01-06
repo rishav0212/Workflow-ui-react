@@ -21,6 +21,8 @@
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "bpmn-js": "^18.9.1",
+    "dmn-js": "^17.5.0",
+    "flowable-bpmn-moddle": "^0.0.2",
     "font-awesome": "^4.7.0",
     "formio": "^4.5.5",
     "formiojs": "^4.21.7",
@@ -30,8 +32,10 @@
     "react-formio": "^4.3.0",
     "react-frame-component": "^5.2.7",
     "react-hook-form": "^7.68.0",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.10.1",
     "react-shadow": "^20.6.0",
+    "react-syntax-highlighter": "^16.1.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

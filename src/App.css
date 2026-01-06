@@ -4,32 +4,93 @@
 
 @layer base {
   body {
-    /* Uses your config's bg-canvas and text-ink-primary */
-    @apply bg-canvas text-ink-primary antialiased;
+    @apply bg-slate-50 text-slate-800 font-sans antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif tracking-tight text-slate-900;
   }
 }
 
-/* --- Clean Form.io Overrides for Theme --- */
-.formio-clean-wrapper .form-group {
-  @apply mb-5;
-}
-.formio-clean-wrapper label {
-  @apply block text-sm font-medium text-ink-secondary mb-1;
-}
-.formio-clean-wrapper .form-control {
-  @apply block w-full rounded-md border-stone-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 bg-white border text-ink-primary;
-}
-.formio-clean-wrapper .btn {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-brand-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-all;
-}
+@layer components {
+  /* --- THEME COLORS --- */
+  .text-theme-primary { @apply text-orange-700; }
+  .text-theme-secondary { @apply text-slate-600; }
+  .bg-theme-primary { @apply bg-orange-600; }
+  .bg-theme-subtle { @apply bg-orange-50; }
+  
+  /* --- BUTTONS --- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-orange-600 text-white hover:bg-orange-700 shadow-md shadow-orange-600/20 focus:ring-orange-500 border border-transparent;
+  }
+  .btn-secondary {
+    @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 shadow-sm focus:ring-slate-200;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800;
+  }
+  .btn-danger {
+    @apply bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100;
+  }
+  .btn-icon {
+    @apply w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors;
+  }
 
-/* Custom Scrollbar matches Stone/Canvas theme */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-stone-300 rounded-full hover:bg-stone-400;
+  /* --- CARDS & PANELS --- */
+  .panel {
+    @apply bg-white border border-slate-200 shadow-sm;
+  }
+  .panel-rounded {
+    @apply panel rounded-xl;
+  }
+  .card-interactive {
+    @apply panel-rounded p-5 hover:shadow-md hover:border-orange-200 cursor-pointer transition-all duration-200;
+  }
+
+  /* --- INPUTS --- */
+  .input-base {
+    @apply w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none transition-all;
+  }
+
+  /* --- NAVIGATION --- */
+  .nav-sidebar {
+    @apply w-20 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-6 z-40 shadow-xl;
+  }
+  .nav-item {
+    @apply relative w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all duration-200 text-slate-400 hover:bg-slate-800 hover:text-slate-200;
+  }
+  .nav-item.active {
+    @apply bg-gradient-to-br from-orange-500 to-orange-700 text-white shadow-lg shadow-orange-900/50;
+  }
+
+  /* --- BADGES --- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border;
+  }
+  .badge-success { @apply bg-emerald-50 text-emerald-700 border-emerald-100; }
+  .badge-warning { @apply bg-amber-50 text-amber-700 border-amber-100; }
+  .badge-error   { @apply bg-rose-50 text-rose-700 border-rose-100; }
+  .badge-neutral { @apply bg-slate-100 text-slate-600 border-slate-200; }
+  .badge-brand   { @apply bg-orange-50 text-orange-700 border-orange-100; }
+
+  /* --- SCROLLBAR --- */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+  
+  /* --- ANIMATIONS --- */
+  .animate-enter { @apply animate-[fadeIn_0.2s_ease-out]; }
+  .animate-slide-up { @apply animate-[slideUp_0.3s_ease-out]; }
 }
