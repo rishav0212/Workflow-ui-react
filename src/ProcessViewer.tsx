@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import BpmnViewer from "bpmn-js";
+import { toast } from "react-hot-toast"; // 🟢 Added for feedback
 
-// 🟢 NEW: Imports for professional XML formatting
 // @ts-ignore
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 // @ts-ignore
@@ -12,7 +12,9 @@ import {
   fetchProcessVersions,
   fetchProcessXml,
   fetchHistoricActivitiesForDefinition,
+  updateTaskActions, // 🟢 Added API
 } from "./api";
+import ActionEditorModal from "./ActionEditorModal"; // 🟢 Added Component
 
 export default function ProcessViewer() {
   const { processKey } = useParams();
@@ -25,10 +27,14 @@ export default function ProcessViewer() {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
 
+  // 🟢 State for Action Editor
+  const [showActionEditor, setShowActionEditor] = useState(false);
+  const [currentActions, setCurrentActions] = useState<any[]>([]);
+
   const viewerRef = useRef<HTMLDivElement>(null);
   const bpmnViewer = useRef<any>(null);
 
-  // 1. Fetch Version History (Original Logic Preserved)
+  // 1. Fetch Version History
   useEffect(() => {
     if (processKey) {
       fetchProcessVersions(processKey).then((data) => {
@@ -38,12 +44,53 @@ export default function ProcessViewer() {
     }
   }, [processKey]);
 
-  // 2. Fetch XML for selected version (Original Logic Preserved)
+  // 2. Fetch XML for selected version
   useEffect(() => {
     if (selectedId) fetchProcessXml(selectedId).then(setXml);
   }, [selectedId]);
 
-  // 3. Diagram Logic & Heatmap (Original Logic Preserved)
+  // 🟢 Helper: Parse XML to find current externalActions JSON
+  const getActionsFromXml = (taskId: string) => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, "text/xml");
+
+      // Find UserTask by ID (handle namespace prefixes)
+      const task =
+        Array.from(doc.getElementsByTagName("userTask")).find(
+          (el) => el.getAttribute("id") === taskId
+        ) ||
+        Array.from(doc.getElementsByTagName("flowable:userTask")).find(
+          (el) => el.getAttribute("id") === taskId
+        ) ||
+        Array.from(doc.getElementsByTagName("bpmn2:userTask")).find(
+          (el) => el.getAttribute("id") === taskId
+        );
+
+      if (!task) return [];
+
+      // Find 'flowable:property' elements
+      const props = task.getElementsByTagName("flowable:property");
+      for (let i = 0; i < props.length; i++) {
+        if (props[i].getAttribute("name") === "externalActions") {
+          // Get text content (handles standard text and CDATA)
+          const jsonText = props[i].textContent;
+          if (jsonText) {
+            const cleanText = jsonText
+              .replace("<![CDATA[", "")
+              .replace("]]>", "")
+              .trim();
+            return JSON.parse(cleanText);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse actions from XML for task:", taskId, e);
+    }
+    return [];
+  };
+
+  // 3. Diagram Logic & Heatmap
   useEffect(() => {
     if (viewMode === "diagram" && xml && viewerRef.current) {
       if (bpmnViewer.current) {
@@ -129,6 +176,36 @@ export default function ProcessViewer() {
   const copyXml = () => {
     navigator.clipboard.writeText(xml);
     alert("BPMN XML copied to clipboard!");
+  };
+
+  // 🟢 Handler: Open Action Editor
+  const openActionEditor = () => {
+    if (!selectedElement || selectedElement.Type !== "UserTask") return;
+    const existingActions = getActionsFromXml(selectedElement.ID);
+    setCurrentActions(existingActions);
+    setShowActionEditor(true);
+  };
+
+  // 🟢 Handler: Save & Deploy Actions
+  const handleSaveActions = async (newActions: any[]) => {
+    if (!processKey || !selectedElement) return;
+    const jsonString = JSON.stringify(newActions);
+
+    const toastId = toast.loading("Updating Workflow...");
+    try {
+      await updateTaskActions(processKey, selectedElement.ID, jsonString);
+      toast.success("Workflow updated & deployed successfully!", {
+        id: toastId,
+      });
+
+      // Refresh to show new version
+      const data = await fetchProcessVersions(processKey);
+      setVersions(data);
+      if (data.length > 0) setSelectedId(data[0].id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update actions", { id: toastId });
+    }
   };
 
   return (
@@ -222,7 +299,7 @@ export default function ProcessViewer() {
           {viewMode === "diagram" ? (
             <>
               <div ref={viewerRef} className="absolute inset-0" />
-              {/* Zoom Controls (Original Logic Preserved) */}
+              {/* Zoom Controls */}
               <div className="absolute bottom-8 left-8 flex flex-col gap-2 bg-white/80 backdrop-blur-md p-2 rounded-2xl shadow-floating border border-canvas-active z-20">
                 <button
                   onClick={() => handleZoom("in")}
@@ -245,7 +322,7 @@ export default function ProcessViewer() {
                 </button>
               </div>
 
-              {/* Metadata Panel (Original Logic Preserved) */}
+              {/* Metadata Panel */}
               {selectedElement && (
                 <div className="absolute top-8 right-8 w-80 bg-surface/95 backdrop-blur-md rounded-2xl shadow-premium border border-canvas-active p-6 animate-slideInRight z-20 max-h-[80vh] overflow-y-auto custom-scrollbar">
                   <div className="flex justify-between items-start mb-6">
@@ -264,6 +341,26 @@ export default function ProcessViewer() {
                       <i className="fas fa-times"></i>
                     </button>
                   </div>
+
+                  {/* 🟢 NEW: Action Editor Button */}
+                  {selectedElement.Type === "UserTask" && (
+                    <div className="mb-6 p-4 bg-brand-50 border border-brand-200 rounded-xl">
+                      <h4 className="text-xs font-bold text-brand-800 mb-2 flex items-center gap-2">
+                        <i className="fas fa-bolt"></i> Interactive Actions
+                      </h4>
+                      <p className="text-[10px] text-brand-600 mb-3 leading-tight opacity-80">
+                        Configure the buttons users see on this task (Approve,
+                        Reject, etc).
+                      </p>
+                      <button
+                        onClick={openActionEditor}
+                        className="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        <i className="fas fa-edit"></i> Edit Actions
+                      </button>
+                    </div>
+                  )}
+
                   <div className="space-y-5">
                     {Object.entries(selectedElement).map(([key, value]) => {
                       if (key === "ID") return null;
@@ -285,7 +382,7 @@ export default function ProcessViewer() {
               )}
             </>
           ) : (
-            /* 🟢 CORRECTED XML DISPLAY: Using Syntax Highlighter */
+            /* XML View (Preserved) */
             <div className="absolute inset-0 bg-[#1e1e1e] flex flex-col">
               <div className="bg-[#252526] px-6 py-2 border-b border-white/5 flex justify-between items-center">
                 <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
@@ -319,6 +416,15 @@ export default function ProcessViewer() {
           )}
         </div>
       </div>
+
+      {/* 🟢 NEW: Action Editor Modal */}
+      <ActionEditorModal
+        isOpen={showActionEditor}
+        onClose={() => setShowActionEditor(false)}
+        onSave={handleSaveActions}
+        initialActions={currentActions}
+        taskName={selectedElement?.Name || "Task"}
+      />
 
       <style>{`
         .heatmap-high .djs-visual rect, .heatmap-high .djs-visual circle { 

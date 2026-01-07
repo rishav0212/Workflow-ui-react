@@ -26,6 +26,7 @@ import ProcessGroups from "./ProcessGroups";
 import AdminAnalytics from "./AdminAnalytics";
 import JobManager from "./JobManager";
 import DmnViewer from "./DmnViewer";
+import { GOOGLE_LOGIN_URL } from "./config";
 
 interface User {
   username: string;
@@ -357,7 +358,7 @@ export default function App() {
     if (!currentPath.includes("/oauth2/redirect") && currentPath !== "/") {
       localStorage.setItem("redirect_after_login", currentPath);
     }
-    window.location.href = "http://localhost:8080/oauth2/authorization/google";
+    window.location.href = GOOGLE_LOGIN_URL;
   };
 
   const handleLogout = () => {

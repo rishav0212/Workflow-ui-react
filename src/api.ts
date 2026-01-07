@@ -1,8 +1,11 @@
 import axios from "axios";
 import type { Task } from "./types";
+// 🟢 Import Config
+import { API_BASE_URL, FORM_IO_API_URL } from "./config";
 
-const API_URL = "http://localhost:8080";
-export const FORM_API = "http://localhost:8080/api/forms";
+// 🟢 Use Variable
+const API_URL = API_BASE_URL;
+export const FORM_API = FORM_IO_API_URL;
 
 // --- 1. CREATE AXIOS INSTANCE ---
 const api = axios.create({
@@ -320,5 +323,34 @@ export const migrateProcessInstance = async (
     { toProcessDefinitionId: targetDefinitionId }
   );
 };
+export const updateTaskActions = async (
+  processKey: string,
+  taskKey: string,
+  actionsJson: string
+) => {
+  return await api.post(
+    `/api/admin/add-static-buttons`,
+    actionsJson, // Send raw string
+    {
+      params: {
+        processDefinitionKey: processKey,
+        taskDefinitionKey: taskKey,
+      },
+      headers: {
+        "Content-Type": "text/plain", // Important: Backend expects String body
+      },
+    }
+  );
+};
+export const fetchAllForms = async () => {
+  // type=form -> Excludes 'resources' (like User, Submission data definitions)
+  // limit=1000 -> Overrides default 10 items per page limit
+  // select=... -> Optimization: Only fetch fields we need for the dropdown
+  const res = await api.get(
+    "/api/forms/form?type=form&limit=1000&select=_id,title,path,name,key"
+  );
 
+  // Normalize response
+  return Array.isArray(res.data) ? res.data : res.data.forms || [];
+};
 export default api;
