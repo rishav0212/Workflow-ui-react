@@ -1,5 +1,5 @@
 // src/SubmissionModal.tsx
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 // @ts-ignore
 import { Form } from "@formio/react";
 import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api"; // 🟢 Import helper
@@ -31,7 +31,13 @@ export default function SubmissionModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // 🟢 New Error State
 
-  // ... (Keep makeCaseInsensitive, onFormReady, fixUrls) ...
+  // 🟢 FIX 1: Memoize options to prevent form resetting on every render
+  // This is critical for autoselection to work in production environments
+  const memoizedOptions = useMemo(() => {
+    return { noAlerts: true, readOnly: isReadOnly };
+  }, [isReadOnly]);
+
+  // --- REUSED LOGIC FROM TASKVIEWER ---
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -49,41 +55,47 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 🟢 UPDATED: Sync Auto-Selected Value back to React State
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
-
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
-
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
-
           if (comp.selectOptions && comp.selectOptions.length > 0) {
             comp.selectOptions = comp.selectOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
 
+            // Check if there is only one option and no value is currently selected
             if (comp.selectOptions.length === 1 && !comp.dataValue) {
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // 1. Update Form.io Internal State
+              // 1. Update Form.io Internal State (Visual update)
               comp.setValue(newValue);
               comp.triggerChange();
 
-              // 🟢 2. Update React State to prevent reset on re-render
-
+              // 🟢 FIX 2: Update React State (Persist Data)
+              // This saves the value so it survives any re-renders caused by network latency
+              setSubmission((prev: any) => {
+                const prevData = prev?.data || {};
+                return {
+                  ...prev,
+                  data: {
+                    ...prevData,
+                    [comp.key]: newValue,
+                  },
+                };
+              });
             }
             clearInterval(intervalId);
           }
-
           if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
@@ -191,13 +203,13 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
-              key={submissionId}
+              key={submissionId || "new-submission"} // 🟢 FIX 3: Stable key fallback
               form={schema}
               src={""}
-              submission={initialData}
+              submission={submission}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
-              // options={{ noAlerts: true, readOnly: isReadOnly }}
+              options={memoizedOptions} // 🟢 FIX 1: Use memoized options
             />
           )}
         </div>
