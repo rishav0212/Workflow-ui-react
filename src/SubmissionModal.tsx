@@ -54,7 +54,7 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (Corrected for Production)
+  // 3. Polling Logic (DEEP DEBUG MODE)
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -67,61 +67,51 @@ export default function SubmissionModal({
         const maxWait = 10000;
         let elapsedTime = 0;
 
+        console.log(`🔍 [DEBUG-INIT] Starting poll for: ${comp.key}`);
+        console.log(`🔍 [DEBUG-URL] URL used: ${comp.component?.data?.url}`);
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
           if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // 🟢 FIX 1: Filter out "fake" options (placeholders, empty strings)
-            // This fixes the "Too many options (3)" issue
+            
+            // 🔍 DUMP EVERYTHING TO CONSOLE
+            console.group(`🔍 [DEBUG-POLL] ${comp.key} Check`);
+            console.log("Raw Options Length:", comp.selectOptions.length);
+            console.log("Raw Options Content:", JSON.parse(JSON.stringify(comp.selectOptions)));
+            console.log("Current Data Value:", JSON.parse(JSON.stringify(comp.dataValue || "NULL")));
+            
+            // 1. Filter Logic
             const validOptions = comp.selectOptions.filter((opt: any) => {
               if (!opt) return false;
-              // Filter out empty values (often used as placeholders by Form.io)
-              if (
-                opt.value === "" ||
-                opt.value === null ||
-                opt.value === undefined
-              )
-                return false;
-              // Filter out empty objects
-              if (
-                typeof opt.value === "object" &&
-                Object.keys(opt.value).length === 0
-              )
-                return false;
+              // Filter out empty/null values
+              if (opt.value === "" || opt.value === null || opt.value === undefined) return false;
+              // Filter out empty objects {}
+              if (typeof opt.value === 'object' && Object.keys(opt.value).length === 0) return false;
               return true;
             });
 
-            const mappedOptions = validOptions.map((opt: any) =>
-              makeCaseInsensitive(opt)
-            );
+            console.log("Filtered (Valid) Options Length:", validOptions.length);
 
-            // 🟢 FIX 2: Correctly identify if the current value is "Empty"
-            // This fixes the "Value already set ([object Object])" issue
-            const isValueEmpty =
-              !comp.dataValue ||
-              (typeof comp.dataValue === "object" &&
-                Object.keys(comp.dataValue).length === 0);
+            // 2. Value Empty Check
+            const isValueEmpty = !comp.dataValue || 
+              (typeof comp.dataValue === 'object' && Object.keys(comp.dataValue).length === 0);
+            
+            console.log("Is Value Empty?", isValueEmpty);
 
-            // Check conditions: We want exactly 1 VALID option, and NO valid value selected
-            if (mappedOptions.length === 1 && isValueEmpty) {
-              const firstOption = mappedOptions[0];
+            // 3. Decision
+            if (validOptions.length === 1 && isValueEmpty) {
+              const firstOption = makeCaseInsensitive(validOptions[0]);
               const newValue = firstOption.value;
 
-              console.log(
-                `[AutoSelect] Found 1 valid option for ${comp.key}:`,
-                newValue
-              );
+              console.log(`✅ [DEBUG-ACTION] MATCH! Setting value to:`, newValue);
 
-              // Stop polling
               clearInterval(intervalId);
 
-              // 🟢 DELAYED SET (Critical for Production timing)
               setTimeout(() => {
-                // 1. Update Form.io
                 comp.setValue(newValue, { modified: true });
                 comp.triggerChange();
 
-                // 2. Update React State
                 setSubmission((prev: any) => {
                   const prevData = prev?.data || {};
                   return {
@@ -133,14 +123,24 @@ export default function SubmissionModal({
                   };
                 });
               }, 100);
-            } else if (mappedOptions.length > 0 && !isValueEmpty) {
-              // If we found options AND we already have a value, stop polling.
-              // We don't want to overwrite user data or existing data.
-              clearInterval(intervalId);
+            } else {
+              console.log("🛑 [DEBUG-SKIP] No Auto-Select.");
+              if (validOptions.length !== 1) console.log(`   Reason: Valid options count is ${validOptions.length} (Expected 1)`);
+              if (!isValueEmpty) console.log(`   Reason: Value is already set.`);
+              
+              // Only stop if we actually loaded options (even if they were wrong)
+              // This prevents infinite polling if options exist but aren't what we want
+              if (comp.selectOptions.length > 0) {
+                  clearInterval(intervalId);
+              }
             }
+            console.groupEnd();
           }
 
-          if (elapsedTime >= maxWait) clearInterval(intervalId);
+          if (elapsedTime >= maxWait) {
+             console.warn(`❌ [DEBUG-TIMEOUT] ${comp.key} gave up.`);
+             clearInterval(intervalId);
+          }
         }, pollInterval);
       });
     },
@@ -156,11 +156,21 @@ export default function SubmissionModal({
         comp.data?.resource
       ) {
         comp.dataSrc = "url";
-        comp.data.url = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
+        
+        let baseUrl = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
+        // Append filter if it exists
+        if (comp.filter) {
+            baseUrl += `?${comp.filter}`; 
+        }
+        
+        comp.data.url = baseUrl;
         comp.authenticate = true;
         if (!comp.data) comp.data = {};
         comp.data.authenticate = true;
         delete comp.data.resource;
+        
+        // Log the fixed URL
+        console.log(`🛠️ [DEBUG-FIXURL] ${comp.key} -> ${baseUrl}`);
       }
       if (comp.components) fixUrls(comp.components);
       if (comp.columns)
