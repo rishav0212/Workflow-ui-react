@@ -178,6 +178,7 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
+            key={submissionId }
               form={schema}
               src={""}
               submission={submission}
