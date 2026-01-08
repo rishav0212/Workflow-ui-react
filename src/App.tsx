@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -244,7 +244,7 @@ const InboxLayout = ({
         <TaskList
           currentUser={user.username}
           refreshTrigger={refreshTrigger}
-          addNotification={addNotification} 
+          addNotification={addNotification}
         />
       </div>
 
@@ -271,70 +271,70 @@ export default function App() {
     }
   });
 
-  const addNotification = (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => {
-    const newItem: NotificationItem = {
-      id: Date.now(),
-      message,
-      type,
-      timestamp: new Date().toISOString(),
-    };
+  const addNotification = useCallback(
+    (message: string, type: "success" | "error" | "info") => {
+      const newItem: NotificationItem = {
+        id: Date.now(),
+        message,
+        type,
+        timestamp: new Date().toISOString(),
+      };
 
-    setNotifications((prev) => {
-      const updated = [newItem, ...prev].slice(0, 15);
-      localStorage.setItem("app_notifications", JSON.stringify(updated));
-      return updated;
-    });
+      setNotifications((prev) => {
+        const updated = [newItem, ...prev].slice(0, 15);
+        localStorage.setItem("app_notifications", JSON.stringify(updated));
+        return updated;
+      });
 
-    toast.custom(
-      (t) => (
-        <div
-          className={`${
-            t.visible ? "animate-enter" : "animate-leave"
-          } max-w-md w-full bg-white shadow-xl rounded-xl pointer-events-auto flex border border-slate-100 ring-1 ring-black ring-opacity-5 overflow-hidden`}
-        >
-          <div className="flex-1 w-0 p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0 pt-0.5">
-                {type === "success" && (
-                  <i className="fas fa-check-circle text-emerald-500 text-xl"></i>
-                )}
-                {type === "error" && (
-                  <i className="fas fa-times-circle text-rose-500 text-xl"></i>
-                )}
-                {type === "info" && (
-                  <i className="fas fa-info-circle text-blue-500 text-xl"></i>
-                )}
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-bold text-slate-800">
-                  {type === "success"
-                    ? "Success"
-                    : type === "error"
-                    ? "Error"
-                    : "Notification"}
-                </p>
-                <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-                  {message}
-                </p>
+      toast.custom(
+        (t) => (
+          <div
+            className={`${
+              t.visible ? "animate-enter" : "animate-leave"
+            } max-w-md w-full bg-white shadow-xl rounded-xl pointer-events-auto flex border border-slate-100 ring-1 ring-black ring-opacity-5 overflow-hidden`}
+          >
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  {type === "success" && (
+                    <i className="fas fa-check-circle text-emerald-500 text-xl"></i>
+                  )}
+                  {type === "error" && (
+                    <i className="fas fa-times-circle text-rose-500 text-xl"></i>
+                  )}
+                  {type === "info" && (
+                    <i className="fas fa-info-circle text-blue-500 text-xl"></i>
+                  )}
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-bold text-slate-800">
+                    {type === "success"
+                      ? "Success"
+                      : type === "error"
+                      ? "Error"
+                      : "Notification"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+                    {message}
+                  </p>
+                </div>
               </div>
             </div>
+            <div className="flex border-l border-slate-100 bg-slate-50/50">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus:outline-none transition-colors"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
           </div>
-          <div className="flex border-l border-slate-100 bg-slate-50/50">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus:outline-none transition-colors"
-            >
-              <i className="fas fa-times"></i>
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
-    );
-  };
+        ),
+        { duration: 5000 }
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");

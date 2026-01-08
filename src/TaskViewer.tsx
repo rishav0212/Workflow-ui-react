@@ -177,7 +177,7 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
             <p className="text-xs text-ink-tertiary">
               ID:{" "}
               <span className="font-mono">
-                {taskData?.id?.substring(0, 8)}...
+                {taskData?.taskId || "N/A"}
               </span>
             </p>
           </div>
