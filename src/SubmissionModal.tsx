@@ -79,16 +79,7 @@ export default function SubmissionModal({
               comp.triggerChange();
 
               // 🟢 2. Update React State to prevent reset on re-render
-              setTaskData((prev: any) => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  data: {
-                    ...prev.data,
-                    [comp.key]: newValue,
-                  },
-                };
-              });
+
             }
             clearInterval(intervalId);
           }
