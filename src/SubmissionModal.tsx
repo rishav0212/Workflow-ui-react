@@ -54,50 +54,74 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (With Safety Delay for Editable Widgets)
+  // 3. Polling Logic (With DEBUG Logs)
   const onFormReady = useCallback(
     (instance: any) => {
+      console.log("🔍 [DEBUG] onFormReady triggered");
+
       const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
+
+      console.log(
+        `🔍 [DEBUG] Found ${selectComponents.length} select components:`,
+        selectComponents.map((c) => c.key)
+      );
 
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
 
+        console.log(`🔍 [DEBUG] Starting poll for component: ${comp.key}`);
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
-          if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // Wrap options to handle case differences
-            comp.selectOptions = comp.selectOptions.map((opt: any) =>
+          // Check raw options availability
+          const rawOptions = comp.selectOptions;
+          const hasValue = !!comp.dataValue;
+
+          if (rawOptions && rawOptions.length > 0) {
+            console.log(
+              `🔍 [DEBUG] ${comp.key} - Options Loaded! Count: ${rawOptions.length}, Has Value: ${hasValue}`
+            );
+
+            // Wrap options
+            comp.selectOptions = rawOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
 
-            // Check if we have exactly one option and no value selected
+            // Check autoselect condition
             if (comp.selectOptions.length === 1 && !comp.dataValue) {
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // 🛑 Stop polling immediately
+              console.log(
+                `✅ [DEBUG] ${comp.key} - Autoselect Valid! Setting value to:`,
+                newValue
+              );
+
+              // 🛑 Stop polling
               clearInterval(intervalId);
 
-              // 🟢 CRITICAL FIX FOR PRODUCTION:
-              // Editable widgets (Choices.js) need a moment to bind to the DOM.
-              // We wait 100ms before forcing the value.
+              // 🟢 DELAYED SET
               setTimeout(() => {
-                console.log(`[AutoSelect] Setting ${comp.key} to`, newValue);
+                console.log(
+                  `🚀 [DEBUG] ${comp.key} - Executing setValue now...`
+                );
 
                 // 1. Update Form.io Internal Component
-                // Passing { modified: true } helps trigger validation/UI updates
                 comp.setValue(newValue, { modified: true });
                 comp.triggerChange();
 
-                // 2. Update React State (Persist Data)
+                // 2. Update React State
                 setSubmission((prev: any) => {
                   const prevData = prev?.data || {};
+                  console.log(
+                    `💾 [DEBUG] ${comp.key} - Persisting to React State`
+                  );
                   return {
                     ...prev,
                     data: {
@@ -108,12 +132,27 @@ export default function SubmissionModal({
                 });
               }, 100);
             } else {
-              // Options found, but not eligible for autoselect (e.g. multiple options)
+              // Detailed Log why it failed
+              if (comp.selectOptions.length !== 1) {
+                console.log(
+                  `⚠️ [DEBUG] ${comp.key} - Skipped: Too many options (${comp.selectOptions.length})`
+                );
+              }
+              if (comp.dataValue) {
+                console.log(
+                  `⚠️ [DEBUG] ${comp.key} - Skipped: Value already set (${comp.dataValue})`
+                );
+              }
               clearInterval(intervalId);
             }
           }
 
-          if (elapsedTime >= maxWait) clearInterval(intervalId);
+          if (elapsedTime >= maxWait) {
+            console.warn(
+              `❌ [DEBUG] ${comp.key} - Polling Timed Out (No options found)`
+            );
+            clearInterval(intervalId);
+          }
         }, pollInterval);
       });
     },
