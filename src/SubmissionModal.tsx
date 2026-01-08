@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 // @ts-ignore
 import { Form } from "@formio/react";
-import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api"; 
+import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api";
 import { FORM_IO_API_URL } from "./config";
 
 interface SubmissionModalProps {
@@ -31,11 +31,12 @@ export default function SubmissionModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Memoize options
+  // 🟢 1. Memoize options (Exactly like TaskViewer)
   const memoizedOptions = useMemo(() => {
     return { noAlerts: true, readOnly: isReadOnly };
   }, [isReadOnly]);
 
+  // 🟢 2. Use the Case Insensitive Helper (Exactly like TaskViewer)
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -53,6 +54,8 @@ export default function SubmissionModal({
     });
   }, []);
 
+  // 🟢 3. The Polling Logic (COPIED EXACTLY FROM TaskViewer)
+  // We removed the extra timeouts and complexity. If it works there, it works here.
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -67,64 +70,42 @@ export default function SubmissionModal({
 
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
-          
-          // 🟢 CHECK BOTH: selectOptions (Formio) and choices (Choices.js)
-          const options = comp.selectOptions || comp.choices || [];
 
-          if (options && options.length > 0) {
-            
-            // If exactly 1 option exists
-            if (options.length === 1) {
-              const firstOption = options[0];
+          if (comp.selectOptions && comp.selectOptions.length > 0) {
+            // Apply case insensitivity wrapper
+            comp.selectOptions = comp.selectOptions.map((opt: any) =>
+              makeCaseInsensitive(opt)
+            );
+
+            // Check conditions
+            if (comp.selectOptions.length === 1 && !comp.dataValue) {
+              const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // 🛑 STOP POLLING immediately so we don't trigger multiple times
-              clearInterval(intervalId);
+              // Update Form.io
+              comp.setValue(newValue);
+              comp.triggerChange();
 
-              // 🟢 FIX 1: YIELD TO EVENT LOOP
-              // Even if data is ready, wait 50ms to let the component finish its 'init' cycle
-              // This prevents the "cleanup" phase from wiping our value.
-              setTimeout(() => {
-                  
-                  // 1. Set Value Internally
-                  if (!comp.dataValue) {
-                      console.log(`[AutoSelect] Setting initial value for ${comp.key}`);
-                      comp.setValue(newValue);
-                      comp.triggerChange();
-                  }
-
-                  // 2. Set Submission State (React)
-                  setSubmission((prev: any) => {
-                    const prevData = prev?.data || {};
-                    if (prevData[comp.key] === newValue) return prev;
-                    return {
-                      ...prev,
-                      data: { ...prevData, [comp.key]: newValue },
-                    };
-                  });
-
-                  // 🟢 FIX 2: PERSISTENCE CHECK (The "Safety Net")
-                  // Check back in 1 second. If the value is gone (reset by cache refresh), force it back.
-                  setTimeout(() => {
-                      if (comp.dataValue !== newValue) {
-                          console.log(`[AutoSelect] Value lost! Re-applying for ${comp.key}`);
-                          comp.setValue(newValue);
-                          comp.triggerChange();
-                      }
-                  }, 1000);
-
-              }, 50); // Small delay to escape the init cycle
-            } else {
-                // If we found options but it's not length 1, stop polling
-                clearInterval(intervalId);
+              // Update React State (Persist)
+              setSubmission((prev: any) => {
+                const prevData = prev?.data || {};
+                return {
+                  ...prev,
+                  data: {
+                    ...prevData,
+                    [comp.key]: newValue,
+                  },
+                };
+              });
             }
+            clearInterval(intervalId);
           }
 
           if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
     },
-    [] 
+    [makeCaseInsensitive]
   );
 
   const fixUrls = (components: any[]) => {
@@ -159,9 +140,11 @@ export default function SubmissionModal({
           setSchema(schemaData);
 
           if (submissionId) {
+            // VIEW MODE
             const subData = await fetchSubmissionData(formKey, submissionId);
             setSubmission(subData.data ? subData : { data: subData });
           } else {
+            // ACTION MODE
             setSubmission(initialData || { data: {} });
           }
         } catch (err: any) {
@@ -223,7 +206,7 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
-              key={submissionId }
+              key={submissionId || "new-submission"}
               form={schema}
               src={""}
               submission={submission}
