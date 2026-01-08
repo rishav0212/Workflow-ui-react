@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 // @ts-ignore
 import { Form } from "@formio/react";
-import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api";
+import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api"; 
 import { FORM_IO_API_URL } from "./config";
 
 interface SubmissionModalProps {
@@ -31,12 +31,11 @@ export default function SubmissionModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Memoize options (Critical for production)
+  // 1. Memoize options
   const memoizedOptions = useMemo(() => {
     return { noAlerts: true, readOnly: isReadOnly };
   }, [isReadOnly]);
 
-  // --- REUSED LOGIC FROM TASKVIEWER ---
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -54,69 +53,79 @@ export default function SubmissionModal({
     });
   }, []);
 
-  const onFormReady = useCallback((instance: any) => {
-    const selectComponents: any[] = [];
-    instance.everyComponent((comp: any) => {
-      if (comp.component.type === "select") selectComponents.push(comp);
-    });
+  const onFormReady = useCallback(
+    (instance: any) => {
+      const selectComponents: any[] = [];
+      instance.everyComponent((comp: any) => {
+        if (comp.component.type === "select") selectComponents.push(comp);
+      });
 
-    selectComponents.forEach((comp) => {
-      const pollInterval = 100;
-      const maxWait = 10000;
-      let elapsedTime = 0;
+      selectComponents.forEach((comp) => {
+        const pollInterval = 100;
+        const maxWait = 10000;
+        let elapsedTime = 0;
 
-      const intervalId = setInterval(() => {
-        elapsedTime += pollInterval;
+        const intervalId = setInterval(() => {
+          elapsedTime += pollInterval;
+          
+          // 🟢 CHECK BOTH: selectOptions (Formio) and choices (Choices.js)
+          const options = comp.selectOptions || comp.choices || [];
 
-        // Check if options are loaded (whether from cache or network)
-        if (comp.selectOptions && comp.selectOptions.length > 0) {
-          // If exactly 1 option exists
-          if (comp.selectOptions.length === 1) {
-            const firstOption = comp.selectOptions[0];
-            const newValue = firstOption.value;
+          if (options && options.length > 0) {
+            
+            // If exactly 1 option exists
+            if (options.length === 1) {
+              const firstOption = options[0];
+              const newValue = firstOption.value;
 
-            // 🟢 STEP 1: Set the value immediately
-            if (!comp.dataValue) {
-              comp.setValue(newValue);
-              comp.triggerChange();
+              // 🛑 STOP POLLING immediately so we don't trigger multiple times
+              clearInterval(intervalId);
+
+              // 🟢 FIX 1: YIELD TO EVENT LOOP
+              // Even if data is ready, wait 50ms to let the component finish its 'init' cycle
+              // This prevents the "cleanup" phase from wiping our value.
+              setTimeout(() => {
+                  
+                  // 1. Set Value Internally
+                  if (!comp.dataValue) {
+                      console.log(`[AutoSelect] Setting initial value for ${comp.key}`);
+                      comp.setValue(newValue);
+                      comp.triggerChange();
+                  }
+
+                  // 2. Set Submission State (React)
+                  setSubmission((prev: any) => {
+                    const prevData = prev?.data || {};
+                    if (prevData[comp.key] === newValue) return prev;
+                    return {
+                      ...prev,
+                      data: { ...prevData, [comp.key]: newValue },
+                    };
+                  });
+
+                  // 🟢 FIX 2: PERSISTENCE CHECK (The "Safety Net")
+                  // Check back in 1 second. If the value is gone (reset by cache refresh), force it back.
+                  setTimeout(() => {
+                      if (comp.dataValue !== newValue) {
+                          console.log(`[AutoSelect] Value lost! Re-applying for ${comp.key}`);
+                          comp.setValue(newValue);
+                          comp.triggerChange();
+                      }
+                  }, 1000);
+
+              }, 50); // Small delay to escape the init cycle
+            } else {
+                // If we found options but it's not length 1, stop polling
+                clearInterval(intervalId);
             }
-
-            // 🟢 STEP 2: The "Persistence" Check (The Fix for Cached Data)
-            // If data is cached, the component might "reset" itself moments after we set the value.
-            // We wait 500ms and FORCE the value again if it got lost.
-            setTimeout(() => {
-              if (comp.dataValue !== newValue) {
-                console.log(
-                  `[AutoSelect] Re-applying value for ${comp.key} (Cache fix)`
-                );
-                comp.setValue(newValue);
-                comp.triggerChange();
-              }
-            }, 500);
-
-            // 🟢 STEP 3: Update React State so it survives re-renders
-            setSubmission((prev: any) => {
-              const prevData = prev?.data || {};
-              if (prevData[comp.key] === newValue) return prev; // Avoid loops
-
-              return {
-                ...prev,
-                data: {
-                  ...prevData,
-                  [comp.key]: newValue,
-                },
-              };
-            });
-
-            // Stop polling since we found our options
-            clearInterval(intervalId);
           }
-        }
 
-        if (elapsedTime >= maxWait) clearInterval(intervalId);
-      }, pollInterval);
-    });
-  }, []);
+          if (elapsedTime >= maxWait) clearInterval(intervalId);
+        }, pollInterval);
+      });
+    },
+    [] 
+  );
 
   const fixUrls = (components: any[]) => {
     if (!components) return;
@@ -127,10 +136,7 @@ export default function SubmissionModal({
         comp.data?.resource
       ) {
         comp.dataSrc = "url";
-        // 🟢 RESTORED ORIGINAL URL (No Cache Buster/Timestamp)
-        // This respects your request to not force a re-fetch.
         comp.data.url = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
-
         comp.authenticate = true;
         if (!comp.data) comp.data = {};
         comp.data.authenticate = true;
@@ -217,7 +223,7 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
-              key={submissionId || "new-submission"}
+              key={submissionId }
               form={schema}
               src={""}
               submission={submission}
