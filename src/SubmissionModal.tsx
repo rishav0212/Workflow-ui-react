@@ -54,7 +54,7 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (With Deduplication)
+  // 3. Polling Logic (DEEP INSPECTION MODE)
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -67,68 +67,87 @@ export default function SubmissionModal({
         const maxWait = 10000;
         let elapsedTime = 0;
 
+        console.log(`🔍 [DEBUG-INIT] Polling started for: ${comp.key}`);
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
           if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // 🟢 STEP 1: Deduplicate Options
-            // We use a Map to store unique values based on their JSON string representation
-            // This collapses the 3 identical items into 1 unique item.
-            const uniqueOptionsMap = new Map();
+            // --- START DEBUG BLOCK ---
+            console.groupCollapsed(`🔍 [DEBUG] ${comp.key} Inspection`);
 
-            comp.selectOptions.forEach((opt: any) => {
+            // 1. Inspect Raw Data Value
+            console.log(
+              `Current comp.dataValue (Type: ${typeof comp.dataValue}):`
+            );
+            console.log(JSON.stringify(comp.dataValue, null, 2));
+
+            // 2. Inspect Raw Options
+            console.log(`Raw Options (Length: ${comp.selectOptions.length}):`);
+            // Only log the first few to avoid spamming, but log structure
+            comp.selectOptions.forEach((opt: any, idx: number) => {
+              console.log(`Opt ${idx}:`, opt);
+              console.log(`Opt ${idx} Value ID:`, opt.value?.id);
+            });
+
+            // 🟢 STEP 1: DEDUPLICATION WITH LOGGING
+            const uniqueOptionsMap = new Map();
+            comp.selectOptions.forEach((opt: any, idx: number) => {
               if (!opt || !opt.value) return;
 
-              // Filter out empty objects
-              if (
-                typeof opt.value === "object" &&
-                Object.keys(opt.value).length === 0
-              )
-                return;
+              // Logic used to generate key
+              let valueKey = "UNKNOWN";
+              if (opt.value && typeof opt.value === "object") {
+                // Prioritize ID, then _id, then stringify
+                if (opt.value.id) valueKey = String(opt.value.id);
+                else if (opt.value._id) valueKey = String(opt.value._id);
+                else valueKey = JSON.stringify(opt.value);
+              } else {
+                valueKey = String(opt.value);
+              }
 
-              // Create a unique key for the value (e.g. use ID if available, else stringify)
-              const valueKey = opt.value.id
-                ? String(opt.value.id)
-                : JSON.stringify(opt.value);
+              console.log(`[Dedupe] Opt ${idx} -> Generated Key: ${valueKey}`);
 
               if (!uniqueOptionsMap.has(valueKey)) {
                 uniqueOptionsMap.set(valueKey, opt);
+              } else {
+                console.log(
+                  `[Dedupe] Opt ${idx} -> Duplicate found! Ignoring.`
+                );
               }
             });
 
             const uniqueOptions = Array.from(uniqueOptionsMap.values());
+            console.log(`Final Unique Options Count: ${uniqueOptions.length}`);
 
-            // Log for verification
-            if (uniqueOptions.length !== comp.selectOptions.length) {
-              console.log(
-                `[AutoSelect] Deduplicated ${comp.key}: ${comp.selectOptions.length} -> ${uniqueOptions.length} unique items`
-              );
-            }
+            // 🟢 STEP 2: CHECK "EMPTY" STATE WITH LOGGING
+            const isUndefined = !comp.dataValue;
+            const isEmptyObj =
+              typeof comp.dataValue === "object" &&
+              comp.dataValue !== null &&
+              Object.keys(comp.dataValue).length === 0;
+            const isValueEmpty = isUndefined || isEmptyObj;
 
-            // 🟢 STEP 2: Check Value State
-            const isValueEmpty =
-              !comp.dataValue ||
-              (typeof comp.dataValue === "object" &&
-                Object.keys(comp.dataValue).length === 0);
+            console.log(`Is Value Empty Check:`, {
+              isUndefined,
+              isEmptyObj,
+              result: isValueEmpty,
+            });
 
-            // 🟢 STEP 3: Auto-Select if exactly 1 UNIQUE option exists
+            // 🟢 STEP 3: DECISION
             if (uniqueOptions.length === 1 && isValueEmpty) {
               const firstOption = makeCaseInsensitive(uniqueOptions[0]);
               const newValue = firstOption.value;
 
-              console.log(
-                `[AutoSelect] Selecting unique value for ${comp.key}:`,
-                newValue
-              );
+              console.log(`✅ [DEBUG] MATCH! Setting value to:`, newValue);
 
               clearInterval(intervalId);
 
               setTimeout(() => {
-                // Update Form.io
+                console.log(`🚀 [DEBUG] Executing setValue for ${comp.key}`);
                 comp.setValue(newValue, { modified: true });
                 comp.triggerChange();
 
-                // Update React State
                 setSubmission((prev: any) => {
                   const prevData = prev?.data || {};
                   return {
@@ -140,14 +159,27 @@ export default function SubmissionModal({
                   };
                 });
               }, 100);
-            } else if (uniqueOptions.length > 0) {
-              // We found valid unique options (either > 1, or value is already set)
-              // Stop polling to save resources
-              clearInterval(intervalId);
+            } else {
+              console.log("🛑 [DEBUG] Conditions not met.");
+              if (uniqueOptions.length !== 1)
+                console.log(
+                  `   - Unique Count is ${uniqueOptions.length} (Expected 1)`
+                );
+              if (!isValueEmpty) console.log(`   - Value is NOT empty.`);
+
+              // Prevent infinite logs if we have options but they aren't right
+              if (uniqueOptions.length > 0) {
+                clearInterval(intervalId);
+              }
             }
+            console.groupEnd();
+            // --- END DEBUG BLOCK ---
           }
 
-          if (elapsedTime >= maxWait) clearInterval(intervalId);
+          if (elapsedTime >= maxWait) {
+            // console.warn(`❌ [DEBUG] ${comp.key} Timed Out`);
+            clearInterval(intervalId);
+          }
         }, pollInterval);
       });
     },
