@@ -54,7 +54,7 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (DEEP DEBUG MODE)
+  // 3. Polling Logic (With Deduplication)
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -67,51 +67,68 @@ export default function SubmissionModal({
         const maxWait = 10000;
         let elapsedTime = 0;
 
-        console.log(`🔍 [DEBUG-INIT] Starting poll for: ${comp.key}`);
-        console.log(`🔍 [DEBUG-URL] URL used: ${comp.component?.data?.url}`);
-
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
           if (comp.selectOptions && comp.selectOptions.length > 0) {
-            
-            // 🔍 DUMP EVERYTHING TO CONSOLE
-            console.group(`🔍 [DEBUG-POLL] ${comp.key} Check`);
-            console.log("Raw Options Length:", comp.selectOptions.length);
-            console.log("Raw Options Content:", JSON.parse(JSON.stringify(comp.selectOptions)));
-            console.log("Current Data Value:", JSON.parse(JSON.stringify(comp.dataValue || "NULL")));
-            
-            // 1. Filter Logic
-            const validOptions = comp.selectOptions.filter((opt: any) => {
-              if (!opt) return false;
-              // Filter out empty/null values
-              if (opt.value === "" || opt.value === null || opt.value === undefined) return false;
-              // Filter out empty objects {}
-              if (typeof opt.value === 'object' && Object.keys(opt.value).length === 0) return false;
-              return true;
+            // 🟢 STEP 1: Deduplicate Options
+            // We use a Map to store unique values based on their JSON string representation
+            // This collapses the 3 identical items into 1 unique item.
+            const uniqueOptionsMap = new Map();
+
+            comp.selectOptions.forEach((opt: any) => {
+              if (!opt || !opt.value) return;
+
+              // Filter out empty objects
+              if (
+                typeof opt.value === "object" &&
+                Object.keys(opt.value).length === 0
+              )
+                return;
+
+              // Create a unique key for the value (e.g. use ID if available, else stringify)
+              const valueKey = opt.value.id
+                ? String(opt.value.id)
+                : JSON.stringify(opt.value);
+
+              if (!uniqueOptionsMap.has(valueKey)) {
+                uniqueOptionsMap.set(valueKey, opt);
+              }
             });
 
-            console.log("Filtered (Valid) Options Length:", validOptions.length);
+            const uniqueOptions = Array.from(uniqueOptionsMap.values());
 
-            // 2. Value Empty Check
-            const isValueEmpty = !comp.dataValue || 
-              (typeof comp.dataValue === 'object' && Object.keys(comp.dataValue).length === 0);
-            
-            console.log("Is Value Empty?", isValueEmpty);
+            // Log for verification
+            if (uniqueOptions.length !== comp.selectOptions.length) {
+              console.log(
+                `[AutoSelect] Deduplicated ${comp.key}: ${comp.selectOptions.length} -> ${uniqueOptions.length} unique items`
+              );
+            }
 
-            // 3. Decision
-            if (validOptions.length === 1 && isValueEmpty) {
-              const firstOption = makeCaseInsensitive(validOptions[0]);
+            // 🟢 STEP 2: Check Value State
+            const isValueEmpty =
+              !comp.dataValue ||
+              (typeof comp.dataValue === "object" &&
+                Object.keys(comp.dataValue).length === 0);
+
+            // 🟢 STEP 3: Auto-Select if exactly 1 UNIQUE option exists
+            if (uniqueOptions.length === 1 && isValueEmpty) {
+              const firstOption = makeCaseInsensitive(uniqueOptions[0]);
               const newValue = firstOption.value;
 
-              console.log(`✅ [DEBUG-ACTION] MATCH! Setting value to:`, newValue);
+              console.log(
+                `[AutoSelect] Selecting unique value for ${comp.key}:`,
+                newValue
+              );
 
               clearInterval(intervalId);
 
               setTimeout(() => {
+                // Update Form.io
                 comp.setValue(newValue, { modified: true });
                 comp.triggerChange();
 
+                // Update React State
                 setSubmission((prev: any) => {
                   const prevData = prev?.data || {};
                   return {
@@ -123,24 +140,14 @@ export default function SubmissionModal({
                   };
                 });
               }, 100);
-            } else {
-              console.log("🛑 [DEBUG-SKIP] No Auto-Select.");
-              if (validOptions.length !== 1) console.log(`   Reason: Valid options count is ${validOptions.length} (Expected 1)`);
-              if (!isValueEmpty) console.log(`   Reason: Value is already set.`);
-              
-              // Only stop if we actually loaded options (even if they were wrong)
-              // This prevents infinite polling if options exist but aren't what we want
-              if (comp.selectOptions.length > 0) {
-                  clearInterval(intervalId);
-              }
+            } else if (uniqueOptions.length > 0) {
+              // We found valid unique options (either > 1, or value is already set)
+              // Stop polling to save resources
+              clearInterval(intervalId);
             }
-            console.groupEnd();
           }
 
-          if (elapsedTime >= maxWait) {
-             console.warn(`❌ [DEBUG-TIMEOUT] ${comp.key} gave up.`);
-             clearInterval(intervalId);
-          }
+          if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
     },
@@ -156,21 +163,17 @@ export default function SubmissionModal({
         comp.data?.resource
       ) {
         comp.dataSrc = "url";
-        
+
         let baseUrl = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
-        // Append filter if it exists
         if (comp.filter) {
-            baseUrl += `?${comp.filter}`; 
+          baseUrl += `?${comp.filter}`;
         }
-        
+
         comp.data.url = baseUrl;
         comp.authenticate = true;
         if (!comp.data) comp.data = {};
         comp.data.authenticate = true;
         delete comp.data.resource;
-        
-        // Log the fixed URL
-        console.log(`🛠️ [DEBUG-FIXURL] ${comp.key} -> ${baseUrl}`);
       }
       if (comp.components) fixUrls(comp.components);
       if (comp.columns)
