@@ -54,74 +54,76 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (With DEBUG Logs)
+  // 3. Polling Logic (Corrected for Production)
   const onFormReady = useCallback(
     (instance: any) => {
-      console.log("🔍 [DEBUG] onFormReady triggered");
-
       const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
-
-      console.log(
-        `🔍 [DEBUG] Found ${selectComponents.length} select components:`,
-        selectComponents.map((c) => c.key)
-      );
 
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
 
-        console.log(`🔍 [DEBUG] Starting poll for component: ${comp.key}`);
-
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
-          // Check raw options availability
-          const rawOptions = comp.selectOptions;
-          const hasValue = !!comp.dataValue;
+          if (comp.selectOptions && comp.selectOptions.length > 0) {
+            // 🟢 FIX 1: Filter out "fake" options (placeholders, empty strings)
+            // This fixes the "Too many options (3)" issue
+            const validOptions = comp.selectOptions.filter((opt: any) => {
+              if (!opt) return false;
+              // Filter out empty values (often used as placeholders by Form.io)
+              if (
+                opt.value === "" ||
+                opt.value === null ||
+                opt.value === undefined
+              )
+                return false;
+              // Filter out empty objects
+              if (
+                typeof opt.value === "object" &&
+                Object.keys(opt.value).length === 0
+              )
+                return false;
+              return true;
+            });
 
-          if (rawOptions && rawOptions.length > 0) {
-            console.log(
-              `🔍 [DEBUG] ${comp.key} - Options Loaded! Count: ${rawOptions.length}, Has Value: ${hasValue}`
-            );
-
-            // Wrap options
-            comp.selectOptions = rawOptions.map((opt: any) =>
+            const mappedOptions = validOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
 
-            // Check autoselect condition
-            if (comp.selectOptions.length === 1 && !comp.dataValue) {
-              const firstOption = comp.selectOptions[0];
+            // 🟢 FIX 2: Correctly identify if the current value is "Empty"
+            // This fixes the "Value already set ([object Object])" issue
+            const isValueEmpty =
+              !comp.dataValue ||
+              (typeof comp.dataValue === "object" &&
+                Object.keys(comp.dataValue).length === 0);
+
+            // Check conditions: We want exactly 1 VALID option, and NO valid value selected
+            if (mappedOptions.length === 1 && isValueEmpty) {
+              const firstOption = mappedOptions[0];
               const newValue = firstOption.value;
 
               console.log(
-                `✅ [DEBUG] ${comp.key} - Autoselect Valid! Setting value to:`,
+                `[AutoSelect] Found 1 valid option for ${comp.key}:`,
                 newValue
               );
 
-              // 🛑 Stop polling
+              // Stop polling
               clearInterval(intervalId);
 
-              // 🟢 DELAYED SET
+              // 🟢 DELAYED SET (Critical for Production timing)
               setTimeout(() => {
-                console.log(
-                  `🚀 [DEBUG] ${comp.key} - Executing setValue now...`
-                );
-
-                // 1. Update Form.io Internal Component
+                // 1. Update Form.io
                 comp.setValue(newValue, { modified: true });
                 comp.triggerChange();
 
                 // 2. Update React State
                 setSubmission((prev: any) => {
                   const prevData = prev?.data || {};
-                  console.log(
-                    `💾 [DEBUG] ${comp.key} - Persisting to React State`
-                  );
                   return {
                     ...prev,
                     data: {
@@ -131,28 +133,14 @@ export default function SubmissionModal({
                   };
                 });
               }, 100);
-            } else {
-              // Detailed Log why it failed
-              if (comp.selectOptions.length !== 1) {
-                console.log(
-                  `⚠️ [DEBUG] ${comp.key} - Skipped: Too many options (${comp.selectOptions.length})`
-                );
-              }
-              if (comp.dataValue) {
-                console.log(
-                  `⚠️ [DEBUG] ${comp.key} - Skipped: Value already set (${comp.dataValue})`
-                );
-              }
+            } else if (mappedOptions.length > 0 && !isValueEmpty) {
+              // If we found options AND we already have a value, stop polling.
+              // We don't want to overwrite user data or existing data.
               clearInterval(intervalId);
             }
           }
 
-          if (elapsedTime >= maxWait) {
-            console.warn(
-              `❌ [DEBUG] ${comp.key} - Polling Timed Out (No options found)`
-            );
-            clearInterval(intervalId);
-          }
+          if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
     },
