@@ -178,10 +178,10 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
-            key={submissionId }
+              key={submissionId}
               form={schema}
               src={""}
-              submission={submission}
+              submission={initialData}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
               options={{ noAlerts: true, readOnly: isReadOnly }}
