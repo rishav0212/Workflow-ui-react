@@ -31,7 +31,7 @@ export default function SubmissionModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // 🟢 New Error State
 
-  // --- REUSED LOGIC FROM TASKVIEWER ---
+  // ... (Keep makeCaseInsensitive, onFormReady, fixUrls) ...
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -49,28 +49,50 @@ export default function SubmissionModal({
     });
   }, []);
 
+  // 🟢 UPDATED: Sync Auto-Selected Value back to React State
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
+
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
+
           if (comp.selectOptions && comp.selectOptions.length > 0) {
             comp.selectOptions = comp.selectOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
+
             if (comp.selectOptions.length === 1 && !comp.dataValue) {
-              comp.setValue(comp.selectOptions[0].value);
+              const firstOption = comp.selectOptions[0];
+              const newValue = firstOption.value;
+
+              // 1. Update Form.io Internal State
+              comp.setValue(newValue);
               comp.triggerChange();
+
+              // 🟢 2. Update React State to prevent reset on re-render
+              setTaskData((prev: any) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  data: {
+                    ...prev.data,
+                    [comp.key]: newValue,
+                  },
+                };
+              });
             }
             clearInterval(intervalId);
           }
+
           if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
