@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 // @ts-ignore
 import { Form } from "@formio/react";
-import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api"; // 🟢 Import helper
+import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api";
 import { FORM_IO_API_URL } from "./config";
 
 interface SubmissionModalProps {
@@ -10,8 +10,8 @@ interface SubmissionModalProps {
   onClose: () => void;
   title: string;
   formKey: string;
-  submissionId?: string; // Optional: if provided, it fetches data (View Mode)
-  initialData?: any; // Optional: for Action Mode
+  submissionId?: string;
+  initialData?: any;
   isReadOnly?: boolean;
   onSubmit?: (submission: any) => void;
 }
@@ -29,15 +29,15 @@ export default function SubmissionModal({
   const [schema, setSchema] = useState<any>(null);
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // 🟢 New Error State
+  const [error, setError] = useState<string | null>(null);
 
-  // 🟢 FIX 1: Memoize options to prevent form resetting on every render
-  // This is critical for autoselection to work in production environments
+  // 1. Memoize options
   const memoizedOptions = useMemo(() => {
     return { noAlerts: true, readOnly: isReadOnly };
   }, [isReadOnly]);
 
   // --- REUSED LOGIC FROM TASKVIEWER ---
+  // (Kept for compatibility, though simplified in usage below)
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -61,30 +61,36 @@ export default function SubmissionModal({
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
+
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
-          if (comp.selectOptions && comp.selectOptions.length > 0) {
-            comp.selectOptions = comp.selectOptions.map((opt: any) =>
-              makeCaseInsensitive(opt)
-            );
 
-            // Check if there is only one option and no value is currently selected
+          // Check if options are loaded
+          if (comp.selectOptions && comp.selectOptions.length > 0) {
+            // 🟢 SIMPLIFIED AUTOSELECT LOGIC
+            // If there is exactly 1 option and no value is set
             if (comp.selectOptions.length === 1 && !comp.dataValue) {
+              // We grab the raw value directly (No proxy needed for simple assignment)
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // 1. Update Form.io Internal State (Visual update)
+              console.log(`[AutoSelect] Setting ${comp.key} to`, newValue);
+
+              // 1. Update Form.io Component
               comp.setValue(newValue);
               comp.triggerChange();
 
-              // 🟢 FIX 2: Update React State (Persist Data)
-              // This saves the value so it survives any re-renders caused by network latency
+              // 2. Update React State (Persist Data)
               setSubmission((prev: any) => {
                 const prevData = prev?.data || {};
+                // Only update if the value is actually different to avoid loops
+                if (prevData[comp.key] === newValue) return prev;
+
                 return {
                   ...prev,
                   data: {
@@ -94,13 +100,15 @@ export default function SubmissionModal({
                 };
               });
             }
+            // Stop polling once options are found
             clearInterval(intervalId);
           }
+
           if (elapsedTime >= maxWait) clearInterval(intervalId);
         }, pollInterval);
       });
     },
-    [makeCaseInsensitive]
+    [] // Dependencies
   );
 
   const fixUrls = (components: any[]) => {
@@ -112,7 +120,13 @@ export default function SubmissionModal({
         comp.data?.resource
       ) {
         comp.dataSrc = "url";
-        comp.data.url = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
+
+        // 🟢 CACHE BUSTER FIX
+        // We append '?_t=' + timestamp to force a fresh network request.
+        // This prevents the "pre-fetched" cache from loading too fast for the component logic.
+        const baseUrl = `${FORM_IO_API_URL}/form/${comp.data.resource}/submission`;
+        comp.data.url = `${baseUrl}?limit=1000&_t=${Date.now()}`;
+
         comp.authenticate = true;
         if (!comp.data) comp.data = {};
         comp.data.authenticate = true;
@@ -127,24 +141,22 @@ export default function SubmissionModal({
   useEffect(() => {
     if (isOpen && formKey) {
       setLoading(true);
-      setError(null); // Reset error
+      setError(null);
       const fetchData = async () => {
         try {
           const schemaData = await fetchFormSchema(formKey);
+          // Apply the URL fix (with cache buster) before setting schema
           fixUrls(schemaData.components);
           setSchema(schemaData);
 
           if (submissionId) {
-            // VIEW MODE: Fetch historical data
             const subData = await fetchSubmissionData(formKey, submissionId);
             setSubmission(subData.data ? subData : { data: subData });
           } else {
-            // ACTION MODE: Use existing task data
             setSubmission(initialData || { data: {} });
           }
         } catch (err: any) {
           console.error("Modal Data Fetch Error:", err);
-          // 🟢 Handle Error Display
           setError(parseApiError(err));
         } finally {
           setLoading(false);
@@ -185,7 +197,6 @@ export default function SubmissionModal({
               ))}
             </div>
           ) : error ? (
-            // 🟢 ERROR STATE
             <div className="flex flex-col items-center justify-center h-48 text-center border-2 border-dashed border-status-error/30 bg-status-error/5 rounded-xl">
               <i className="fas fa-exclamation-circle text-3xl text-status-error mb-3"></i>
               <h3 className="text-lg font-bold text-status-error">
@@ -203,13 +214,13 @@ export default function SubmissionModal({
             </div>
           ) : (
             <Form
-              key={submissionId || "new-submission"} // 🟢 FIX 3: Stable key fallback
+              key={submissionId || "new-submission"}
               form={schema}
               src={""}
               submission={submission}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
-              options={memoizedOptions} // 🟢 FIX 1: Use memoized options
+              options={memoizedOptions}
             />
           )}
         </div>
