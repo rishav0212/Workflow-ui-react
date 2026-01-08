@@ -959,11 +959,21 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           </div>
 
           <div className="flex-1 p-6 relative">
-            {activeTab === "form" && isUnassigned && (
-              <ClaimTaskOverlay onClaim={handleClaim} claiming={claiming} />
-            )}
+            {/* 🟢 CHANGED: We use a wrapper div with display:block/none instead of 
+                conditional rendering. This keeps the Form mounted so it doesn't 
+                lose the autoselected values when switching tabs. */}
+            <div
+              style={{
+                display: activeTab === "form" ? "block" : "none",
+                height: "100%",
+              }}
+            >
+              {/* Claim Overlay (Only visible if unassigned) */}
+              {isUnassigned && (
+                <ClaimTaskOverlay onClaim={handleClaim} claiming={claiming} />
+              )}
 
-            {activeTab === "form" && (
+              {/* The Form Itself */}
               <div
                 className={`transition-opacity duration-300 ${
                   isUnassigned
@@ -977,14 +987,14 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                     key={taskId}
                     form={mainFormSchema}
                     onFormReady={onFormReady}
-                    submission={memoizedSubmission} // 🟢 UPDATED: Use memoized object
-                    options={memoizedOptions} // 🟢 UPDATED: Use memoized options
+                    submission={memoizedSubmission} // Use memoized object
+                    options={memoizedOptions} // Use memoized options
                   />
                 ) : (
                   <NoFormState />
                 )}
               </div>
-            )}
+            </div>
 
             {activeTab === "history" &&
               (historyLoading ? (
