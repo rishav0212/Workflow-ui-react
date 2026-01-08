@@ -31,12 +31,12 @@ export default function SubmissionModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🟢 1. Memoize options (Exactly like TaskViewer)
+  // 1. Memoize options
   const memoizedOptions = useMemo(() => {
     return { noAlerts: true, readOnly: isReadOnly };
   }, [isReadOnly]);
 
-  // 🟢 2. Use the Case Insensitive Helper (Exactly like TaskViewer)
+  // 2. Case Insensitive Helper
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -54,8 +54,7 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 🟢 3. The Polling Logic (COPIED EXACTLY FROM TaskViewer)
-  // We removed the extra timeouts and complexity. If it works there, it works here.
+  // 3. Polling Logic (With Safety Delay for Editable Widgets)
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -72,33 +71,46 @@ export default function SubmissionModal({
           elapsedTime += pollInterval;
 
           if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // Apply case insensitivity wrapper
+            // Wrap options to handle case differences
             comp.selectOptions = comp.selectOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
 
-            // Check conditions
+            // Check if we have exactly one option and no value selected
             if (comp.selectOptions.length === 1 && !comp.dataValue) {
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // Update Form.io
-              comp.setValue(newValue);
-              comp.triggerChange();
+              // 🛑 Stop polling immediately
+              clearInterval(intervalId);
 
-              // Update React State (Persist)
-              setSubmission((prev: any) => {
-                const prevData = prev?.data || {};
-                return {
-                  ...prev,
-                  data: {
-                    ...prevData,
-                    [comp.key]: newValue,
-                  },
-                };
-              });
+              // 🟢 CRITICAL FIX FOR PRODUCTION:
+              // Editable widgets (Choices.js) need a moment to bind to the DOM.
+              // We wait 100ms before forcing the value.
+              setTimeout(() => {
+                console.log(`[AutoSelect] Setting ${comp.key} to`, newValue);
+
+                // 1. Update Form.io Internal Component
+                // Passing { modified: true } helps trigger validation/UI updates
+                comp.setValue(newValue, { modified: true });
+                comp.triggerChange();
+
+                // 2. Update React State (Persist Data)
+                setSubmission((prev: any) => {
+                  const prevData = prev?.data || {};
+                  return {
+                    ...prev,
+                    data: {
+                      ...prevData,
+                      [comp.key]: newValue,
+                    },
+                  };
+                });
+              }, 100);
+            } else {
+              // Options found, but not eligible for autoselect (e.g. multiple options)
+              clearInterval(intervalId);
             }
-            clearInterval(intervalId);
           }
 
           if (elapsedTime >= maxWait) clearInterval(intervalId);
@@ -140,11 +152,9 @@ export default function SubmissionModal({
           setSchema(schemaData);
 
           if (submissionId) {
-            // VIEW MODE
             const subData = await fetchSubmissionData(formKey, submissionId);
             setSubmission(subData.data ? subData : { data: subData });
           } else {
-            // ACTION MODE
             setSubmission(initialData || { data: {} });
           }
         } catch (err: any) {
@@ -167,7 +177,6 @@ export default function SubmissionModal({
         onClick={onClose}
       ></div>
       <div className="relative bg-surface rounded-xl shadow-premium w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp border border-canvas-subtle">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-canvas-subtle bg-surface-elevated">
           <h2 className="text-lg font-serif font-bold text-ink-primary">
             {title}
@@ -180,7 +189,6 @@ export default function SubmissionModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 bg-surface">
           {loading ? (
             <div className="space-y-6 animate-pulse">
