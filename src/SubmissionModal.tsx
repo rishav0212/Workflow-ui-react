@@ -184,7 +184,7 @@ export default function SubmissionModal({
               submission={initialData}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
-              options={{ noAlerts: true, readOnly: isReadOnly }}
+              // options={{ noAlerts: true, readOnly: isReadOnly }}
             />
           )}
         </div>
