@@ -54,7 +54,7 @@ export default function SubmissionModal({
     });
   }, []);
 
-  // 3. Polling Logic (DEEP INSPECTION MODE)
+  // 3. Polling Logic (DEEP DEBUG MODE)
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -72,33 +72,31 @@ export default function SubmissionModal({
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
+          // Only proceed if options exist
           if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // --- START DEBUG BLOCK ---
+            // --- START DEBUG LOGGING ---
             console.groupCollapsed(`🔍 [DEBUG] ${comp.key} Inspection`);
 
-            // 1. Inspect Raw Data Value
+            // 1. Inspect Current Value
+            const currentValue = comp.dataValue;
             console.log(
-              `Current comp.dataValue (Type: ${typeof comp.dataValue}):`
+              `Current comp.dataValue:`,
+              JSON.parse(JSON.stringify(currentValue || "NULL"))
             );
-            console.log(JSON.stringify(comp.dataValue, null, 2));
 
             // 2. Inspect Raw Options
-            console.log(`Raw Options (Length: ${comp.selectOptions.length}):`);
-            // Only log the first few to avoid spamming, but log structure
-            comp.selectOptions.forEach((opt: any, idx: number) => {
-              console.log(`Opt ${idx}:`, opt);
-              console.log(`Opt ${idx} Value ID:`, opt.value?.id);
-            });
+            console.log(`Raw Options Count: ${comp.selectOptions.length}`);
 
-            // 🟢 STEP 1: DEDUPLICATION WITH LOGGING
+            // 🟢 STEP 1: DEDUPLICATION
+            // We filter out duplicates based on ID or JSON content
             const uniqueOptionsMap = new Map();
+
             comp.selectOptions.forEach((opt: any, idx: number) => {
               if (!opt || !opt.value) return;
 
-              // Logic used to generate key
+              // Determine unique key
               let valueKey = "UNKNOWN";
               if (opt.value && typeof opt.value === "object") {
-                // Prioritize ID, then _id, then stringify
                 if (opt.value.id) valueKey = String(opt.value.id);
                 else if (opt.value._id) valueKey = String(opt.value._id);
                 else valueKey = JSON.stringify(opt.value);
@@ -106,78 +104,87 @@ export default function SubmissionModal({
                 valueKey = String(opt.value);
               }
 
-              console.log(`[Dedupe] Opt ${idx} -> Generated Key: ${valueKey}`);
-
               if (!uniqueOptionsMap.has(valueKey)) {
                 uniqueOptionsMap.set(valueKey, opt);
+                console.log(`   [Unique] Added Opt ${idx} (Key: ${valueKey})`);
               } else {
                 console.log(
-                  `[Dedupe] Opt ${idx} -> Duplicate found! Ignoring.`
+                  `   [Duplicate] Skipped Opt ${idx} (Key: ${valueKey})`
                 );
               }
             });
 
             const uniqueOptions = Array.from(uniqueOptionsMap.values());
-            console.log(`Final Unique Options Count: ${uniqueOptions.length}`);
+            console.log(`Final Unique Options: ${uniqueOptions.length}`);
 
-            // 🟢 STEP 2: CHECK "EMPTY" STATE WITH LOGGING
-            const isUndefined = !comp.dataValue;
-            const isEmptyObj =
-              typeof comp.dataValue === "object" &&
-              comp.dataValue !== null &&
-              Object.keys(comp.dataValue).length === 0;
-            const isValueEmpty = isUndefined || isEmptyObj;
+            // 🟢 STEP 2: CHECK VALUE STATUS
+            const isValueEmpty =
+              !currentValue ||
+              (typeof currentValue === "object" &&
+                Object.keys(currentValue).length === 0);
 
-            console.log(`Is Value Empty Check:`, {
-              isUndefined,
-              isEmptyObj,
-              result: isValueEmpty,
-            });
-
-            // 🟢 STEP 3: DECISION
-            if (uniqueOptions.length === 1 && isValueEmpty) {
+            // 🟢 STEP 3: DECISION LOGIC
+            if (uniqueOptions.length === 1) {
               const firstOption = makeCaseInsensitive(uniqueOptions[0]);
               const newValue = firstOption.value;
 
-              console.log(`✅ [DEBUG] MATCH! Setting value to:`, newValue);
+              // Check if it already matches (to avoid unnecessary updates, OR force update if UI is desync)
+              let alreadyMatches = false;
+              if (!isValueEmpty) {
+                const currentId = currentValue.id || currentValue._id;
+                const newId = newValue.id || newValue._id;
+                if (currentId && newId && currentId === newId) {
+                  alreadyMatches = true;
+                }
+              }
 
-              clearInterval(intervalId);
+              console.log(
+                `Decision Check: Empty? ${isValueEmpty}, Matches? ${alreadyMatches}`
+              );
 
-              setTimeout(() => {
-                console.log(`🚀 [DEBUG] Executing setValue for ${comp.key}`);
-                comp.setValue(newValue, { modified: true });
-                comp.triggerChange();
+              // 🟢 ACTION: If empty OR matches (we force it to ensure UI sync)
+              if (isValueEmpty || alreadyMatches) {
+                console.log(`✅ [DEBUG] AUTO-SELECTING value:`, newValue);
+                clearInterval(intervalId);
 
-                setSubmission((prev: any) => {
-                  const prevData = prev?.data || {};
-                  return {
-                    ...prev,
-                    data: {
-                      ...prevData,
-                      [comp.key]: newValue,
-                    },
-                  };
-                });
-              }, 100);
-            } else {
-              console.log("🛑 [DEBUG] Conditions not met.");
-              if (uniqueOptions.length !== 1)
-                console.log(
-                  `   - Unique Count is ${uniqueOptions.length} (Expected 1)`
+                setTimeout(() => {
+                  console.log(`🚀 [DEBUG] Executing setValue...`);
+
+                  // Force update with modified flag
+                  comp.setValue(newValue, { modified: true });
+                  comp.triggerChange();
+
+                  // Update React State
+                  setSubmission((prev: any) => {
+                    const prevData = prev?.data || {};
+                    return {
+                      ...prev,
+                      data: {
+                        ...prevData,
+                        [comp.key]: newValue,
+                      },
+                    };
+                  });
+                }, 100);
+              } else {
+                console.warn(
+                  `🛑 [DEBUG] Conflict: Value is set to something else. Stopping.`
                 );
-              if (!isValueEmpty) console.log(`   - Value is NOT empty.`);
-
-              // Prevent infinite logs if we have options but they aren't right
-              if (uniqueOptions.length > 0) {
                 clearInterval(intervalId);
               }
+            } else if (uniqueOptions.length > 0) {
+              console.log(
+                `🛑 [DEBUG] Multiple unique options found (${uniqueOptions.length}). User must select.`
+              );
+              clearInterval(intervalId);
             }
+
             console.groupEnd();
-            // --- END DEBUG BLOCK ---
+            // --- END DEBUG LOGGING ---
           }
 
           if (elapsedTime >= maxWait) {
-            // console.warn(`❌ [DEBUG] ${comp.key} Timed Out`);
+            console.warn(`❌ [DEBUG] ${comp.key} Timed Out`);
             clearInterval(intervalId);
           }
         }, pollInterval);
