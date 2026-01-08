@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react";
 import {
   useNavigate,
   useParams,
@@ -550,6 +550,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isSubmitted = useRef(false); // 👈 ADD THIS
 
   // 🟢 ACCESS GLOBAL CONTEXT (Refresh & Notification)
   const { refreshTasks, addNotification } = useOutletContext<GlobalContext>();
@@ -666,6 +667,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   );
 
   const loadTask = useCallback(async () => {
+    if (isSubmitted.current) return;
     try {
       setLoading(true);
       setTaskData(null);
@@ -846,8 +848,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       };
       try {
         await submitTask(taskId, payload);
-
-        // 🟢 1. NOTIFY USER (Custom Toast)
+        isSubmitted.current = true; // 🟢 1. NOTIFY USER (Custom Toast)
         addNotification(
           `Task Completed Successfully!${getNotificationContext()}`,
           "success"
@@ -856,7 +857,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         // 🟢 2. TRIGGER REFRESH (Remove task from Sidebar)
         refreshTasks();
 
-        setShowModal(false);
+        // setShowModal(false);
         navigate("/", { replace: true });
       } catch (err: any) {
         // 🟢 UPDATED: Handle 422 Business Logic Errors (e.g. Email failure)
