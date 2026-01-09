@@ -5,6 +5,8 @@ import { Form } from "@formio/react";
 import { fetchFormSchema, fetchSubmissionData, parseApiError } from "./api";
 import { FORM_IO_API_URL } from "./config";
 
+import "formiojs/dist/formio.full.min.css";
+import "bootstrap/dist/css/bootstrap.min.css";
 interface SubmissionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,9 +34,9 @@ export default function SubmissionModal({
   const [error, setError] = useState<string | null>(null);
 
   // 1. Memoize options
-  const memoizedOptions = useMemo(() => {
-    return { noAlerts: true, readOnly: isReadOnly };
-  }, [isReadOnly]);
+  // const memoizedOptions = useMemo(() => {
+  //   return { noAlerts: true, readOnly: isReadOnly };
+  // }, [isReadOnly]);
 
   // 2. Case Insensitive Helper
   const makeCaseInsensitive = useCallback((item: any) => {
@@ -299,7 +301,6 @@ export default function SubmissionModal({
               submission={submission}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
-              options={memoizedOptions}
             />
           )}
         </div>
