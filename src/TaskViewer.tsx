@@ -585,7 +585,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   }, [taskData]);
 
   const memoizedOptions = useMemo(() => {
-    return { noAlerts: true, readOnly: true };
+    return { noAlerts: true, readOnly: false };
   }, []);
 
   // 🟢 Helper to append context to notifications (Memoized)
