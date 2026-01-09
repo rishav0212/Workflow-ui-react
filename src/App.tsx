@@ -101,7 +101,7 @@ const TopHeader = ({
     <header className="h-16 bg-surface border-b border-canvas-subtle flex items-center justify-between px-6 shadow-soft z-30 flex-shrink-0">
       <div className="flex items-center gap-2">
         <h1 className="text-xl font-bold text-ink-primary tracking-tight font-serif">
-          Flowable<span className="text-brand-500">Work</span>
+          Infinity<span className="text-brand-500">Plus</span>
         </h1>
       </div>
       <div className="flex items-center gap-4">

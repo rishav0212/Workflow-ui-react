@@ -16,7 +16,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
             Welcome Back
           </h1>
           <p className="text-slate-400 text-sm">
-            Sign in to your FlowableWork dashboard
+            Sign in to your InfinityPlus dashboard
           </p>
         </div>
 
@@ -41,7 +41,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
         </div>
         
         <p className="mt-8 text-center text-xs text-slate-400">
-          Powered by Flowable & Spring Boot
+          Powered by InfinityPlus System
         </p>
       </div>
     </div>
