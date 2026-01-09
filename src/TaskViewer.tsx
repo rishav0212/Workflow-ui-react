@@ -222,7 +222,7 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
         />
         <DataField
           label="Process"
-          value={taskData?.processDefinitionName || "Unknown"}
+          value={taskData?.processName || "Unknown"}
           icon="fas fa-project-diagram"
         />
         <DataField
