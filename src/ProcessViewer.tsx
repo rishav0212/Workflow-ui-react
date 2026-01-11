@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import BpmnViewer from "bpmn-js";
-import { toast } from "react-hot-toast"; // 🟢 Added for feedback
+import { toast } from "react-hot-toast";
 
 // @ts-ignore
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -12,9 +12,11 @@ import {
   fetchProcessVersions,
   fetchProcessXml,
   fetchHistoricActivitiesForDefinition,
-  updateTaskActions, // 🟢 Added API
+  updateTaskActions,
 } from "./api";
-import ActionEditorModal from "./ActionEditorModal"; // 🟢 Added Component
+import ActionEditorModal from "./ActionEditorModal";
+// 🟢 NEW IMPORT: Ensure you created this file as per previous instructions
+import FormSelectBuilderModal from "./FormSelectBuilderModal";
 
 export default function ProcessViewer() {
   const { processKey } = useParams();
@@ -27,9 +29,15 @@ export default function ProcessViewer() {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
 
-  // 🟢 State for Action Editor
+  // State for Action Editor
   const [showActionEditor, setShowActionEditor] = useState(false);
   const [currentActions, setCurrentActions] = useState<any[]>([]);
+
+  // 🟢 NEW STATE: Related Forms Logic
+  const [relatedForms, setRelatedForms] = useState<string[]>([]);
+  const [selectedFormForPicker, setSelectedFormForPicker] = useState<
+    string | null
+  >(null);
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const bpmnViewer = useRef<any>(null);
@@ -49,7 +57,63 @@ export default function ProcessViewer() {
     if (selectedId) fetchProcessXml(selectedId).then(setXml);
   }, [selectedId]);
 
-  // 🟢 Helper: Parse XML to find current externalActions JSON
+  // 3. 🟢 DEEP PARSE XML for Forms (FormKey + TargetForm)
+  useEffect(() => {
+    if (xml) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, "text/xml");
+        const foundKeys = new Set<string>();
+
+        // A. Direct Form Keys (e.g. flowable:formKey="myForm")
+        const allElements = doc.getElementsByTagName("*");
+        for (let i = 0; i < allElements.length; i++) {
+          const el = allElements[i];
+          const formKey =
+            el.getAttribute("flowable:formKey") ||
+            el.getAttribute("camunda:formKey");
+          if (formKey) foundKeys.add(formKey);
+        }
+
+        // B. Deep Search in externalActions Properties
+        // Looks for: <flowable:property name="externalActions"> ...json... </flowable:property>
+        const props = doc.getElementsByTagName("flowable:property");
+        for (let i = 0; i < props.length; i++) {
+          const prop = props[i];
+          if (prop.getAttribute("name") === "externalActions") {
+            const jsonText = prop.textContent;
+            if (jsonText) {
+              try {
+                // Handle possible CDATA wrapping or plain text
+                const cleanText = jsonText
+                  .replace("<![CDATA[", "")
+                  .replace("]]>", "")
+                  .trim();
+
+                const actions = JSON.parse(cleanText);
+                if (Array.isArray(actions)) {
+                  actions.forEach((btn: any) => {
+                    if (btn.targetForm) {
+                      foundKeys.add(btn.targetForm);
+                    }
+                  });
+                }
+              } catch (e) {
+                // Ignore invalid JSON in properties
+              }
+            }
+          }
+        }
+
+        // Sort alphabetically
+        setRelatedForms(Array.from(foundKeys).sort());
+      } catch (e) {
+        console.error("Error parsing forms from XML", e);
+      }
+    }
+  }, [xml]);
+
+  // Helper: Parse XML to find current externalActions JSON
   const getActionsFromXml = (taskId: string) => {
     try {
       const parser = new DOMParser();
@@ -90,7 +154,7 @@ export default function ProcessViewer() {
     return [];
   };
 
-  // 3. Diagram Logic & Heatmap
+  // Diagram Logic & Heatmap
   useEffect(() => {
     if (viewMode === "diagram" && xml && viewerRef.current) {
       if (bpmnViewer.current) {
@@ -175,10 +239,10 @@ export default function ProcessViewer() {
 
   const copyXml = () => {
     navigator.clipboard.writeText(xml);
-    alert("BPMN XML copied to clipboard!");
+    toast.success("BPMN XML copied to clipboard!");
   };
 
-  // 🟢 Handler: Open Action Editor
+  // Handler: Open Action Editor
   const openActionEditor = () => {
     if (!selectedElement || selectedElement.Type !== "UserTask") return;
     const existingActions = getActionsFromXml(selectedElement.ID);
@@ -186,7 +250,7 @@ export default function ProcessViewer() {
     setShowActionEditor(true);
   };
 
-  // 🟢 Handler: Save & Deploy Actions
+  // Handler: Save & Deploy Actions
   const handleSaveActions = async (newActions: any[]) => {
     if (!processKey || !selectedElement) return;
     const jsonString = JSON.stringify(newActions);
@@ -265,33 +329,77 @@ export default function ProcessViewer() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-72 bg-surface border-r border-canvas-active overflow-y-auto p-5 flex flex-col gap-3 custom-scrollbar">
-          <span className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest mb-1">
-            Version History
-          </span>
-          {versions.map((v, idx) => (
-            <button
-              key={v.id}
-              onClick={() => setSelectedId(v.id)}
-              className={`text-left p-4 rounded-xl border-2 transition-all ${
-                selectedId === v.id
-                  ? "border-brand-500 bg-brand-50/30"
-                  : "border-canvas-subtle hover:bg-canvas-subtle/50"
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-sm">Version {v.version}</span>
-                {idx === 0 && (
-                  <span className="text-[8px] bg-sage-500 text-white px-1.5 py-0.5 rounded font-black">
-                    LATEST
-                  </span>
-                )}
+        <div className="w-72 bg-surface border-r border-canvas-active overflow-y-auto p-5 flex flex-col gap-6 custom-scrollbar">
+          {/* 1. Version History */}
+          <div>
+            <span className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest mb-2 block">
+              Version History
+            </span>
+            <div className="space-y-2">
+              {versions.map((v, idx) => (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedId(v.id)}
+                  className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                    selectedId === v.id
+                      ? "border-brand-500 bg-brand-50/30"
+                      : "border-canvas-subtle hover:bg-canvas-subtle/50"
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-sm">v{v.version}</span>
+                    {idx === 0 && (
+                      <span className="text-[8px] bg-sage-500 text-white px-1.5 py-0.5 rounded font-black">
+                        LATEST
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-ink-tertiary mt-1 font-mono opacity-60">
+                    ID: {v.deploymentId?.substring(0, 8)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. 🟢 NEW: Related Forms Section */}
+          {relatedForms.length > 0 && (
+            <div className="animate-slideUp">
+              <span className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest mb-2 block border-t border-canvas-active pt-4">
+                Forms in Workflow
+              </span>
+              <div className="space-y-2">
+                {relatedForms.map((fKey) => (
+                  <div
+                    key={fKey}
+                    className="group bg-white border border-canvas-active rounded-lg p-3 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+                          <i className="fab fa-wpforms text-xs"></i>
+                        </div>
+                        <span
+                          className="text-xs font-bold text-ink-primary truncate max-w-[140px]"
+                          title={fKey}
+                        >
+                          {fKey}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Generator Button */}
+                    <button
+                      onClick={() => setSelectedFormForPicker(fKey)}
+                      className="w-full py-1.5 bg-canvas-subtle hover:bg-brand-600 hover:text-white text-ink-secondary border border-canvas-active hover:border-brand-600 rounded text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <i className="fas fa-magic"></i> Generate Select
+                    </button>
+                  </div>
+                ))}
               </div>
-              <p className="text-[10px] text-ink-tertiary mt-1 font-mono opacity-60">
-                Deployment: {v.deploymentId?.substring(0, 8)}
-              </p>
-            </button>
-          ))}
+            </div>
+          )}
         </div>
 
         {/* Viewport */}
@@ -342,7 +450,7 @@ export default function ProcessViewer() {
                     </button>
                   </div>
 
-                  {/* 🟢 NEW: Action Editor Button */}
+                  {/* Action Editor Button */}
                   {selectedElement.Type === "UserTask" && (
                     <div className="mb-6 p-4 bg-brand-50 border border-brand-200 rounded-xl">
                       <h4 className="text-xs font-bold text-brand-800 mb-2 flex items-center gap-2">
@@ -382,7 +490,7 @@ export default function ProcessViewer() {
               )}
             </>
           ) : (
-            /* XML View (Preserved) */
+            /* XML View */
             <div className="absolute inset-0 bg-[#1e1e1e] flex flex-col">
               <div className="bg-[#252526] px-6 py-2 border-b border-white/5 flex justify-between items-center">
                 <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
@@ -417,13 +525,21 @@ export default function ProcessViewer() {
         </div>
       </div>
 
-      {/* 🟢 NEW: Action Editor Modal */}
+      {/* Action Editor Modal */}
       <ActionEditorModal
         isOpen={showActionEditor}
         onClose={() => setShowActionEditor(false)}
         onSave={handleSaveActions}
         initialActions={currentActions}
         taskName={selectedElement?.Name || "Task"}
+      />
+
+      {/* 🟢 NEW: Select Builder Modal */}
+      <FormSelectBuilderModal
+        isOpen={!!selectedFormForPicker}
+        onClose={() => setSelectedFormForPicker(null)}
+        formKey={selectedFormForPicker || ""}
+        formName={selectedFormForPicker || "Form"}
       />
 
       <style>{`

@@ -25,21 +25,23 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
             onClick={onLogin}
             className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 font-bold py-3.5 px-4 rounded-xl transition-all duration-200 shadow-sm group"
           >
-            <img 
-              src="https://www.svgrepo.com/show/475656/google-color.svg" 
-              alt="Google" 
-              className="w-5 h-5 group-hover:scale-110 transition-transform" 
+            <img
+              src="https://www.svgrepo.com/show/475656/google-color.svg"
+              alt="Google"
+              className="w-5 h-5 group-hover:scale-110 transition-transform"
             />
             <span>Continue with Google</span>
           </button>
-          
+
           <div className="relative flex py-2 items-center">
             <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink-0 mx-4 text-xs text-slate-400 uppercase tracking-wider font-semibold">Secure Access</span>
+            <span className="flex-shrink-0 mx-4 text-xs text-slate-400 uppercase tracking-wider font-semibold">
+              Secure Access
+            </span>
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
         </div>
-        
+
         <p className="mt-8 text-center text-xs text-slate-400">
           Powered by InfinityPlus System
         </p>
