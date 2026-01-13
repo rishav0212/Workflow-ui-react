@@ -48,7 +48,6 @@ const fixUrls = (components: any[]) => {
   });
 };
 
-// ... (Keep existing Types: ActionButton, HistoryEvent) ...
 interface ActionButton {
   label: string;
   action: string;
@@ -68,7 +67,7 @@ interface HistoryEvent {
   formSubmissionId?: string;
 }
 
-// ... (Keep UI Helpers: StatusBadge, DataField, FormSkeleton, NoFormState, HistorySkeleton) ...
+// 🎨 ENHANCED: Refined Status Badges
 const StatusBadge = memo(
   ({
     type,
@@ -80,8 +79,9 @@ const StatusBadge = memo(
     icon?: string;
   }) => {
     const styles = {
-      success: "bg-sage-100 text-sage-800 border-sage-200",
-      warning: "bg-brand-100 text-brand-800 border-brand-200",
+      success:
+        "bg-status-success/10 text-status-success border-status-success/20",
+      warning: "bg-brand-50 text-brand-700 border-brand-200",
       error: "bg-status-error/10 text-status-error border-status-error/20",
       info: "bg-status-info/10 text-status-info border-status-info/20",
       neutral: "bg-canvas-subtle text-ink-secondary border-canvas-active",
@@ -89,7 +89,7 @@ const StatusBadge = memo(
 
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${styles[type]}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border shadow-soft ${styles[type]}`}
       >
         {icon && <i className={`${icon} text-[10px]`}></i>}
         {label}
@@ -109,74 +109,93 @@ const DataField = memo(
     icon: string;
   }) => (
     <div className="flex flex-col">
-      <span className="text-[10px] uppercase tracking-wider text-ink-tertiary font-semibold mb-0.5">
+      <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1">
         {label}
       </span>
       <div className="flex items-center gap-2 text-sm text-ink-primary font-medium">
-        <i className={`${icon} text-brand-400 text-xs w-4`}></i>
+        <i className={`${icon} text-brand-500 text-xs w-4`}></i>
         <span className="truncate">{value}</span>
       </div>
     </div>
   )
 );
 
+// 🎨 ENHANCED: Premium Form Skeleton
 const FormSkeleton = memo(() => (
-  <div className="space-y-6 animate-pulse p-1">
+  <div className="space-y-6 p-1">
     {[1, 2, 3].map((i) => (
-      <div key={i} className="space-y-2">
-        <div className="h-4 bg-canvas-active rounded w-32"></div>
-        <div className="h-10 bg-surface-muted rounded-lg border border-canvas-active"></div>
+      <div
+        key={i}
+        className="space-y-2"
+        style={{
+          animationDelay: `${i * 100}ms`,
+          opacity: 0,
+          animation: "fadeIn 0.4s ease-out forwards",
+        }}
+      >
+        <div className="h-4 bg-neutral-200 rounded w-32 animate-pulse"></div>
+        <div className="h-10 bg-canvas-subtle rounded-lg border border-canvas-active animate-pulse"></div>
       </div>
     ))}
   </div>
 ));
 
+// 🎨 ENHANCED: Refined Empty State
 const NoFormState = memo(() => (
-  <div className="flex flex-col items-center justify-center h-64 text-center border-2 border-dashed border-canvas-active rounded-xl bg-canvas-subtle/30 m-6">
-    <div className="w-16 h-16 bg-canvas-active rounded-full flex items-center justify-center mb-4">
-      <i className="fas fa-clipboard-list text-2xl text-ink-tertiary"></i>
+  <div className="flex flex-col items-center justify-center h-64 text-center border-2 border-dashed border-canvas-active rounded-xl bg-gradient-to-b from-canvas-subtle/50 to-canvas-subtle/30 m-6">
+    <div className="w-16 h-16 bg-canvas-active rounded-2xl flex items-center justify-center mb-4 shadow-soft">
+      <i className="fas fa-clipboard-list text-2xl text-neutral-400"></i>
     </div>
-    <h3 className="text-lg font-serif font-bold text-ink-primary">
+    <h3 className="text-lg font-serif font-bold text-ink-primary mb-1">
       No Details Available
     </h3>
-    <p className="text-sm text-ink-secondary max-w-xs mx-auto mt-2">
+    <p className="text-sm text-neutral-500 max-w-xs mx-auto">
       This task does not have a specific form attached to it.
     </p>
   </div>
 ));
 
+// 🎨 ENHANCED: History Skeleton with Better Animation
 const HistorySkeleton = memo(() => (
-  <div className="pl-4 border-l-2 border-canvas-active space-y-8 animate-pulse mt-4">
+  <div className="pl-4 border-l-2 border-canvas-active space-y-6 mt-4">
     {[1, 2, 3].map((i) => (
-      <div key={i} className="relative pl-6">
-        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-canvas-active"></div>
+      <div
+        key={i}
+        className="relative pl-6"
+        style={{
+          animationDelay: `${i * 100}ms`,
+          opacity: 0,
+          animation: "fadeIn 0.4s ease-out forwards",
+        }}
+      >
+        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-neutral-200 animate-pulse"></div>
         <div className="space-y-2">
-          <div className="h-3 bg-canvas-active rounded w-24"></div>
-          <div className="h-4 bg-canvas-active rounded w-48"></div>
+          <div className="h-3 bg-neutral-200 rounded w-24 animate-pulse"></div>
+          <div className="h-4 bg-neutral-100 rounded w-48 animate-pulse"></div>
         </div>
       </div>
     ))}
   </div>
 ));
 
-// ... (Keep Sub-Components: TaskHeader, ActionToolbar, ClaimTaskOverlay, HistoryTimeline) ...
+// 🎨 ENHANCED: Premium Task Header
 const TaskHeader = memo(({ taskData }: { taskData: any }) => {
   const isHighPriority = taskData?.priority > 50;
 
   return (
-    <div className="bg-surface p-6 border-b border-canvas-subtle">
+    <div className="bg-white p-6 border-b border-canvas-subtle">
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-500 shadow-sm border border-brand-100">
-            <i className="fas fa-layer-group text-lg"></i>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center text-brand-600 shadow-brand-sm border border-brand-200">
+            <i className="fas fa-layer-group text-xl"></i>
           </div>
           <div>
             <h1 className="text-2xl font-serif font-bold text-ink-primary leading-tight">
               {taskData?.taskName || "Loading Task..."}
             </h1>
-            <p className="text-xs text-ink-tertiary">
+            <p className="text-xs text-neutral-500 mt-0.5">
               ID:{" "}
-              <span className="font-mono">
+              <span className="font-mono text-neutral-600">
                 {taskData?.taskId || "N/A"}
               </span>
             </p>
@@ -207,14 +226,14 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
       </div>
 
       {taskData?.description && (
-        <div className="bg-canvas-subtle/50 rounded-lg p-3 mb-5 border border-canvas-subtle">
-          <p className="text-sm text-ink-secondary leading-relaxed whitespace-pre-wrap">
+        <div className="bg-canvas-subtle rounded-lg p-4 mb-5 border border-canvas-active">
+          <p className="text-sm text-ink-primary leading-relaxed whitespace-pre-wrap">
             {taskData.description}
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-2">
         <DataField
           label="Business Key"
           value={taskData?.businessKey || "N/A"}
@@ -258,6 +277,7 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
   );
 });
 
+// 🎨 ENHANCED: Premium Action Toolbar
 const ActionToolbar = memo(
   ({
     buttons,
@@ -276,14 +296,14 @@ const ActionToolbar = memo(
     const getBtnStyle = (color: string) => {
       const map: Record<string, string> = {
         primary:
-          "bg-brand-500 hover:bg-brand-600 text-white shadow-brand-500/20",
+          "bg-brand-500 hover:bg-brand-600 text-white shadow-brand-md hover:shadow-brand-lg",
         success:
-          "bg-status-success hover:bg-opacity-90 text-white shadow-status-success/20",
+          "bg-status-success hover:bg-opacity-90 text-white shadow-lg hover:shadow-xl",
         warning:
-          "bg-status-warning hover:bg-opacity-90 text-white shadow-status-warning/20",
+          "bg-status-warning hover:bg-opacity-90 text-white shadow-lg hover:shadow-xl",
         danger:
-          "bg-status-error hover:bg-opacity-90 text-white shadow-status-error/20",
-        info: "bg-status-info hover:bg-opacity-90 text-white shadow-status-info/20",
+          "bg-status-error hover:bg-opacity-90 text-white shadow-lg hover:shadow-xl",
+        info: "bg-status-info hover:bg-opacity-90 text-white shadow-lg hover:shadow-xl",
       };
       return map[color] || map.primary;
     };
@@ -291,8 +311,8 @@ const ActionToolbar = memo(
     if (buttons.length === 0) return null;
 
     return (
-      <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-canvas-subtle px-6 py-3 flex items-center justify-between shadow-sm">
-        <span className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider">
+      <div className="sticky top-0 z-20 bg-white border-b border-canvas-subtle px-6 py-3 flex items-center justify-between shadow-soft">
+        <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
           Available Actions
         </span>
         <div className="flex items-center gap-2">
@@ -301,7 +321,7 @@ const ActionToolbar = memo(
               key={idx}
               disabled={disabled}
               onClick={() => onActionClick(btn)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getBtnStyle(
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getBtnStyle(
                 btn.color
               )}`}
             >
@@ -314,7 +334,7 @@ const ActionToolbar = memo(
               <button
                 onClick={() => setShowMenu(!showMenu)}
                 disabled={disabled}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-canvas text-ink-secondary border border-canvas-active hover:bg-canvas-active hover:text-ink-primary transition-colors"
+                className="flex items-center justify-center w-9 h-9 rounded-lg bg-canvas-subtle text-neutral-600 border border-canvas-active hover:bg-canvas-active hover:text-ink-primary transition-colors"
               >
                 <i className="fas fa-ellipsis-v"></i>
               </button>
@@ -324,7 +344,7 @@ const ActionToolbar = memo(
                     className="fixed inset-0 z-30"
                     onClick={() => setShowMenu(false)}
                   ></div>
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-surface rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-40 animate-slideDown">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-40 animate-slideDown">
                     {secondaryButtons.map((btn, idx) => (
                       <button
                         key={idx}
@@ -332,7 +352,7 @@ const ActionToolbar = memo(
                           onActionClick(btn);
                           setShowMenu(false);
                         }}
-                        className="w-full text-left px-4 py-3 text-sm text-ink-secondary hover:bg-canvas-subtle hover:text-brand-600 flex items-center gap-3 transition-colors border-b border-canvas-subtle last:border-0"
+                        className="w-full text-left px-4 py-3 text-sm text-ink-primary hover:bg-canvas-subtle hover:text-brand-600 flex items-center gap-3 transition-colors border-b border-canvas-subtle last:border-0"
                       >
                         <i className={`${btn.icon} w-4 text-center`}></i>
                         {btn.label}
@@ -349,31 +369,34 @@ const ActionToolbar = memo(
   }
 );
 
+// 🎨 ENHANCED: Premium Claim Overlay
 const ClaimTaskOverlay = memo(
   ({ onClaim, claiming }: { onClaim: () => void; claiming: boolean }) => (
-    <div className="absolute inset-0 z-10 bg-surface/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-b-xl animate-fadeIn">
-      <div className="bg-surface p-8 rounded-2xl shadow-floating border border-canvas-active max-w-sm w-full text-center">
-        <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
-          <i className="fas fa-lock text-brand-500 text-2xl"></i>
+    <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-xl animate-fadeIn">
+      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
+        <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-bounce-slow border border-brand-100">
+          <i className="fas fa-lock text-brand-500 text-3xl"></i>
         </div>
         <h3 className="text-xl font-serif font-bold text-ink-primary mb-2">
           Claim Required
         </h3>
-        <p className="text-ink-secondary text-sm mb-6">
+        <p className="text-neutral-600 text-sm mb-6 leading-relaxed">
           You must assign this task to yourself before you can view the form
           details or take action.
         </p>
         <button
           onClick={onClaim}
           disabled={claiming}
-          className="w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium shadow-lg hover:shadow-brand-500/25 transition-all duration-200"
+          className="w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold shadow-brand-md hover:shadow-brand-lg transition-all duration-200 disabled:opacity-50"
         >
           {claiming ? (
             <>
               <i className="fas fa-circle-notch fa-spin mr-2"></i> Claiming...
             </>
           ) : (
-            "Assign to Me"
+            <>
+              <i className="fas fa-hand-pointer mr-2"></i> Assign to Me
+            </>
           )}
         </button>
       </div>
@@ -381,6 +404,7 @@ const ClaimTaskOverlay = memo(
   )
 );
 
+// 🎨 ENHANCED: Refined History Timeline
 const HistoryTimeline = memo(
   ({
     history,
@@ -389,7 +413,6 @@ const HistoryTimeline = memo(
     history: HistoryEvent[];
     onViewEvent: (e: HistoryEvent) => void;
   }) => {
-    // 🟢 LATEST ON TOP: Descending order
     const sortedHistory = [...history].sort(
       (a, b) =>
         new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
@@ -403,15 +426,17 @@ const HistoryTimeline = memo(
         return {
           icon: "fas fa-play",
           label: "START",
-          color: "text-sage-500",
-          bg: "bg-sage-50",
+          color: "text-status-success",
+          bg: "bg-status-success/10",
+          border: "border-status-success/20",
         };
       if (type === "endEvent")
         return {
           icon: "fas fa-check-double",
           label: "END",
-          color: "text-ink-primary",
-          bg: "bg-canvas-subtle",
+          color: "text-neutral-600",
+          bg: "bg-neutral-100",
+          border: "border-neutral-200",
         };
       if (name.includes("email") || type === "serviceTask")
         return {
@@ -419,65 +444,73 @@ const HistoryTimeline = memo(
           label: "EMAIL",
           color: "text-status-info",
           bg: "bg-status-info/10",
+          border: "border-status-info/20",
         };
       return {
         icon: "fas fa-user",
         label: "TASK",
         color: "text-brand-500",
         bg: "bg-brand-50",
+        border: "border-brand-100",
       };
     };
 
     return (
       <div className="relative px-2 py-4">
-        {/* Slimmer vertical line */}
-        <div className="absolute top-0 bottom-0 left-[23px] w-[1.5px] bg-canvas-active opacity-50"></div>
+        {/* Timeline Line */}
+        <div className="absolute top-0 bottom-0 left-[23px] w-[2px] bg-gradient-to-b from-canvas-active via-canvas-active/50 to-transparent"></div>
 
         <div className="space-y-4">
-          {" "}
-          {/* Reduced spacing between cards */}
           {sortedHistory.map((event: any, idx) => {
             const isCompleted = event.status === "COMPLETED";
             const hasData = !!event.formSubmissionId;
             const config = getEventConfig(event);
 
             return (
-              <div key={idx} className="relative pl-12 group animate-slideUp">
-                {/* Compact Icon Marker */}
+              <div
+                key={idx}
+                className="relative pl-12 group"
+                style={{
+                  animationDelay: `${idx * 50}ms`,
+                  opacity: 0,
+                  animation: "slideUp 0.3s ease-out forwards",
+                }}
+              >
+                {/* Icon Marker */}
                 <div className="absolute left-0 top-2 w-12 h-full flex justify-center">
                   <div
-                    className={`z-10 w-7 h-7 rounded-full border-2 bg-white flex items-center justify-center shadow-sm transition-all ${
+                    className={`z-10 w-8 h-8 rounded-full border-2 bg-white flex items-center justify-center shadow-soft transition-all ${
                       isCompleted
-                        ? "border-sage-200"
-                        : "border-brand-400 animate-pulse"
+                        ? "border-neutral-200"
+                        : "border-brand-400 animate-pulse shadow-brand-sm"
                     }`}
                   >
-                    <i
-                      className={`${config.icon} ${config.color} text-[10px]`}
-                    ></i>
+                    <i className={`${config.icon} ${config.color} text-xs`}></i>
                   </div>
                 </div>
 
-                {/* Slim Hybrid Card */}
+                {/* Event Card */}
                 <div
-                  className={`bg-surface border rounded-lg p-3 transition-all duration-200 ${
+                  className={`bg-white border rounded-xl p-4 transition-all duration-200 ${
                     hasData
-                      ? "cursor-pointer hover:border-brand-400 hover:shadow-sm"
+                      ? "cursor-pointer hover:border-brand-400 hover:shadow-lifted"
                       : "border-canvas-subtle"
                   }`}
                   onClick={() => hasData && onViewEvent(event)}
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${config.bg} ${config.color}`}
+                          className={`text-[9px] font-bold px-2 py-1 rounded ${config.bg} ${config.color} border ${config.border}`}
                         >
                           {config.label}
                         </span>
                         <span
                           className={`text-[9px] font-bold uppercase ${
-                            isCompleted ? "text-sage-500" : "text-brand-500"
+                            isCompleted
+                              ? "text-status-success"
+                              : "text-brand-600"
                           }`}
                         >
                           {event.status}
@@ -488,15 +521,15 @@ const HistoryTimeline = memo(
                       </h4>
                     </div>
 
-                    {/* Enhanced & Bolder Date/Time */}
+                    {/* Time Display */}
                     <div className="text-right whitespace-nowrap">
-                      <div className="text-[13px] font-black text-ink-primary font-mono leading-none">
+                      <div className="text-sm font-bold text-ink-primary font-mono leading-none">
                         {new Date(event.startTime).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </div>
-                      <div className="text-[10px] font-bold text-ink-tertiary mt-1">
+                      <div className="text-[10px] font-medium text-neutral-500 mt-1">
                         {new Date(event.startTime).toLocaleDateString(
                           undefined,
                           {
@@ -508,12 +541,12 @@ const HistoryTimeline = memo(
                     </div>
                   </div>
 
-                  {/* Compact Footer (only if data or duration exists) */}
+                  {/* Footer */}
                   {(event.endTime || hasData) && (
-                    <div className="mt-2 flex items-center justify-between border-t border-canvas-subtle/50 pt-2">
-                      <div className="flex gap-2">
+                    <div className="mt-3 flex items-center justify-between border-t border-canvas-subtle pt-3">
+                      <div className="flex gap-3">
                         {event.endTime && (
-                          <span className="text-[10px] text-ink-tertiary flex items-center gap-1 font-medium">
+                          <span className="text-[10px] text-neutral-500 flex items-center gap-1.5 font-medium">
                             <i className="far fa-clock text-[9px]"></i>
                             {Math.round(
                               (new Date(event.endTime).getTime() -
@@ -526,7 +559,7 @@ const HistoryTimeline = memo(
                       </div>
 
                       {hasData && (
-                        <span className="text-[10px] font-black text-brand-600 flex items-center gap-1.5 hover:underline">
+                        <span className="text-[10px] font-bold text-brand-600 flex items-center gap-1.5 hover:underline">
                           <i className="fas fa-database text-[9px]"></i>
                           VIEW DATA
                         </span>
@@ -550,9 +583,8 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isSubmitted = useRef(false); // 👈 ADD THIS
+  const isSubmitted = useRef(false);
 
-  // 🟢 ACCESS GLOBAL CONTEXT (Refresh & Notification)
   const { refreshTasks, addNotification } = useOutletContext<GlobalContext>();
 
   // State
@@ -579,7 +611,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   );
   const [submitting, setSubmitting] = useState(false);
 
-  // 🟢 NEW: Memoize submission and options
   const memoizedSubmission = useMemo(() => {
     return { data: taskData?.data };
   }, [taskData]);
@@ -588,7 +619,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     return { noAlerts: true, readOnly: true };
   }, []);
 
-  // 🟢 Helper to append context to notifications (Memoized)
   const getNotificationContext = useCallback(() => {
     const parts = [];
     if (taskData?.taskName) parts.push(`Task: "${taskData.taskName}"`);
@@ -597,7 +627,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     return parts.length > 0 ? ` [ ${parts.join(" | ")} ]` : "";
   }, [taskData, taskId]);
 
-  // ... (Keep makeCaseInsensitive, onFormReady, fixUrls) ...
   const makeCaseInsensitive = useCallback((item: any) => {
     if (!item || typeof item !== "object") return item;
     return new Proxy(item, {
@@ -615,7 +644,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     });
   }, []);
 
-  // 🟢 UPDATED: Sync Auto-Selected Value back to React State
   const onFormReady = useCallback(
     (instance: any) => {
       const selectComponents: any[] = [];
@@ -640,11 +668,9 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
 
-              // 1. Update Form.io Internal State
               comp.setValue(newValue);
               comp.triggerChange();
 
-              // 🟢 2. Update React State to prevent reset on re-render
               setTaskData((prev: any) => {
                 if (!prev) return prev;
                 return {
@@ -723,9 +749,8 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       }
     } catch (err: any) {
       console.error(err);
-      // 🟢 UPDATED: Improved Error Handling using parseApiError
       const msg = parseApiError(err);
-      const ctx = ` [ID: ${taskId}]`; // Cant use getNotificationContext here as taskData might be null
+      const ctx = ` [ID: ${taskId}]`;
 
       if (err.response?.status === 404) {
         addNotification(`Task not found or already completed.${ctx}`, "error");
@@ -747,7 +772,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       setHistoryLoaded(true);
     } catch (err: any) {
       console.error(err);
-      // 🟢 UPDATED: Parse specific API error
       addNotification(
         `History unavailable: ${parseApiError(err)}${getNotificationContext()}`,
         "error"
@@ -763,7 +787,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     try {
       await claimTask(taskId, currentUser);
       await loadTask();
-      // 🟢 TRIGGER REFRESH in TaskList (Sidebar)
       refreshTasks();
       addNotification(
         `Task assigned to you successfully.${getNotificationContext()}`,
@@ -771,7 +794,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       );
     } catch (err: any) {
       console.error(err);
-      // 🟢 UPDATED: Handle 409 Conflict
       const msg = parseApiError(err);
       if (err.response?.status === 409) {
         addNotification(
@@ -804,7 +826,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     setModalTitle(btn.label);
     setIsReadOnly(false);
     setSelectedFormKey(btn.targetForm);
-    setSelectedSubmissionId(""); // Clear for action mode
+    setSelectedSubmissionId("");
     setShowModal(true);
   }, []);
 
@@ -848,19 +870,14 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       };
       try {
         await submitTask(taskId, payload);
-        isSubmitted.current = true; // 🟢 1. NOTIFY USER (Custom Toast)
+        isSubmitted.current = true;
         addNotification(
           `Task Completed Successfully!${getNotificationContext()}`,
           "success"
         );
-
-        // 🟢 2. TRIGGER REFRESH (Remove task from Sidebar)
         refreshTasks();
-
-        // setShowModal(false);
         navigate("/", { replace: true });
       } catch (err: any) {
-        // 🟢 UPDATED: Handle 422 Business Logic Errors (e.g. Email failure)
         const msg = parseApiError(err);
         if (err.response?.status === 422) {
           addNotification(`${msg}${getNotificationContext()}`, "error");
@@ -909,8 +926,8 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   if (loading) {
     return (
       <div className="h-full w-full bg-canvas flex flex-col gap-6 p-6">
-        <div className="h-40 bg-surface rounded-xl border border-canvas-active animate-pulse"></div>
-        <div className="flex-1 bg-surface rounded-xl border border-canvas-active p-6">
+        <div className="h-40 bg-white rounded-xl border border-canvas-subtle animate-pulse shadow-soft"></div>
+        <div className="flex-1 bg-white rounded-xl border border-canvas-subtle p-6 shadow-soft">
           <FormSkeleton />
         </div>
       </div>
@@ -922,7 +939,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   return (
     <div className="h-full bg-canvas flex flex-col">
       <div className="flex-1 max-w-5xl mx-auto w-full p-4 md:p-6">
-        <div className="bg-surface rounded-xl shadow-soft border border-canvas-subtle overflow-hidden flex flex-col min-h-[600px] relative">
+        <div className="bg-white rounded-xl shadow-soft border border-canvas-subtle overflow-hidden flex flex-col min-h-[600px] relative">
           <TaskHeader taskData={taskData} />
 
           {!isUnassigned && (
@@ -934,23 +951,23 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           )}
 
           <div className="px-6 pt-6 pb-2">
-            <div className="inline-flex bg-canvas-subtle p-1 rounded-lg border border-canvas-active">
+            <div className="inline-flex bg-canvas-subtle p-1 rounded-lg border border-canvas-active shadow-soft">
               <button
                 onClick={() => handleTabChange("form")}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === "form"
                     ? "bg-white text-brand-600 shadow-sm"
-                    : "text-ink-tertiary hover:text-ink-secondary"
+                    : "text-neutral-600 hover:text-ink-primary"
                 }`}
               >
                 <i className="far fa-file-alt mr-2"></i> Details
               </button>
               <button
                 onClick={() => handleTabChange("history")}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeTab === "history"
                     ? "bg-white text-brand-600 shadow-sm"
-                    : "text-ink-tertiary hover:text-ink-secondary"
+                    : "text-neutral-600 hover:text-ink-primary"
                 }`}
               >
                 <i className="fas fa-history mr-2"></i> History
@@ -959,21 +976,16 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           </div>
 
           <div className="flex-1 p-6 relative">
-            {/* 🟢 CHANGED: We use a wrapper div with display:block/none instead of 
-                conditional rendering. This keeps the Form mounted so it doesn't 
-                lose the autoselected values when switching tabs. */}
             <div
               style={{
                 display: activeTab === "form" ? "block" : "none",
                 height: "100%",
               }}
             >
-              {/* Claim Overlay (Only visible if unassigned) */}
               {isUnassigned && (
                 <ClaimTaskOverlay onClaim={handleClaim} claiming={claiming} />
               )}
 
-              {/* The Form Itself */}
               <div
                 className={`transition-opacity duration-300 ${
                   isUnassigned
@@ -987,8 +999,8 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                     key={taskId}
                     form={mainFormSchema}
                     onFormReady={onFormReady}
-                    submission={memoizedSubmission} // Use memoized object
-                    options={memoizedOptions} // Use memoized options
+                    submission={memoizedSubmission}
+                    options={memoizedOptions}
                   />
                 ) : (
                   <NoFormState />
@@ -1000,9 +1012,13 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
               (historyLoading ? (
                 <HistorySkeleton />
               ) : history.length === 0 ? (
-                <div className="text-center py-20 text-ink-tertiary">
-                  <i className="far fa-calendar-times text-4xl mb-4 opacity-50"></i>
-                  <p>No history events recorded yet.</p>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-20 h-20 bg-canvas-subtle rounded-2xl flex items-center justify-center mb-4">
+                    <i className="far fa-calendar-times text-4xl text-neutral-300"></i>
+                  </div>
+                  <p className="text-neutral-500 font-medium">
+                    No history events recorded yet.
+                  </p>
                 </div>
               ) : (
                 <HistoryTimeline
@@ -1024,6 +1040,17 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         isReadOnly={isReadOnly}
         onSubmit={onSubFormSubmit}
       />
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(15px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
