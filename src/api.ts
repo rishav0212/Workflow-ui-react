@@ -130,11 +130,37 @@ export const fetchAdminProcesses = async () => {
   return res.data.data;
 };
 
-export const fetchProcessVersions = async (key: string) => {
+export const fetchProcessVersions = async (processKey: string) => {
+  // 1. Fetch the list of process definitions (Versions)
   const res = await api.get(
-    `/process-api/repository/process-definitions?key=${key}&sort=version&order=desc`
+    `/process-api/repository/process-definitions?key=${processKey}&sort=version&order=desc`
   );
-  return res.data.data;
+
+  const definitions = res.data.data;
+
+  // 2. 🟢 ENRICHMENT: Fetch Deployment details for each definition to get the comment
+  // We use Promise.all to fetch them in parallel so it's fast.
+  const enrichedDefinitions = await Promise.all(
+    definitions.map(async (def: any) => {
+      try {
+        // Fetch the deployment object using the ID found in the process definition
+        const deploymentRes = await api.get(
+          `/process-api/repository/deployments/${def.deploymentId}`
+        );
+
+        // Return the definition merged with the deployment name (where the comment lives)
+        return {
+          ...def,
+          deploymentName: deploymentRes.data.name, // This contains "Name - Comment"
+        };
+      } catch (err) {
+        // If deployment fetch fails, just return original def without name
+        return def;
+      }
+    })
+  );
+
+  return enrichedDefinitions;
 };
 
 export const fetchProcessXml = async (id: string) => {
@@ -144,15 +170,26 @@ export const fetchProcessXml = async (id: string) => {
   return res.data;
 };
 
-export const deployProcess = async (file: File, deploymentName: string) => {
+export const deployProcess = async (
+  file: File,
+  name: string,
+  comment?: string
+) => {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("deploymentName", deploymentName);
 
-  const res = await api.post("/process-api/repository/deployments", formData, {
+  // This sets the DEPLOYMENT name (Metadata only).
+  // It does NOT overwrite the XML process name.
+  const deploymentName = comment ? `${name} - ${comment}` : name;
+  formData.append("deployment-name", deploymentName);
+
+  // Note: Some engines require "deployment-source" to identify where it came from
+  formData.append("deployment-source", "Process Manager UI");
+
+  // Call your API endpoint (adjust URL as needed)
+  return await api.post("/process-api/repository/deployments", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return res.data;
 };
 
 export const fetchProcessInstances = async () => {
@@ -191,15 +228,21 @@ export const updateInstanceVariable = async (
 
 export const fetchAllSystemTasks = async (params = {}) => {
   const res = await api.get("/process-api/runtime/tasks", {
-    params: { size: 10, sort: "createTime", order: "desc", ...params }
+    params: { size: 10, sort: "createTime", order: "desc", ...params },
   });
   // Returning the whole object so we can access res.data.total
-  return res.data; 
+  return res.data;
 };
 
 export const fetchHistoricTasks = async (params = {}) => {
   const res = await api.get("/process-api/history/historic-task-instances", {
-    params: { finished: true, size: 10, sort: "endTime", order: "desc", ...params }
+    params: {
+      finished: true,
+      size: 10,
+      sort: "endTime",
+      order: "desc",
+      ...params,
+    },
   });
   return res.data;
 };
@@ -235,8 +278,6 @@ export const fetchHistoricProcessInstances = async (
   );
   return res.data.data;
 };
-
-
 
 export const fetchJobs = async (
   type: "timer" | "executable" | "deadletter" | "suspended"

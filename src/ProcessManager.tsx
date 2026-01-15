@@ -87,9 +87,25 @@ export default function ProcessManager() {
       return;
     }
 
+    // 🟢 NEW: Capture deployment comments
+    const comment = prompt(
+      "Enter deployment comments (e.g., 'Fixed bug in approval flow'):",
+      ""
+    );
+
+    // If user clicks Cancel in the prompt, abort the deployment
+    if (comment === null) {
+      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
+      return;
+    }
+
     try {
       setDeploying(true);
-      await deployProcess(file, file.name.replace(/\.[^/.]+$/, ""));
+      const processName = file.name.replace(/\.[^/.]+$/, "");
+
+      // 🟢 Pass the comment as a 3rd argument
+      await deployProcess(file, processName, comment);
+
       alert("Process deployed successfully!");
       loadProcesses();
     } catch (err) {

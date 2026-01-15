@@ -144,7 +144,7 @@ const TopHeader = ({
 
           {/* Notification Dropdown */}
           {showNotifMenu && (
-            <div className="absolute top-full right-0 mt-3 w-96 bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
+            <div className="absolute top-full right-0 mt-3 min-w-96 bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
               <div className="px-4 py-3 border-b border-canvas-subtle flex justify-between items-center bg-canvas-subtle">
                 <span className="font-bold text-[10px] uppercase text-neutral-600 tracking-widest">
                   Notifications
@@ -467,7 +467,7 @@ export default function App() {
               <Route path="/admin/processes" element={<ProcessManager />} />
               <Route
                 path="/admin/processes/:processKey"
-                element={<ProcessViewer />}
+                element={<ProcessViewer addNotification={addNotification}/>}
               />
               <Route path="/admin/instances" element={<InstanceManager />} />
               <Route path="/admin/tasks" element={<TaskSupervision />} />
