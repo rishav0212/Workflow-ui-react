@@ -205,7 +205,6 @@ export const fetchHistoricTasks = async (params = {}) => {
 };
 export const reassignTask = async (taskId: string, userId: string) => {
   return await api.post(`/process-api/runtime/tasks/${taskId}`, {
-    action: "delegate",
     assignee: userId,
   });
 };
