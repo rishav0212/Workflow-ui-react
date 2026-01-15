@@ -460,7 +460,7 @@ export default function App() {
               localStorage.removeItem("app_notifications");
             }}
           />
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 overflow-y-auto relative">
             <Routes>
               {/* ADMIN ROUTES */}
               <Route path="/admin" element={<AdminDashboard />} />

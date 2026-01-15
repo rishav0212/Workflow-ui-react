@@ -62,9 +62,10 @@ interface HistoryEvent {
   taskName: string;
   status: string;
   startTime: string;
-  endTime?: string;
+  endTime: string | null;
   formKey?: string;
   formSubmissionId?: string;
+  completedBy?: string;
 }
 
 // 🎨 ENHANCED: Refined Status Badges
@@ -413,10 +414,32 @@ const HistoryTimeline = memo(
     history: HistoryEvent[];
     onViewEvent: (e: HistoryEvent) => void;
   }) => {
-    const sortedHistory = [...history].sort(
-      (a, b) =>
-        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-    );
+    // 1. IMPROVED SORTING:
+    // Completed tasks sorted by EndTime (most recent first).
+    // Active tasks (null endTime) always stay at the very top.
+    const sortedHistory = [...history].sort((a, b) => {
+      if (!a.endTime && b.endTime) return -1;
+      if (a.endTime && !b.endTime) return 1;
+      if (!a.endTime && !b.endTime) {
+        return (
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        );
+      }
+      return new Date(b.endTime!).getTime() - new Date(a.endTime!).getTime();
+    });
+
+    // 2. DURATION FORMATTER: Converts ms to "Xd Xh Xm"
+    const formatDuration = (start: string, end: string | null) => {
+      if (!end) return null;
+      const ms = new Date(end).getTime() - new Date(start).getTime();
+      const minutes = Math.floor(ms / 60000);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) return `${days}d ${hours % 24}h`;
+      if (hours > 0) return `${hours}h ${minutes % 60}m`;
+      return `${minutes}m`;
+    };
 
     const getEventConfig = (event: any) => {
       const type = event.type || "";
@@ -457,7 +480,6 @@ const HistoryTimeline = memo(
 
     return (
       <div className="relative px-2 py-4">
-        {/* Timeline Line */}
         <div className="absolute top-0 bottom-0 left-[23px] w-[2px] bg-gradient-to-b from-canvas-active via-canvas-active/50 to-transparent"></div>
 
         <div className="space-y-4">
@@ -465,6 +487,7 @@ const HistoryTimeline = memo(
             const isCompleted = event.status === "COMPLETED";
             const hasData = !!event.formSubmissionId;
             const config = getEventConfig(event);
+            const duration = formatDuration(event.startTime, event.endTime);
 
             return (
               <div
@@ -508,9 +531,7 @@ const HistoryTimeline = memo(
                         </span>
                         <span
                           className={`text-[9px] font-bold uppercase ${
-                            isCompleted
-                              ? "text-status-success"
-                              : "text-brand-600"
+                            isCompleted ? "text-neutral-500" : "text-brand-600"
                           }`}
                         >
                           {event.status}
@@ -521,45 +542,50 @@ const HistoryTimeline = memo(
                       </h4>
                     </div>
 
-                    {/* Time Display */}
+                    {/* Time Display - Shows End Time if completed, else Start Time */}
                     <div className="text-right whitespace-nowrap">
                       <div className="text-sm font-bold text-ink-primary font-mono leading-none">
-                        {new Date(event.startTime).toLocaleTimeString([], {
+                        {new Date(
+                          event.endTime || event.startTime
+                        ).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </div>
                       <div className="text-[10px] font-medium text-neutral-500 mt-1">
-                        {new Date(event.startTime).toLocaleDateString(
-                          undefined,
-                          {
-                            day: "numeric",
-                            month: "short",
-                          }
-                        )}
+                        {new Date(
+                          event.endTime || event.startTime
+                        ).toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                        })}
                       </div>
                     </div>
                   </div>
 
                   {/* Footer */}
-                  {(event.endTime || hasData) && (
-                    <div className="mt-3 flex items-center justify-between border-t border-canvas-subtle pt-3">
-                      <div className="flex gap-3">
-                        {event.endTime && (
+                  {(isCompleted || hasData || event.completedBy) && (
+                    <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-3">
+                      <div className="flex items-center gap-4">
+                        {/* Duration Display */}
+                        {duration && (
                           <span className="text-[10px] text-neutral-500 flex items-center gap-1.5 font-medium">
-                            <i className="far fa-clock text-[9px]"></i>
-                            {Math.round(
-                              (new Date(event.endTime).getTime() -
-                                new Date(event.startTime).getTime()) /
-                                60000
-                            )}
-                            m
+                            <i className="far fa-hourglass text-[9px]"></i>
+                            {duration}
+                          </span>
+                        )}
+
+                        {/* Assignee Display */}
+                        {event.completedBy && (
+                          <span className="text-[10px] text-neutral-600 flex items-center gap-1.5 font-semibold bg-slate-100 px-2 py-0.5 rounded-full">
+                            <i className="fas fa-user-check text-[9px]"></i>
+                            {event.completedBy}
                           </span>
                         )}
                       </div>
 
                       {hasData && (
-                        <span className="text-[10px] font-bold text-brand-600 flex items-center gap-1.5 hover:underline">
+                        <span className="text-[10px] font-bold text-brand-600 flex items-center gap-1.5 hover:underline decoration-2 underline-offset-4">
                           <i className="fas fa-database text-[9px]"></i>
                           VIEW DATA
                         </span>

@@ -87,9 +87,10 @@ export const fetchSubmissionData = async (
   return res.data;
 };
 
-export const fetchTasks = async (assignee: string): Promise<Task[]> => {
+export const fetchTasks = async (user: string): Promise<Task[]> => {
+  // Using candidateOrAssigned is the standard way to fetch a user's full "Inbox"
   const res = await api.get(
-    `/process-api/runtime/tasks?assignee=${assignee}&size=1000&sort=createTime&order=desc`
+    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=1000&sort=createTime&order=desc`
   );
   return res.data.data;
 };
@@ -188,13 +189,20 @@ export const updateInstanceVariable = async (
   );
 };
 
-export const fetchAllSystemTasks = async () => {
-  const res = await api.get(
-    "/process-api/runtime/tasks?size=1000&sort=createTime&order=desc"
-  );
-  return res.data.data;
+export const fetchAllSystemTasks = async (params = {}) => {
+  const res = await api.get("/process-api/runtime/tasks", {
+    params: { size: 10, sort: "createTime", order: "desc", ...params }
+  });
+  // Returning the whole object so we can access res.data.total
+  return res.data; 
 };
 
+export const fetchHistoricTasks = async (params = {}) => {
+  const res = await api.get("/process-api/history/historic-task-instances", {
+    params: { finished: true, size: 10, sort: "endTime", order: "desc", ...params }
+  });
+  return res.data;
+};
 export const reassignTask = async (taskId: string, userId: string) => {
   return await api.post(`/process-api/runtime/tasks/${taskId}`, {
     action: "delegate",
@@ -229,12 +237,7 @@ export const fetchHistoricProcessInstances = async (
   return res.data.data;
 };
 
-export const fetchHistoricTasks = async () => {
-  const res = await api.get(
-    "/process-api/history/historic-task-instances?finished=true&size=1000&sort=endTime&order=desc"
-  );
-  return res.data.data;
-};
+
 
 export const fetchJobs = async (
   type: "timer" | "executable" | "deadletter" | "suspended"
