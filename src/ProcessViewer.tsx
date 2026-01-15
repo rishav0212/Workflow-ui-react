@@ -17,7 +17,8 @@ import {
   fetchHistoricActivitiesForDefinition,
   updateTaskActions,
   deployProcess,
-  parseApiError, // 🟢 Ensure this is imported
+  parseApiError,
+  migrateInstancesToVersion, // 🟢 NEW IMPORT
 } from "./api";
 import ActionEditorModal from "./ActionEditorModal";
 import FormSelectBuilderModal from "./FormSelectBuilderModal";
@@ -56,6 +57,9 @@ export default function ProcessViewer({ addNotification }: ProcessViewerProps) {
   // XML Editing State
   const [isEditingXml, setIsEditingXml] = useState(false);
   const [localXml, setLocalXml] = useState("");
+
+  // 🟢 NEW STATE: Migration Loading
+  const [isMigrating, setIsMigrating] = useState(false);
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const bpmnViewer = useRef<any>(null);
@@ -376,6 +380,72 @@ export default function ProcessViewer({ addNotification }: ProcessViewerProps) {
     }
   };
 
+  // 🟢 NEW FEATURE: Promote (Restore) an old version as latest
+  const handlePromoteVersion = async (version: any) => {
+    const confirm = window.confirm(
+      `Are you sure you want to promote v${version.version} to be the NEW latest version?`
+    );
+    if (!confirm) return;
+
+    try {
+      // Fetch the XML of the old version
+      const oldXml = await fetchProcessXml(version.id);
+
+      const blob = new Blob([oldXml], { type: "text/xml" });
+      const fileName = `${processKey}.bpmn20.xml`;
+      const file = new File([blob], fileName, { type: "text/xml" });
+
+      // Deploy it as a new version
+      await deployProcess(
+        file,
+        processKey || "unknown",
+        `Restored from v${version.version}`
+      );
+
+      addNotification(
+        `Successfully promoted v${version.version} to latest!`,
+        "success"
+      );
+
+      // Refresh list
+      const data = await fetchProcessVersions(processKey || "");
+      setVersions(data);
+      if (data.length > 0) setSelectedId(data[0].id); // Select the new latest
+    } catch (err) {
+      addNotification(
+        `Failed to promote version: ${parseApiError(err)}`,
+        "error"
+      );
+    }
+  };
+
+  // 🟢 NEW FEATURE: Migrate running instances
+  const handleMigrateInstances = async () => {
+    if (!processKey || !selectedId) return;
+
+    // Find the version number of the currently selected ID
+    const currentVer = versions.find((v) => v.id === selectedId)?.version;
+    if (!currentVer) return;
+
+    const confirm = window.confirm(
+      `DANGER ZONE:\n\nThis will move ALL active running instances from ANY older version to the currently selected version (v${currentVer}).\n\nAre you sure?`
+    );
+    if (!confirm) return;
+
+    setIsMigrating(true);
+    try {
+      const result = await migrateInstancesToVersion(processKey, currentVer);
+      addNotification(
+        result.message || "Migration completed successfully.",
+        "success"
+      );
+    } catch (err) {
+      addNotification(`Migration failed: ${parseApiError(err)}`, "error");
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-canvas overflow-hidden">
       <header className="bg-surface border-b border-canvas-active p-4 flex justify-between items-center shadow-soft z-10">
@@ -390,6 +460,21 @@ export default function ProcessViewer({ addNotification }: ProcessViewerProps) {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* 🟢 NEW: Migrate Button */}
+          <button
+            onClick={handleMigrateInstances}
+            disabled={isMigrating}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-[10px] font-black uppercase tracking-wider transition-all"
+            title="Move running instances to this version"
+          >
+            {isMigrating ? (
+              <i className="fas fa-circle-notch fa-spin"></i>
+            ) : (
+              <i className="fas fa-people-carry"></i>
+            )}
+            Migrate Active Instances
+          </button>
+
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
@@ -446,40 +531,56 @@ export default function ProcessViewer({ addNotification }: ProcessViewerProps) {
             </span>
             <div className="space-y-2">
               {versions.map((v, idx) => (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    setSelectedId(v.id);
-                    // Reset local edits when switching versions
-                    setIsEditingXml(false);
-                    setLocalXml("");
-                  }}
-                  className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
-                    selectedId === v.id
-                      ? "border-brand-500 bg-brand-50/30"
-                      : "border-canvas-subtle hover:bg-canvas-subtle/50"
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-sm">v{v.version}</span>
-                    {idx === 0 && (
-                      <span className="text-[8px] bg-sage-500 text-white px-1.5 py-0.5 rounded font-black">
-                        LATEST
-                      </span>
-                    )}
-                  </div>
-                  {v.deploymentName && (
-                    <div
-                      className="text-[10px] text-ink-secondary mt-1.5 italic border-l-2 border-brand-200 pl-2 py-0.5 truncate"
-                      title={v.deploymentName}
-                    >
-                      {v.deploymentName}
+                <div key={v.id} className="relative group">
+                  {/* Wrapped button in div for positioning the new action */}
+                  <button
+                    onClick={() => {
+                      setSelectedId(v.id);
+                      // Reset local edits when switching versions
+                      setIsEditingXml(false);
+                      setLocalXml("");
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                      selectedId === v.id
+                        ? "border-brand-500 bg-brand-50/30"
+                        : "border-canvas-subtle hover:bg-canvas-subtle/50"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-sm">v{v.version}</span>
+                      {idx === 0 && (
+                        <span className="text-[8px] bg-accent-500 text-white px-1.5 py-0.5 rounded font-black">
+                          LATEST
+                        </span>
+                      )}
                     </div>
+                    {v.deploymentName && (
+                      <div
+                        className="text-[10px] text-ink-secondary mt-1.5 italic border-l-2 border-brand-200 pl-2 py-0.5 truncate"
+                        title={v.deploymentName}
+                      >
+                        {v.deploymentName}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-ink-tertiary mt-1 font-mono opacity-60">
+                      ID: {v.deploymentId?.substring(0, 8)}
+                    </p>
+                  </button>
+
+                  {/* 🟢 NEW: Promote Button (Visible on hover or if selected, but not for latest) */}
+                  {idx !== 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePromoteVersion(v);
+                      }}
+                      className="absolute top-2 right-2 opacity-100 group-hover:opacity-100 bg-white text-accent-600 p-1.5 rounded-md shadow-sm border border-accent-400 hover:bg-brand-50 transition-all text-[10px]"
+                      title="Promote this version to Latest (Restage)"
+                    >
+                      <i className="fas fa-level-up-alt"></i> Restore
+                    </button>
                   )}
-                  <p className="text-[10px] text-ink-tertiary mt-1 font-mono opacity-60">
-                    ID: {v.deploymentId?.substring(0, 8)}
-                  </p>
-                </button>
+                </div>
               ))}
             </div>
           </div>

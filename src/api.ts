@@ -397,3 +397,15 @@ export const fetchAllForms = async () => {
   return Array.isArray(res.data) ? res.data : res.data.forms || [];
 };
 export default api;
+
+// Add this to your existing api.ts file
+
+export const migrateInstancesToVersion = async (
+  processKey: string,
+  version: number
+) => {
+  // 1. Use 'api.post' so the JWT token is attached automatically
+  // 2. Ensure path matches Controller: @RequestMapping("/api/admin")
+  const res = await api.post(`/api/admin/migrate/${processKey}/${version}`);
+  return res.data;
+};
