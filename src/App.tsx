@@ -302,11 +302,71 @@ const InboxLayout = ({
   );
 };
 
+// --- COMPONENT: Admin Guard ---
+const AdminGuard = ({
+  isUnlocked,
+  onUnlock,
+}: {
+  isUnlocked: boolean;
+  onUnlock: () => void;
+}) => {
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === "asdfghjkl") {
+      onUnlock();
+      toast.success("Admin Access Granted");
+    } else {
+      toast.error("Incorrect Admin Password");
+      setPassword("");
+    }
+  };
+
+  if (isUnlocked) {
+    return <Outlet />;
+  }
+
+  return (
+    <div className="flex-1 flex items-center justify-center bg-canvas">
+      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-600">
+            <i className="fas fa-lock"></i>
+          </div>
+          <h2 className="text-xl font-bold text-ink-primary">Admin Access</h2>
+          <p className="text-sm text-neutral-500 mt-2">
+            Enter password to continue
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
+            placeholder="Password"
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="w-full bg-brand-600 text-white font-bold py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-brand-sm"
+          >
+            Unlock
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Admin Security State
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     try {
@@ -462,23 +522,35 @@ export default function App() {
           />
           <div className="flex-1 overflow-y-auto relative">
             <Routes>
-              {/* ADMIN ROUTES */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/processes" element={<ProcessManager />} />
+              {/* ADMIN ROUTES - SECURED */}
               <Route
-                path="/admin/processes/:processKey"
-                element={<ProcessViewer addNotification={addNotification}/>}
-              />
-              <Route path="/admin/instances" element={<InstanceManager />} />
-              <Route path="/admin/tasks" element={<TaskSupervision />} />
-              <Route path="/admin/process-groups" element={<ProcessGroups />} />
-              <Route path="/admin/analytics" element={<AdminAnalytics />} />
-              <Route
-                path="/admin/inspect/:instanceId"
-                element={<InstanceInspector />}
-              />
-              <Route path="/admin/jobs" element={<JobManager />} />
-              <Route path="/admin/dmn" element={<DmnViewer />} />
+                element={
+                  <AdminGuard
+                    isUnlocked={adminUnlocked}
+                    onUnlock={() => setAdminUnlocked(true)}
+                  />
+                }
+              >
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/processes" element={<ProcessManager />} />
+                <Route
+                  path="/admin/processes/:processKey"
+                  element={<ProcessViewer addNotification={addNotification} />}
+                />
+                <Route path="/admin/instances" element={<InstanceManager />} />
+                <Route path="/admin/tasks" element={<TaskSupervision />} />
+                <Route
+                  path="/admin/process-groups"
+                  element={<ProcessGroups />}
+                />
+                <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                <Route
+                  path="/admin/inspect/:instanceId"
+                  element={<InstanceInspector />}
+                />
+                <Route path="/admin/jobs" element={<JobManager />} />
+                <Route path="/admin/dmn" element={<DmnViewer />} />
+              </Route>
 
               {/* USER ROUTES */}
               <Route
