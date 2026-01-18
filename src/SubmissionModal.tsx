@@ -251,7 +251,7 @@ export default function SubmissionModal({
       };
       fetchData();
     }
-  }, [isOpen, formKey, submissionId]);
+  }, [isOpen, formKey, submissionId, initialData]);
 
   if (!isOpen) return null;
 
