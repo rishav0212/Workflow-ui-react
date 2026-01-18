@@ -615,6 +615,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
 
   // State
   const [taskData, setTaskData] = useState<any>(null);
+  const [taskVariables, setTaskVariables] = useState<Record<string, any>>({});
   const [mainFormSchema, setMainFormSchema] = useState<any>(null);
   const [buttons, setButtons] = useState<ActionButton[]>([]);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
@@ -736,6 +737,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       }
 
       setTaskData(data);
+      setTaskVariables(data.variables || {});
       let bpmnButtons = null;
 
       if (data.data && data.data.externalActions) {
@@ -1062,7 +1064,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         title={modalTitle}
         formKey={selectedFormKey}
         submissionId={selectedSubmissionId}
-        initialData={{ data: taskData?.data }}
+        initialData={{ data: taskVariables }}
         isReadOnly={isReadOnly}
         onSubmit={onSubFormSubmit}
       />
