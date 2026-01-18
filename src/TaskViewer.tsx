@@ -737,7 +737,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       }
 
       setTaskData(data);
-      setTaskVariables(data.variables || {});
+      setTaskVariables(data.data || {});
       let bpmnButtons = null;
 
       if (data.data && data.data.externalActions) {
