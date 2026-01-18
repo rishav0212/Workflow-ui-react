@@ -238,6 +238,10 @@ export default function SubmissionModal({
           } else {
             setSubmission(initialData || { data: {} });
           }
+
+          console.log("Modal Schema Loaded:", schemaData);
+          console.log("Modal data:", submission);
+          console.log("Initial data:", initialData);
         } catch (err: any) {
           console.error("Modal Data Fetch Error:", err);
           setError(parseApiError(err));
