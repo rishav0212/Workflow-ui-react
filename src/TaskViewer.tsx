@@ -965,7 +965,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   return (
     <div className="h-full bg-canvas flex flex-col">
       <div className="flex-1 max-w-5xl mx-auto w-full p-4 md:p-6">
-        <div className="bg-white rounded-xl shadow-soft border border-canvas-subtle overflow-hidden flex flex-col min-h-[600px] relative">
+        <div className="bg-white rounded-xl shadow-soft border border-canvas-subtle flex flex-col min-h-[600px] relative">
           <TaskHeader taskData={taskData} />
 
           {!isUnassigned && (
@@ -1001,7 +1001,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
             </div>
           </div>
 
-          <div className="flex-1 p-6 relative">
+          <div className="flex-1 p-20 relative">
             <div
               style={{
                 display: activeTab === "form" ? "block" : "none",

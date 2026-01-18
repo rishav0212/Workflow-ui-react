@@ -27,6 +27,7 @@ import AdminAnalytics from "./AdminAnalytics";
 import JobManager from "./JobManager";
 import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
+import { ViewBuilder } from "./components/Views/ViewBuilder";
 
 interface User {
   username: string;
@@ -550,6 +551,7 @@ export default function App() {
                 />
                 <Route path="/admin/jobs" element={<JobManager />} />
                 <Route path="/admin/dmn" element={<DmnViewer />} />
+                <Route path="/admin/view-builder" element={<ViewBuilder />} />
               </Route>
 
               {/* USER ROUTES */}
