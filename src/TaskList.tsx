@@ -18,12 +18,28 @@ interface TaskListProps {
 }
 
 const timeAgo = (dateStr: string) => {
+  if (!dateStr) return "";
+  
   const date = new Date(dateStr);
   const now = new Date();
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) return "Invalid Date";
+
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  // FIX: Handle future dates (negative diff) caused by clock skew
+  if (diff < 0) return "Just now"; 
+
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  
+  // Optional: Show actual date if older than 7 days
+  if (diff > 604800) {
+      return date.toLocaleDateString();
+  }
+  
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
