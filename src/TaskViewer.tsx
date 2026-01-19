@@ -713,7 +713,8 @@ const onFormReady = useCallback(
 
             // 4. Log the condition check for Auto-Select
             const isSingle = comp.selectOptions.length === 1;
-            const isEmpty = !comp.dataValue;
+            const val = comp.dataValue;
+            const isEmpty = !val || (typeof val === 'object' && Object.keys(val).length === 0);
 
             console.log(
               `   [DEBUG] [${comp.key}] Logic Check -> Single Option? ${isSingle} | Is Empty? ${isEmpty}`
