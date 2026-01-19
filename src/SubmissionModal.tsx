@@ -195,6 +195,7 @@ export default function SubmissionModal({
     [makeCaseInsensitive]
   );
 
+
   const fixUrls = (components: any[]) => {
     if (!components) return;
     components.forEach((comp: any) => {

@@ -671,29 +671,62 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     });
   }, []);
 
-  const onFormReady = useCallback(
+const onFormReady = useCallback(
     (instance: any) => {
+      // 1. Log when form is ready
+      console.log("🚀 [DEBUG] onFormReady triggered");
+
       const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") selectComponents.push(comp);
       });
+
+      // 2. Log which components were found
+      console.log(
+        `🔎 [DEBUG] Found ${selectComponents.length} select components:`,
+        selectComponents.map((c) => c.key)
+      );
 
       selectComponents.forEach((comp) => {
         const pollInterval = 100;
         const maxWait = 10000;
         let elapsedTime = 0;
 
+        console.log(`⏳ [DEBUG] Polling started for: ${comp.key}`);
+
         const intervalId = setInterval(() => {
           elapsedTime += pollInterval;
 
+          // 3. Check if options have arrived
           if (comp.selectOptions && comp.selectOptions.length > 0) {
+            console.log(
+              `✅ [DEBUG] Options loaded for [${comp.key}] after ${elapsedTime}ms. Count: ${comp.selectOptions.length}`
+            );
+            console.log(
+              `   [DEBUG] [${comp.key}] Current dataValue:`,
+              JSON.parse(JSON.stringify(comp.dataValue || "NULL")) // Safe log
+            );
+
             comp.selectOptions = comp.selectOptions.map((opt: any) =>
               makeCaseInsensitive(opt)
             );
 
-            if (comp.selectOptions.length === 1 && !comp.dataValue) {
+            // 4. Log the condition check for Auto-Select
+            const isSingle = comp.selectOptions.length === 1;
+            const isEmpty = !comp.dataValue;
+
+            console.log(
+              `   [DEBUG] [${comp.key}] Logic Check -> Single Option? ${isSingle} | Is Empty? ${isEmpty}`
+            );
+
+            if (isSingle && isEmpty) {
               const firstOption = comp.selectOptions[0];
               const newValue = firstOption.value;
+
+              console.log(
+                `🎯 [DEBUG] Auto-selecting value for [${comp.key}]:`,
+                newValue
+              );
 
               comp.setValue(newValue);
               comp.triggerChange();
@@ -708,17 +741,23 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                   },
                 };
               });
+            } else {
+              console.log(
+                `⏭️ [DEBUG] Skipping auto-select for [${comp.key}]. (Either multiple options or value already exists)`
+              );
             }
             clearInterval(intervalId);
           }
 
-          if (elapsedTime >= maxWait) clearInterval(intervalId);
+          if (elapsedTime >= maxWait) {
+            console.warn(`❌ [DEBUG] Timeout waiting for options: ${comp.key}`);
+            clearInterval(intervalId);
+          }
         }, pollInterval);
       });
     },
     [makeCaseInsensitive]
   );
-
   const loadTask = useCallback(async () => {
     if (isSubmitted.current) return;
     try {
