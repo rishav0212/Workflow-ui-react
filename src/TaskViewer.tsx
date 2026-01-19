@@ -548,6 +548,7 @@ const HistoryTimeline = memo(
                         {new Date(
                           event.endTime || event.startTime
                         ).toLocaleTimeString([], {
+                          timeZone: "UTC",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
