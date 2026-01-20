@@ -96,7 +96,7 @@ const StatusBadge = memo(
         {label}
       </span>
     );
-  }
+  },
 );
 
 const DataField = memo(
@@ -118,7 +118,7 @@ const DataField = memo(
         <span className="truncate">{value}</span>
       </div>
     </div>
-  )
+  ),
 );
 
 // 🎨 ENHANCED: Premium Form Skeleton
@@ -323,7 +323,7 @@ const ActionToolbar = memo(
               disabled={disabled}
               onClick={() => onActionClick(btn)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getBtnStyle(
-                btn.color
+                btn.color,
               )}`}
             >
               <i className={btn.icon}></i>
@@ -367,7 +367,7 @@ const ActionToolbar = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 // 🎨 ENHANCED: Premium Claim Overlay
@@ -402,7 +402,7 @@ const ClaimTaskOverlay = memo(
         </button>
       </div>
     </div>
-  )
+  ),
 );
 
 // 🎨 ENHANCED: Refined History Timeline
@@ -546,7 +546,7 @@ const HistoryTimeline = memo(
                     <div className="text-right whitespace-nowrap">
                       <div className="text-sm font-bold text-ink-primary font-mono leading-none">
                         {new Date(
-                          event.endTime || event.startTime
+                          event.endTime || event.startTime,
                         ).toLocaleTimeString([], {
                           timeZone: "UTC",
                           hour: "2-digit",
@@ -555,7 +555,7 @@ const HistoryTimeline = memo(
                       </div>
                       <div className="text-[10px] font-medium text-neutral-500 mt-1">
                         {new Date(
-                          event.endTime || event.startTime
+                          event.endTime || event.startTime,
                         ).toLocaleDateString(undefined, {
                           day: "numeric",
                           month: "short",
@@ -600,7 +600,7 @@ const HistoryTimeline = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 // =============================================================================
@@ -635,7 +635,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [modalTitle, setModalTitle] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [selectedAction, setSelectedAction] = useState<ActionButton | null>(
-    null
+    null,
   );
   const [submitting, setSubmitting] = useState(false);
 
@@ -663,7 +663,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         if (typeof prop === "string") {
           const lowerProp = prop.toLowerCase();
           const actualKey = Object.keys(target).find(
-            (k) => k.toLowerCase() === lowerProp
+            (k) => k.toLowerCase() === lowerProp,
           );
           if (actualKey) return target[actualKey];
         }
@@ -672,7 +672,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     });
   }, []);
 
-const onFormReady = useCallback(
+  const onFormReady = useCallback(
     (instance: any) => {
       // 1. Log when form is ready
       console.log("🚀 [DEBUG] onFormReady triggered");
@@ -685,7 +685,7 @@ const onFormReady = useCallback(
       // 2. Log which components were found
       console.log(
         `🔎 [DEBUG] Found ${selectComponents.length} select components:`,
-        selectComponents.map((c) => c.key)
+        selectComponents.map((c) => c.key),
       );
 
       selectComponents.forEach((comp) => {
@@ -701,24 +701,26 @@ const onFormReady = useCallback(
           // 3. Check if options have arrived
           if (comp.selectOptions && comp.selectOptions.length > 0) {
             console.log(
-              `✅ [DEBUG] Options loaded for [${comp.key}] after ${elapsedTime}ms. Count: ${comp.selectOptions.length}`
+              `✅ [DEBUG] Options loaded for [${comp.key}] after ${elapsedTime}ms. Count: ${comp.selectOptions.length}`,
             );
             console.log(
               `   [DEBUG] [${comp.key}] Current dataValue:`,
-              JSON.parse(JSON.stringify(comp.dataValue || "NULL")) // Safe log
+              JSON.parse(JSON.stringify(comp.dataValue || "NULL")), // Safe log
             );
 
             comp.selectOptions = comp.selectOptions.map((opt: any) =>
-              makeCaseInsensitive(opt)
+              makeCaseInsensitive(opt),
             );
 
             // 4. Log the condition check for Auto-Select
             const isSingle = comp.selectOptions.length === 1;
             const val = comp.dataValue;
-            const isEmpty = !val || (typeof val === 'object' && Object.keys(val).length === 0);
+            const isEmpty =
+              !val ||
+              (typeof val === "object" && Object.keys(val).length === 0);
 
             console.log(
-              `   [DEBUG] [${comp.key}] Logic Check -> Single Option? ${isSingle} | Is Empty? ${isEmpty}`
+              `   [DEBUG] [${comp.key}] Logic Check -> Single Option? ${isSingle} | Is Empty? ${isEmpty}`,
             );
 
             if (isSingle && isEmpty) {
@@ -727,7 +729,7 @@ const onFormReady = useCallback(
 
               console.log(
                 `🎯 [DEBUG] Auto-selecting value for [${comp.key}]:`,
-                newValue
+                newValue,
               );
 
               comp.setValue(newValue);
@@ -745,7 +747,7 @@ const onFormReady = useCallback(
               });
             } else {
               console.log(
-                `⏭️ [DEBUG] Skipping auto-select for [${comp.key}]. (Either multiple options or value already exists)`
+                `⏭️ [DEBUG] Skipping auto-select for [${comp.key}]. (Either multiple options or value already exists)`,
               );
             }
             clearInterval(intervalId);
@@ -758,7 +760,7 @@ const onFormReady = useCallback(
         }, pollInterval);
       });
     },
-    [makeCaseInsensitive]
+    [makeCaseInsensitive],
   );
   const loadTask = useCallback(async () => {
     if (isSubmitted.current) return;
@@ -805,7 +807,7 @@ const onFormReady = useCallback(
         if (!bpmnButtons) {
           const components = schema.components || [];
           const configComp = components.find(
-            (c: any) => c.key === "externalActions"
+            (c: any) => c.key === "externalActions",
           );
           if (configComp?.defaultValue) {
             const parsedButtons =
@@ -843,7 +845,7 @@ const onFormReady = useCallback(
       console.error(err);
       addNotification(
         `History unavailable: ${parseApiError(err)}${getNotificationContext()}`,
-        "error"
+        "error",
       );
     } finally {
       setHistoryLoading(false);
@@ -859,7 +861,7 @@ const onFormReady = useCallback(
       refreshTasks();
       addNotification(
         `Task assigned to you successfully.${getNotificationContext()}`,
-        "success"
+        "success",
       );
     } catch (err: any) {
       console.error(err);
@@ -867,12 +869,12 @@ const onFormReady = useCallback(
       if (err.response?.status === 409) {
         addNotification(
           `Conflict: This task is already owned by another user.${getNotificationContext()}`,
-          "error"
+          "error",
         );
       } else {
         addNotification(
           `Claim failed: ${msg}${getNotificationContext()}`,
-          "error"
+          "error",
         );
       }
       navigate("/", { replace: true });
@@ -920,11 +922,11 @@ const onFormReady = useCallback(
       } else {
         addNotification(
           `Form Key not found for history. [Task: ${event.taskName} | ID: ${event.taskId}]`,
-          "error"
+          "error",
         );
       }
     },
-    [addNotification]
+    [addNotification],
   );
 
   const onSubFormSubmit = useCallback(
@@ -942,7 +944,7 @@ const onFormReady = useCallback(
         isSubmitted.current = true;
         addNotification(
           `Task Completed Successfully!${getNotificationContext()}`,
-          "success"
+          "success",
         );
         refreshTasks();
         navigate("/", { replace: true });
@@ -953,7 +955,7 @@ const onFormReady = useCallback(
         } else {
           addNotification(
             `Submission failed: ${msg}${getNotificationContext()}`,
-            "error"
+            "error",
           );
         }
       } finally {
@@ -968,7 +970,7 @@ const onFormReady = useCallback(
       refreshTasks,
       navigate,
       getNotificationContext,
-    ]
+    ],
   );
 
   const handleTabChange = (tab: "form" | "history") => {
@@ -1108,6 +1110,7 @@ const onFormReady = useCallback(
         initialData={{ data: taskVariables }}
         isReadOnly={isReadOnly}
         onSubmit={onSubFormSubmit}
+        isSubmitting={submitting}
       />
 
       <style>{`

@@ -16,6 +16,7 @@ interface SubmissionModalProps {
   initialData?: any;
   isReadOnly?: boolean;
   onSubmit?: (submission: any) => void;
+  isSubmitting?: boolean;
 }
 
 export default function SubmissionModal({
@@ -27,6 +28,7 @@ export default function SubmissionModal({
   initialData,
   isReadOnly = true,
   onSubmit,
+  isSubmitting = false,
 }: SubmissionModalProps) {
   const [schema, setSchema] = useState<any>(null);
   const [submission, setSubmission] = useState<any>(null);
@@ -262,6 +264,19 @@ export default function SubmissionModal({
         onClick={onClose}
       ></div>
       <div className="relative bg-surface rounded-xl shadow-premium w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp border border-canvas-subtle">
+        {isSubmitting && (
+          <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center animate-fadeIn ">
+            <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-4 shadow-brand-sm border border-brand-100 animate-bounce-slow">
+              <i className="fas fa-circle-notch fa-spin text-2xl text-brand-600"></i>
+            </div>
+            <h3 className="text-xl font-serif font-bold text-ink-primary mb-1">
+              Submitting...
+            </h3>
+            <p className="text-sm text-neutral-500 font-medium">
+              Please wait while we process your request.
+            </p>
+          </div>
+        )}{" "}
         <div className="flex items-center justify-between px-6 py-4 border-b border-canvas-subtle bg-surface-elevated">
           <h2 className="text-lg font-serif font-bold text-ink-primary">
             {title}
@@ -273,7 +288,6 @@ export default function SubmissionModal({
             <i className="fas fa-times"></i>
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto p-6 bg-surface">
           {loading ? (
             <div className="space-y-6 animate-pulse">
