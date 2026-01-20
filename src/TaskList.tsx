@@ -19,27 +19,27 @@ interface TaskListProps {
 
 const timeAgo = (dateStr: string) => {
   if (!dateStr) return "";
-  
+
   const date = new Date(dateStr);
   const now = new Date();
-  
+
   // Check if date is valid
   if (isNaN(date.getTime())) return "Invalid Date";
 
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   // FIX: Handle future dates (negative diff) caused by clock skew
-  if (diff < 0) return "Just now"; 
+  if (diff < 0) return "Just now";
 
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  
+
   // Optional: Show actual date if older than 7 days
   if (diff > 604800) {
-      return date.toLocaleDateString();
+    return date.toLocaleDateString();
   }
-  
+
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
@@ -111,7 +111,13 @@ export default function TaskList({
   const navigate = useNavigate();
   const { taskId: activeTaskId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-
+  const [tooltip, setTooltip] = useState({
+    opacity: 0, // Control visibility via CSS opacity
+    x: 0,
+    y: 0,
+    text: "",
+    isVisible: false, // Logical state to prevent clicking/interactions
+  });
   const searchQuery = searchParams.get("q") || "";
   const filterPriority = searchParams.get("priority") === "true";
   const filterTaskName = searchParams.get("category") || "all";
@@ -171,7 +177,7 @@ export default function TaskList({
 
   const uniqueTaskNames = useMemo(() => {
     const names = new Set(
-      tasks.map((t) => t.name).filter((n): n is string => !!n)
+      tasks.map((t) => t.name).filter((n): n is string => !!n),
     );
     return Array.from(names).sort();
   }, [tasks]);
@@ -561,13 +567,36 @@ export default function TaskList({
                   </div>
 
                   <div className="flex justify-between items-end gap-2 pl-5">
-                    <p className="text-sm text-neutral-600 truncate flex-1 leading-relaxed">
-                      {task.description || (
-                        <span className="text-neutral-400 italic">
-                          No description
-                        </span>
-                      )}
-                    </p>
+                    <div
+                      className="flex-1 min-w-0 cursor-help py-1" // Added py-1 to increase hover target area
+                      onMouseEnter={(e) => {
+                        if (!task.description) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltip({
+                          opacity: 1,
+                          x: rect.left,
+                          y: rect.bottom + 6, // 6px gap
+                          text: task.description,
+                          isVisible: true,
+                        });
+                      }}
+                      onMouseLeave={() => {
+                        // Only hide opacity, keep position/text stable for the fade-out anim
+                        setTooltip((prev) => ({
+                          ...prev,
+                          opacity: 0,
+                          isVisible: false,
+                        }));
+                      }}
+                    >
+                      <p className="text-sm text-neutral-600 truncate leading-relaxed">
+                        {task.description || (
+                          <span className="text-neutral-400 italic">
+                            No description
+                          </span>
+                        )}
+                      </p>
+                    </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {isHighPriority && (
@@ -593,6 +622,32 @@ export default function TaskList({
             })}
           </div>
         )}
+      </div>
+      <div
+        className="fixed z-[100] max-w-96 pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
+        style={{
+          top: tooltip.y,
+          left: tooltip.x,
+          opacity: tooltip.opacity,
+          transform:
+            tooltip.opacity === 1
+              ? "translateY(0) scale(1)"
+              : "translateY(4px) scale(0.98)",
+        }}
+      >
+        <div className="relative bg-accent-50/95 backdrop-blur-md rounded-xl shadow-premium border border-accent-100 ring-1 ring-accent-200/50 p-3.5">
+          {/* Decorative Left Bar (Plum) */}
+          <div className="absolute top-3 bottom-3 left-0 w-[3px] bg-accent-500 rounded-r-full"></div>
+
+          <div className="pl-3">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-accent-900 font-medium">
+              {tooltip.text}
+            </p>
+          </div>
+
+          {/* Arrow (Color matched to accent-50) */}
+          <div className="absolute -top-1.5 left-6 w-3 h-3 bg-accent-50 border-t border-l border-accent-100 rotate-45 transform"></div>
+        </div>
       </div>
 
       <style>{`
