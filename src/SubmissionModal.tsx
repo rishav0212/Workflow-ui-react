@@ -47,7 +47,7 @@ export default function SubmissionModal({
         if (typeof prop === "string") {
           const lowerProp = prop.toLowerCase();
           const actualKey = Object.keys(target).find(
-            (k) => k.toLowerCase() === lowerProp
+            (k) => k.toLowerCase() === lowerProp,
           );
           if (actualKey) return target[actualKey];
         }
@@ -83,7 +83,7 @@ export default function SubmissionModal({
             const currentValue = comp.dataValue;
             console.log(
               `Current comp.dataValue:`,
-              JSON.parse(JSON.stringify(currentValue || "NULL"))
+              JSON.parse(JSON.stringify(currentValue || "NULL")),
             );
 
             // 2. Inspect Raw Options
@@ -111,7 +111,7 @@ export default function SubmissionModal({
                 console.log(`   [Unique] Added Opt ${idx} (Key: ${valueKey})`);
               } else {
                 console.log(
-                  `   [Duplicate] Skipped Opt ${idx} (Key: ${valueKey})`
+                  `   [Duplicate] Skipped Opt ${idx} (Key: ${valueKey})`,
                 );
               }
             });
@@ -141,7 +141,7 @@ export default function SubmissionModal({
               }
 
               console.log(
-                `Decision Check: Empty? ${isValueEmpty}, Matches? ${alreadyMatches}`
+                `Decision Check: Empty? ${isValueEmpty}, Matches? ${alreadyMatches}`,
               );
 
               // 🟢 ACTION: If empty OR matches (we force it to ensure UI sync)
@@ -170,13 +170,13 @@ export default function SubmissionModal({
                 }, 100);
               } else {
                 console.warn(
-                  `🛑 [DEBUG] Conflict: Value is set to something else. Stopping.`
+                  `🛑 [DEBUG] Conflict: Value is set to something else. Stopping.`,
                 );
                 clearInterval(intervalId);
               }
             } else if (uniqueOptions.length > 0) {
               console.log(
-                `🛑 [DEBUG] Multiple unique options found (${uniqueOptions.length}). User must select.`
+                `🛑 [DEBUG] Multiple unique options found (${uniqueOptions.length}). User must select.`,
               );
               clearInterval(intervalId);
             }
@@ -192,9 +192,8 @@ export default function SubmissionModal({
         }, pollInterval);
       });
     },
-    [makeCaseInsensitive]
+    [makeCaseInsensitive],
   );
-
 
   const fixUrls = (components: any[]) => {
     if (!components) return;
@@ -306,6 +305,7 @@ export default function SubmissionModal({
               submission={submission}
               onFormReady={onFormReady}
               onSubmit={onSubmit}
+              options={{ noAlerts: true, readOnly: isReadOnly }}
             />
           )}
         </div>
