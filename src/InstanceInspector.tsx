@@ -163,7 +163,7 @@ export default function InstanceInspector() {
     <div className="h-full flex flex-col bg-canvas overflow-hidden font-sans">
       <div className="flex-1 flex overflow-hidden relative">
         {/* LEFT SIDEBAR */}
-        <div className="w-80 bg-surface border-r border-canvas-active flex flex-col z-20 shadow-xl">
+        <div className="w-96 bg-surface border-r border-canvas-active flex flex-col z-20 shadow-xl">
           <div className="p-5 border-b border-canvas-active bg-surface-elevated">
             <h3 className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest flex items-center gap-2">
               <i className="fas fa-history"></i> Business Log
