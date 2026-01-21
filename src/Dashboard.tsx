@@ -42,7 +42,7 @@ export default function Dashboard({
         // 🟢 Show error toast
         addNotification(
           `Failed to load dashboard stats: ${parseApiError(err)}`,
-          "error"
+          "error",
         );
       });
   }, [addNotification]);
@@ -60,7 +60,7 @@ export default function Dashboard({
       // 🟢 Show error toast
       addNotification(
         `Failed to load task history: ${parseApiError(err)}`,
-        "error"
+        "error",
       );
     } finally {
       setLoadingHistory(false);
@@ -164,7 +164,7 @@ export default function Dashboard({
                     <i className="fas fa-arrow-right opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-1"></i>
                   </p>
                 </div>
-              )
+              ),
             )}
           </div>
         )}
@@ -272,7 +272,7 @@ export default function Dashboard({
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() =>
-                          navigate(`/inspect/inspect/`)
+                          navigate(`/inspect/instance?taskId=${t.id}`)
                         }
                         className="text-orange-600 text-xs font-bold hover:text-orange-700 hover:underline"
                       >
