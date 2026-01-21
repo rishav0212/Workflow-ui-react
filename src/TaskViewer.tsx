@@ -13,13 +13,14 @@ import api, {
   fetchTaskRender,
   fetchFormSchema,
   submitTask,
-  fetchProcessHistory,
-  fetchSubmissionData,
   claimTask,
   parseApiError,
 } from "./api";
 import SubmissionModal from "./SubmissionModal";
 import { FORM_IO_API_URL } from "./config";
+import type { HistoryEvent } from "./types";
+import HistoryTimeline from "./components/process/HistoryTimeline";
+import ProcessDiagram from "./components/process/ProcessDiagram";
 
 // --- INTERFACE FOR OUTLET CONTEXT ---
 interface GlobalContext {
@@ -27,6 +28,13 @@ interface GlobalContext {
   addNotification: (msg: string, type: "success" | "error" | "info") => void;
 }
 
+const TABS = [
+  { id: "form", label: "Details", icon: "far fa-file-alt" },
+  { id: "history", label: "History", icon: "fas fa-history" },
+  { id: "path", label: "Path", icon: "fas fa-map-signs" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 const fixUrls = (components: any[]) => {
   if (!components) return;
   components.forEach((comp: any) => {
@@ -55,17 +63,6 @@ interface ActionButton {
   icon: string;
   color: string;
   variables?: Record<string, any>;
-}
-
-interface HistoryEvent {
-  taskId: string;
-  taskName: string;
-  status: string;
-  startTime: string;
-  endTime: string | null;
-  formKey?: string;
-  formSubmissionId?: string;
-  completedBy?: string;
 }
 
 // 🎨 ENHANCED: Refined Status Badges
@@ -153,29 +150,6 @@ const NoFormState = memo(() => (
     <p className="text-sm text-neutral-500 max-w-xs mx-auto">
       This task does not have a specific form attached to it.
     </p>
-  </div>
-));
-
-// 🎨 ENHANCED: History Skeleton with Better Animation
-const HistorySkeleton = memo(() => (
-  <div className="pl-4 border-l-2 border-canvas-active space-y-6 mt-4">
-    {[1, 2, 3].map((i) => (
-      <div
-        key={i}
-        className="relative pl-6"
-        style={{
-          animationDelay: `${i * 100}ms`,
-          opacity: 0,
-          animation: "fadeIn 0.4s ease-out forwards",
-        }}
-      >
-        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-neutral-200 animate-pulse"></div>
-        <div className="space-y-2">
-          <div className="h-3 bg-neutral-200 rounded w-24 animate-pulse"></div>
-          <div className="h-4 bg-neutral-100 rounded w-48 animate-pulse"></div>
-        </div>
-      </div>
-    ))}
   </div>
 ));
 
@@ -404,205 +378,6 @@ const ClaimTaskOverlay = memo(
     </div>
   ),
 );
-
-// 🎨 ENHANCED: Refined History Timeline
-const HistoryTimeline = memo(
-  ({
-    history,
-    onViewEvent,
-  }: {
-    history: HistoryEvent[];
-    onViewEvent: (e: HistoryEvent) => void;
-  }) => {
-    // 1. IMPROVED SORTING:
-    // Completed tasks sorted by EndTime (most recent first).
-    // Active tasks (null endTime) always stay at the very top.
-    const sortedHistory = [...history].sort((a, b) => {
-      if (!a.endTime && b.endTime) return -1;
-      if (a.endTime && !b.endTime) return 1;
-      if (!a.endTime && !b.endTime) {
-        return (
-          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-        );
-      }
-      return new Date(b.endTime!).getTime() - new Date(a.endTime!).getTime();
-    });
-
-    // 2. DURATION FORMATTER: Converts ms to "Xd Xh Xm"
-    const formatDuration = (start: string, end: string | null) => {
-      if (!end) return null;
-      const ms = new Date(end).getTime() - new Date(start).getTime();
-      const minutes = Math.floor(ms / 60000);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-
-      if (days > 0) return `${days}d ${hours % 24}h`;
-      if (hours > 0) return `${hours}h ${minutes % 60}m`;
-      return `${minutes}m`;
-    };
-
-    const getEventConfig = (event: any) => {
-      const type = event.type || "";
-      const name = (event.taskName || "").toLowerCase();
-
-      if (type === "startEvent")
-        return {
-          icon: "fas fa-play",
-          label: "START",
-          color: "text-status-success",
-          bg: "bg-status-success/10",
-          border: "border-status-success/20",
-        };
-      if (type === "endEvent")
-        return {
-          icon: "fas fa-check-double",
-          label: "END",
-          color: "text-neutral-600",
-          bg: "bg-neutral-100",
-          border: "border-neutral-200",
-        };
-      if (name.includes("email") || type === "serviceTask")
-        return {
-          icon: "fas fa-envelope",
-          label: "EMAIL",
-          color: "text-status-info",
-          bg: "bg-status-info/10",
-          border: "border-status-info/20",
-        };
-      return {
-        icon: "fas fa-user",
-        label: "TASK",
-        color: "text-brand-500",
-        bg: "bg-brand-50",
-        border: "border-brand-100",
-      };
-    };
-
-    return (
-      <div className="relative px-2 py-4">
-        <div className="absolute top-0 bottom-0 left-[23px] w-[2px] bg-gradient-to-b from-canvas-active via-canvas-active/50 to-transparent"></div>
-
-        <div className="space-y-4">
-          {sortedHistory.map((event: any, idx) => {
-            const isCompleted = event.status === "COMPLETED";
-            const hasData = !!event.formSubmissionId;
-            const config = getEventConfig(event);
-            const duration = formatDuration(event.startTime, event.endTime);
-
-            return (
-              <div
-                key={idx}
-                className="relative pl-12 group"
-                style={{
-                  animationDelay: `${idx * 50}ms`,
-                  opacity: 0,
-                  animation: "slideUp 0.3s ease-out forwards",
-                }}
-              >
-                {/* Icon Marker */}
-                <div className="absolute left-0 top-2 w-12 h-full flex justify-center">
-                  <div
-                    className={`z-10 w-8 h-8 rounded-full border-2 bg-white flex items-center justify-center shadow-soft transition-all ${
-                      isCompleted
-                        ? "border-neutral-200"
-                        : "border-brand-400 animate-pulse shadow-brand-sm"
-                    }`}
-                  >
-                    <i className={`${config.icon} ${config.color} text-xs`}></i>
-                  </div>
-                </div>
-
-                {/* Event Card */}
-                <div
-                  className={`bg-white border rounded-xl p-4 transition-all duration-200 ${
-                    hasData
-                      ? "cursor-pointer hover:border-brand-400 hover:shadow-lifted"
-                      : "border-canvas-subtle"
-                  }`}
-                  onClick={() => hasData && onViewEvent(event)}
-                >
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-[9px] font-bold px-2 py-1 rounded ${config.bg} ${config.color} border ${config.border}`}
-                        >
-                          {config.label}
-                        </span>
-                        <span
-                          className={`text-[9px] font-bold uppercase ${
-                            isCompleted ? "text-neutral-500" : "text-brand-600"
-                          }`}
-                        >
-                          {event.status}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-ink-primary text-sm truncate">
-                        {event.taskName}
-                      </h4>
-                    </div>
-
-                    {/* Time Display - Shows End Time if completed, else Start Time */}
-                    <div className="text-right whitespace-nowrap">
-                      <div className="text-sm font-bold text-ink-primary font-mono leading-none">
-                        {new Date(
-                          event.endTime || event.startTime,
-                        ).toLocaleTimeString([], {
-                          timeZone: "UTC",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                      <div className="text-[10px] font-medium text-neutral-500 mt-1">
-                        {new Date(
-                          event.endTime || event.startTime,
-                        ).toLocaleDateString(undefined, {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  {(isCompleted || hasData || event.completedBy) && (
-                    <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-3">
-                      <div className="flex items-center gap-4">
-                        {/* Duration Display */}
-                        {duration && (
-                          <span className="text-[10px] text-neutral-500 flex items-center gap-1.5 font-medium">
-                            <i className="far fa-hourglass text-[9px]"></i>
-                            {duration}
-                          </span>
-                        )}
-
-                        {/* Assignee Display */}
-                        {event.completedBy && (
-                          <span className="text-[10px] text-neutral-600 flex items-center gap-1.5 font-semibold bg-slate-100 px-2 py-0.5 rounded-full">
-                            <i className="fas fa-user-check text-[9px]"></i>
-                            {event.completedBy}
-                          </span>
-                        )}
-                      </div>
-
-                      {hasData && (
-                        <span className="text-[10px] font-bold text-brand-600 flex items-center gap-1.5 hover:underline decoration-2 underline-offset-4">
-                          <i className="fas fa-database text-[9px]"></i>
-                          VIEW DATA
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  },
-);
-
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -619,16 +394,13 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [taskVariables, setTaskVariables] = useState<Record<string, any>>({});
   const [mainFormSchema, setMainFormSchema] = useState<any>(null);
   const [buttons, setButtons] = useState<ActionButton[]>([]);
-  const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [selectedFormKey, setSelectedFormKey] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
 
   // Tab State
-  const activeTab = (searchParams.get("tab") as "form" | "history") || "form";
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const activeTab = (searchParams.get("tab") as TabId) || "form";
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -638,6 +410,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     null,
   );
   const [submitting, setSubmitting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const memoizedSubmission = useMemo(() => {
     return { data: taskData?.data };
@@ -671,6 +444,18 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       },
     });
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "path" && contentRef.current) {
+      // Small timeout to ensure DOM is ready
+      setTimeout(() => {
+        contentRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+    }
+  }, [activeTab]);
 
   const onFormReady = useCallback(
     (instance: any) => {
@@ -769,9 +554,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       setTaskData(null);
       setMainFormSchema(null);
       setButtons([]);
-      setHistory([]);
-      setHistoryLoaded(false);
-      setHistoryLoading(false);
 
       const data = await fetchTaskRender(taskId!);
 
@@ -834,24 +616,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     }
   }, [taskId, navigate, addNotification]);
 
-  const loadHistory = useCallback(async () => {
-    if (!taskData?.processInstanceId) return;
-    setHistoryLoading(true);
-    try {
-      const historyData = await fetchProcessHistory(taskData.processInstanceId);
-      setHistory(historyData);
-      setHistoryLoaded(true);
-    } catch (err: any) {
-      console.error(err);
-      addNotification(
-        `History unavailable: ${parseApiError(err)}${getNotificationContext()}`,
-        "error",
-      );
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [taskData, getNotificationContext, addNotification]);
-
   const handleClaim = useCallback(async () => {
     if (!taskId || !taskData) return;
     setClaiming(true);
@@ -901,34 +665,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     setShowModal(true);
   }, []);
 
-  const handleViewHistory = useCallback(
-    async (event: HistoryEvent) => {
-      if (!event.formSubmissionId) return;
-
-      setModalTitle(`View: ${event.taskName}`);
-      setIsReadOnly(true);
-      setSelectedAction(null);
-
-      let formKey = event.formKey;
-      if (!formKey) {
-        const historicTaskData = await fetchTaskRender(event.taskId);
-        formKey = historicTaskData?.formKey;
-      }
-
-      if (formKey) {
-        setSelectedFormKey(formKey);
-        setSelectedSubmissionId(event.formSubmissionId);
-        setShowModal(true);
-      } else {
-        addNotification(
-          `Form Key not found for history. [Task: ${event.taskName} | ID: ${event.taskId}]`,
-          "error",
-        );
-      }
-    },
-    [addNotification],
-  );
-
   const onSubFormSubmit = useCallback(
     async (submission: any) => {
       if (isReadOnly || !selectedAction || !taskId) return;
@@ -973,26 +709,13 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     ],
   );
 
-  const handleTabChange = (tab: "form" | "history") => {
+  const handleTabChange = (tab: TabId) => {
     setSearchParams({ tab });
-    if (tab === "history" && !historyLoaded) {
-      loadHistory();
-    }
   };
 
   useEffect(() => {
     if (taskId) loadTask();
   }, [taskId, loadTask]);
-
-  useEffect(() => {
-    if (
-      activeTab === "history" &&
-      taskData?.processInstanceId &&
-      !historyLoaded
-    ) {
-      loadHistory();
-    }
-  }, [activeTab, taskData, historyLoaded, loadHistory]);
 
   if (loading) {
     return (
@@ -1023,30 +746,23 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
 
           <div className="px-6 pt-6 pb-2">
             <div className="inline-flex bg-canvas-subtle p-1 rounded-lg border border-canvas-active shadow-soft">
-              <button
-                onClick={() => handleTabChange("form")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  activeTab === "form"
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-neutral-600 hover:text-ink-primary"
-                }`}
-              >
-                <i className="far fa-file-alt mr-2"></i> Details
-              </button>
-              <button
-                onClick={() => handleTabChange("history")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  activeTab === "history"
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-neutral-600 hover:text-ink-primary"
-                }`}
-              >
-                <i className="fas fa-history mr-2"></i> History
-              </button>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id as any)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center ${
+                    activeTab === tab.id
+                      ? "bg-white text-brand-600 shadow-sm"
+                      : "text-neutral-600 hover:text-ink-primary"
+                  }`}
+                >
+                  <i className={`${tab.icon} mr-2`}></i> {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex-1 p-20 relative">
+          <div ref={contentRef} className="flex-1 p-8 relative">
             <div
               style={{
                 display: activeTab === "form" ? "block" : "none",
@@ -1079,24 +795,22 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
               </div>
             </div>
 
-            {activeTab === "history" &&
-              (historyLoading ? (
-                <HistorySkeleton />
-              ) : history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="w-20 h-20 bg-canvas-subtle rounded-2xl flex items-center justify-center mb-4">
-                    <i className="far fa-calendar-times text-4xl text-neutral-300"></i>
-                  </div>
-                  <p className="text-neutral-500 font-medium">
-                    No history events recorded yet.
-                  </p>
-                </div>
-              ) : (
-                <HistoryTimeline
-                  history={history}
-                  onViewEvent={handleViewHistory}
+            {activeTab === "history" && (
+              <HistoryTimeline
+                processInstanceId={taskData?.processInstanceId}
+                // onViewEvent={handleViewHistory}
+              />
+            )}
+
+            {activeTab === "path" && taskData?.processInstanceId && (
+              // 🟢 FIXED: Use 'aspect-video' to auto-adjust height based on width
+              // Added 'min-h-[500px]' to prevent it from being too short on small screens
+              <div className="w-full aspect-video min-h-[600px] rounded-xl overflow-hidden border border-canvas-subtle shadow-inner bg-[#fafaf9] relative">
+                <ProcessDiagram
+                  processInstanceId={taskData.processInstanceId}
                 />
-              ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
