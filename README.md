@@ -1,149 +1,164 @@
-🔍 Instance Inspector Routing Guide
+# 🔍 Instance Inspector Routing Guide
 
-The Instance Inspector is a powerful debugging and visualization tool that provides a unified view of process history, BPMN diagrams, and technical traces. It is accessible via a single route (/inspect) that intelligently resolves the correct process instance based on the parameters you provide.
+The **Instance Inspector** is a powerful debugging and visualization tool that provides a **unified view** of:
 
-📍 Base Route
+- 📜 Process history  
+- 🧩 BPMN diagrams  
+- 🔧 Technical execution traces  
 
-GET /inspect
+It is accessible through a **single intelligent route** that automatically resolves the correct process instance based on the parameters provided.
 
-🛠️ Routing Strategies
+---
 
-Choose the strategy that best fits the data available in your current context.
+## 📍 Base Route
 
-1. Track by Business Key (⭐⭐ Recommended)
+    GET /inspect
 
-Best for: External Systems, Email Links, Order Tables
+This route dynamically determines **which process instance to load** using the supplied query parameters.
 
-Use this method when you have a human-readable identifier (like an Order ID) but do not know the internal system UUID.
+---
 
-Query Parameters:
+## 🛠️ Routing Strategies
 
-businessKey (Required): The unique business identifier (e.g., Order ID).
+Choose the routing strategy that best matches the data available in your context.
 
-processKey (Highly Recommended): The definition key of the workflow (e.g., order_process). This ensures uniqueness if different workflows use the same ID format.
+---
 
-Example URL:
+## 1️⃣ Track by Business Key (⭐⭐ Recommended)
 
-/inspect?processKey=order_process&businessKey=ORD-2026-001
+**Best for:**  
+- External systems  
+- Email links  
+- Order / Application tables  
 
-2. Track by Task ID
+Use this strategy when you have a **human-readable identifier** (such as an Order ID) but **do not know** the internal Flowable UUID.
 
-Best for: User Inbox, Task Lists, Notifications
+### Query Parameters
+- **businessKey** (Required)  
+  The unique business identifier (e.g., Order ID)
+- **processKey** (Highly Recommended)  
+  Workflow definition key (ensures uniqueness across workflows)
 
-Use this method when a user is working on a specific task. The system will automatically look up the task's metadata to find its parent Process Instance.
+### Example URL
 
-Query Parameters:
+    /inspect?processKey=order_process&businessKey=ORD-2026-001
 
-taskId (Required): The UUID of the active or completed task.
+---
 
-Example URL:
+## 2️⃣ Track by Task ID
 
-/inspect?taskId=507f1f77-bcf8-11ed-a5c8-0242ac120002
+**Best for:**  
+- User inbox  
+- Task lists  
+- Notifications  
 
-3. Track by Instance ID (Direct)
+Use this when a user is interacting with a **specific task**.  
+The system automatically resolves the **parent process instance**.
 
-Best for: Admin Dashboards, API Responses, Internal Logs
+### Query Parameters
+- **taskId** (Required)  
+  UUID of the active or completed task
 
-Use this method when you already possess the raw, internal UUID of the process instance. This is the most performant method as it bypasses the resolution logic.
+### Example URL
 
-Query Parameters:
+    /inspect?taskId=507f1f77-bcf8-11ed-a5c8-0242ac120002
 
-instanceId (Required): The internal UUID of the process instance.
+---
 
-Example URL:
+## 3️⃣ Track by Instance ID (Direct)
 
-/inspect?instanceId=12345-abcde-67890-fghij
+**Best for:**  
+- Admin dashboards  
+- API responses  
+- Internal logs  
 
-📊 Quick Reference Table
+Use this when you already have the **internal process instance UUID**.  
+This method is the **most performant** since it skips resolution logic.
 
-Strategy
+### Query Parameters
+- **instanceId** (Required)  
+  Internal process instance UUID
 
-Query Params
+### Example URL
 
-Best Used For
+    /inspect?instanceId=12345-abcde-67890-fghij
 
-Resolution Cost
+---
 
-Business Key
+## 📊 Quick Reference Table
 
-businessKey + processKey
+| Strategy        | Query Parameters                    | Best Used For                         | Resolution Cost |
+|-----------------|-------------------------------------|----------------------------------------|-----------------|
+| Business Key    | businessKey + processKey            | External links, customer emails        | Medium (1 lookup) |
+| Task ID         | taskId                              | User inbox, task lists                 | Medium (1 lookup) |
+| Instance ID     | instanceId                          | Admin panels, API integrations         | Low (Direct) |
 
-External links, Customer emails
+---
 
-Medium (1 Lookup)
+## 💻 Implementation Guide (React)
 
-Task ID
+When linking **inside the application**, use `useNavigate` from `react-router-dom` to ensure **client-side navigation** without page reloads.
 
-taskId
+Example usage:
 
-User Task Lists, Inbox
+    import { useNavigate } from "react-router-dom";
 
-Medium (1 Lookup)
+    export default function ProcessActions({ row, task }) {
+      const navigate = useNavigate();
 
-Instance ID
+      return (
+        <div className="flex gap-3">
 
-instanceId
+          Scenario A: Track by Business Key
+          Used for business data tables (Orders, Applications)
+          Button navigates to:
+          /inspect?processKey=order_workflow&businessKey=<ORDER_ID>
 
-Admin panels, API integrations
+          Scenario B: Track by Task ID
+          Used for user inboxes or task-specific actions
+          Button navigates to:
+          /inspect?taskId=<TASK_ID>
 
-Low (Direct)
+          Scenario C: Track by Instance ID
+          Used for admin views and debugging
+          Button navigates to:
+          /inspect?instanceId=<PROCESS_INSTANCE_ID>
 
-💻 Implementation Guide (React)
+        </div>
+      );
+    }
 
-When linking within the application, rely on the useNavigate hook from react-router-dom to ensure a smooth, client-side transition without reloading the page.
+---
 
-import { useNavigate } from "react-router-dom";
+## ⚙️ Architecture Note: Resolution Priority
 
-export default function ProcessActions({ row, task }) {
-const navigate = useNavigate();
+When the **Instance Inspector** loads, it resolves the process instance using the following **priority order**:
 
-return (
-<div className="flex gap-3">
+1️⃣ **Direct Instance ID**  
+If `instanceId` is present, it is used immediately.
 
-      {/* 🟢 Scenario A: Track by Business Key
-          Use for business data tables (e.g. Orders, Applications) */}
-      <button
-        className="btn-primary"
-        onClick={() =>
-          navigate(
-            `/inspect?processKey=order_workflow&businessKey=${row.orderId}`
-          )
-        }
-      >
-        <i className="fas fa-search"></i> Track Order
-      </button>
+2️⃣ **Task Resolution**  
+If `taskId` is present, the History API is queried to retrieve the associated `processInstanceId`.
 
-      {/* 🔵 Scenario B: Track by Task ID
-          Use for user inboxes or task-specific actions */}
-      <button
-        className="btn-secondary"
-        onClick={() => navigate(`/inspect?taskId=${task.id}`)}
-      >
-        <i className="fas fa-list-check"></i> View Context
-      </button>
+3️⃣ **Business Key Resolution**  
+If `businessKey` (and optionally `processKey`) is present, the History API retrieves the **most recent matching process instance**.
 
-      {/* 🔴 Scenario C: Track by Instance ID
-          Use for technical admin views or debugging */}
-      <button
-        className="btn-tertiary"
-        onClick={() => navigate(`/inspect?instanceId=${row.processInstanceId}`)}
-      >
-        <i className="fas fa-bug"></i> Debug Instance
-      </button>
+---
 
-    </div>
+### ⚠️ Important Note
 
-);
-}
+If **multiple parameters** are supplied (e.g., `taskId` and `businessKey`),  
+the system **always prioritizes the most specific identifier**:
 
-⚙️ Architecture Note: How Resolution Works
+    instanceId > taskId > businessKey
 
-When the Instance Inspector loads, it executes a resolution effect in the following priority order:
+---
 
-Check Direct ID: If instanceId is present in the URL, it is used immediately.
+## ✅ Summary
 
-Resolve Task: If taskId is present, the component queries the History API to find the processInstanceId associated with that task.
+- One route, multiple intelligent resolution strategies  
+- Business-key-based routing is recommended for external visibility  
+- Task and instance routing provide precision for internal use  
+- Resolution logic is deterministic, performant, and debuggable  
 
-Resolve Keys: If businessKey (and optionally processKey) are present, the component queries the History API to find the most recent process instance matching those keys.
-
-Note: If multiple parameters are provided (e.g. taskId AND businessKey), the system prioritizes the more specific identifier (Task ID) first.
+✨ This design enables **deep observability**, **clean URLs**, and **developer-friendly debugging** across all workflow contexts.

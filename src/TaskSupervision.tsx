@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   fetchAllSystemTasks,
@@ -13,11 +13,12 @@ export default function TaskSupervision() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"active" | "completed">("active");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState<{
-    key: string;
-    direction: "asc" | "desc";
-  } | null>({ key: "createTime", direction: "desc" });
+
+  // Filter States
+  const [taskNameFilter, setTaskNameFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  // 🟢 NEW: Process Filter State
+  const [processFilter, setProcessFilter] = useState("");
 
   const loadTasks = () => {
     setLoading(true);
@@ -39,8 +40,49 @@ export default function TaskSupervision() {
     loadTasks();
   }, [viewMode]);
 
+  const uniqueAssignees = useMemo(() => {
+    const assignees = new Set<string>();
+    tasks.forEach((t) => {
+      if (t.assignee) assignees.add(t.assignee);
+    });
+    return Array.from(assignees).sort();
+  }, [tasks]);
+
+  // 🟢 NEW: Derive Unique Process Names for Filter
+  const uniqueProcesses = useMemo(() => {
+    const processes = new Set<string>();
+    tasks.forEach((t) => {
+      const pName = t.processDefinitionName || t.processDefinitionId;
+      if (pName) processes.add(pName);
+    });
+    return Array.from(processes).sort();
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const matchesName =
+        !taskNameFilter ||
+        task.name?.toLowerCase().includes(taskNameFilter.toLowerCase());
+
+      const matchesAssignee =
+        !assigneeFilter ||
+        (assigneeFilter === "unassigned"
+          ? !task.assignee
+          : task.assignee === assigneeFilter);
+
+      // 🟢 NEW: Process Filter Logic
+      const pName = task.processDefinitionName || task.processDefinitionId;
+      const matchesProcess = !processFilter || pName === processFilter;
+
+      return matchesName && matchesAssignee && matchesProcess;
+    });
+  }, [tasks, taskNameFilter, assigneeFilter, processFilter]);
+
   const handleModeChange = (mode: "active" | "completed") => {
     setViewMode(mode);
+    setTaskNameFilter("");
+    setAssigneeFilter("");
+    setProcessFilter("");
     setSelectedIds(new Set());
   };
 
@@ -64,16 +106,55 @@ export default function TaskSupervision() {
 
   const columns: Column<any>[] = [
     {
-      header: "Task Name",
+      header: "Task Details",
       key: "name",
       sortable: true,
       render: (task) => (
-        <div className="space-y-1">
-          <div className="font-bold text-xs leading-tight text-ink-primary">
+        <div className="space-y-1 max-w-md">
+          <div className="font-bold text-sm leading-tight text-ink-primary">
             {task.name}
           </div>
-          <div className="text-[11px] text-ink-tertiary font-mono bg-canvas-subtle/50 px-2 py-0.5 rounded-md w-fit">
-            PID: {task.processInstanceId?.substring(0, 8)}...
+          {task.description && (
+            <p className="text-[11px] text-ink-secondary leading-relaxed line-clamp-2 italic">
+              {task.description}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    // 🟢 NEW: Process Column
+    {
+      header: "Process",
+      key: "processDefinitionName",
+      sortable: true,
+      render: (task) => (
+        <div className="flex flex-col">
+          <span className="text-[12px] text-ink-tertiary font-mono">
+            {task.processDefinitionId?.split(":")[0]}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Business Context",
+      key: "id",
+      render: (task) => (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
+            <span className="text-[9px] uppercase font-black text-ink-tertiary tracking-widest">
+              Task ID
+            </span>
+            <code className="text-[10px] text-brand-600 font-mono bg-brand-50/50 px-1.5 py-0.5 rounded border border-brand-100 w-fit">
+              {task.id}
+            </code>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[9px] uppercase font-black text-ink-tertiary tracking-widest">
+              Inst ID
+            </span>
+            <code className="text-[10px] text-ink-secondary font-mono bg-canvas-subtle/50 px-1.5 py-0.5 rounded w-fit">
+              {task.processInstanceId}
+            </code>
           </div>
         </div>
       ),
@@ -131,7 +212,6 @@ export default function TaskSupervision() {
           <Link
             to={`/admin/inspect/${task.processInstanceId}`}
             className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
-            title="View Process Path"
           >
             <i className="fas fa-map-signs mr-1"></i>Path
           </Link>
@@ -143,7 +223,6 @@ export default function TaskSupervision() {
                   reassignTask(task.id, newUser).then(() => loadTasks());
               }}
               className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
-              title="Reassign Task"
             >
               <i className="fas fa-user-edit mr-1"></i>Reassign
             </button>
@@ -179,7 +258,7 @@ export default function TaskSupervision() {
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-white/40 hover:text-white"
             >
               <i className="fas fa-times text-sm"></i>
             </button>
@@ -187,29 +266,76 @@ export default function TaskSupervision() {
         </div>
       )}
 
-      {/* DataGrid with View Mode Filter */}
+      {/* DataGrid with Inline Filters */}
       <DataGrid
-        data={tasks}
+        data={filteredTasks}
         columns={columns}
         loading={loading}
         getRowId={(task) => task.id}
-        searchFields={["name", "assignee", "processInstanceId"]}
+        searchFields={[
+          "name",
+          "assignee",
+          "processInstanceId",
+          "id",
+          "description",
+          "processDefinitionName",
+        ]}
         onSelectionChange={setSelectedIds}
         headerActions={
-          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-inner relative z-30">
-            {(["active", "completed"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => handleModeChange(mode)}
-                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                  viewMode === mode
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-ink-tertiary"
-                }`}
+          <div className="flex items-center gap-3">
+            {/* 🟢 NEW: Inline Process Filter */}
+            <div className="relative w-40">
+              <i className="fas fa-project-diagram absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px]"></i>
+              <select
+                value={processFilter}
+                onChange={(e) => setProcessFilter(e.target.value)}
+                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer"
               >
-                {mode}
-              </button>
-            ))}
+                <option value="">All Processes</option>
+                {uniqueProcesses.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <i className="fas fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-[8px]"></i>
+            </div>
+
+            {/* Inline Assignee Filter */}
+            <div className="relative w-40">
+              <i className="fas fa-user absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px]"></i>
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer"
+              >
+                <option value="">All Assignees</option>
+                <option value="unassigned">Unassigned</option>
+                {uniqueAssignees.map((user) => (
+                  <option key={user} value={user}>
+                    {user}
+                  </option>
+                ))}
+              </select>
+              <i className="fas fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-[8px]"></i>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-inner">
+              {(["active", "completed"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => handleModeChange(mode)}
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    viewMode === mode
+                      ? "bg-white text-brand-600 shadow-sm"
+                      : "text-ink-tertiary"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
           </div>
         }
       />
