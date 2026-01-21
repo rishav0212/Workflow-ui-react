@@ -264,8 +264,9 @@ export const fetchSystemStats = async () => {
 };
 
 export const fetchHistoricActivities = async (processInstanceId: string) => {
+  // Added size=1000 to fetch ALL history items, preventing cutoff
   const res = await api.get(
-    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc`
+    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc&size=1000`
   );
   return res.data.data;
 };
