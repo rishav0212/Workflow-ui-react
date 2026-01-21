@@ -137,7 +137,7 @@ export default function TaskSupervision() {
             to={`/admin/inspect/${task.processInstanceId}`}
             className="text-[10px] font-black uppercase text-accent-600 hover:text-accent-700 tracking-widest flex items-center gap-1.5"
           >
-            <i className="fas fa-fingerprint"></i> Audit
+            <i className="fas fa-fingerprint"></i> Path
           </Link>
           {viewMode === "active" && (
             <button

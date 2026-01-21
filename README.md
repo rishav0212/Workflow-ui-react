@@ -1,73 +1,149 @@
-# React + TypeScript + Vite
+🔍 Instance Inspector Routing Guide
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The Instance Inspector is a powerful debugging and visualization tool that provides a unified view of process history, BPMN diagrams, and technical traces. It is accessible via a single route (/inspect) that intelligently resolves the correct process instance based on the parameters you provide.
 
-Currently, two official plugins are available:
+📍 Base Route
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+GET /inspect
 
-## React Compiler
+🛠️ Routing Strategies
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Choose the strategy that best fits the data available in your current context.
 
-## Expanding the ESLint configuration
+1. Track by Business Key (⭐⭐ Recommended)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Best for: External Systems, Email Links, Order Tables
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Use this method when you have a human-readable identifier (like an Order ID) but do not know the internal system UUID.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Query Parameters:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+businessKey (Required): The unique business identifier (e.g., Order ID).
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+processKey (Highly Recommended): The definition key of the workflow (e.g., order_process). This ensures uniqueness if different workflows use the same ID format.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Example URL:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+/inspect?processKey=order_process&businessKey=ORD-2026-001
+
+2. Track by Task ID
+
+Best for: User Inbox, Task Lists, Notifications
+
+Use this method when a user is working on a specific task. The system will automatically look up the task's metadata to find its parent Process Instance.
+
+Query Parameters:
+
+taskId (Required): The UUID of the active or completed task.
+
+Example URL:
+
+/inspect?taskId=507f1f77-bcf8-11ed-a5c8-0242ac120002
+
+3. Track by Instance ID (Direct)
+
+Best for: Admin Dashboards, API Responses, Internal Logs
+
+Use this method when you already possess the raw, internal UUID of the process instance. This is the most performant method as it bypasses the resolution logic.
+
+Query Parameters:
+
+instanceId (Required): The internal UUID of the process instance.
+
+Example URL:
+
+/inspect?instanceId=12345-abcde-67890-fghij
+
+📊 Quick Reference Table
+
+Strategy
+
+Query Params
+
+Best Used For
+
+Resolution Cost
+
+Business Key
+
+businessKey + processKey
+
+External links, Customer emails
+
+Medium (1 Lookup)
+
+Task ID
+
+taskId
+
+User Task Lists, Inbox
+
+Medium (1 Lookup)
+
+Instance ID
+
+instanceId
+
+Admin panels, API integrations
+
+Low (Direct)
+
+💻 Implementation Guide (React)
+
+When linking within the application, rely on the useNavigate hook from react-router-dom to ensure a smooth, client-side transition without reloading the page.
+
+import { useNavigate } from "react-router-dom";
+
+export default function ProcessActions({ row, task }) {
+const navigate = useNavigate();
+
+return (
+<div className="flex gap-3">
+
+      {/* 🟢 Scenario A: Track by Business Key
+          Use for business data tables (e.g. Orders, Applications) */}
+      <button
+        className="btn-primary"
+        onClick={() =>
+          navigate(
+            `/inspect?processKey=order_workflow&businessKey=${row.orderId}`
+          )
+        }
+      >
+        <i className="fas fa-search"></i> Track Order
+      </button>
+
+      {/* 🔵 Scenario B: Track by Task ID
+          Use for user inboxes or task-specific actions */}
+      <button
+        className="btn-secondary"
+        onClick={() => navigate(`/inspect?taskId=${task.id}`)}
+      >
+        <i className="fas fa-list-check"></i> View Context
+      </button>
+
+      {/* 🔴 Scenario C: Track by Instance ID
+          Use for technical admin views or debugging */}
+      <button
+        className="btn-tertiary"
+        onClick={() => navigate(`/inspect?instanceId=${row.processInstanceId}`)}
+      >
+        <i className="fas fa-bug"></i> Debug Instance
+      </button>
+
+    </div>
+
+);
+}
+
+⚙️ Architecture Note: How Resolution Works
+
+When the Instance Inspector loads, it executes a resolution effect in the following priority order:
+
+Check Direct ID: If instanceId is present in the URL, it is used immediately.
+
+Resolve Task: If taskId is present, the component queries the History API to find the processInstanceId associated with that task.
+
+Resolve Keys: If businessKey (and optionally processKey) are present, the component queries the History API to find the most recent process instance matching those keys.
+
+Note: If multiple parameters are provided (e.g. taskId AND businessKey), the system prioritizes the more specific identifier (Task ID) first.

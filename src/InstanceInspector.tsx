@@ -1,147 +1,268 @@
-import { useEffect, useState, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
-import BpmnViewer from "bpmn-js";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useSearchParams } from "react-router-dom"; // 🟢 Import useSearchParams
 import {
   fetchProcessXml,
   fetchHistoricActivities,
-  fetchProcessHistory,
+  fetchTaskMetadata,
+  fetchInstanceByKeys,
 } from "./api";
-import SubmissionModal from "./SubmissionModal";
+import HistoryTimeline, {
+  type HistoryEvent,
+} from "./components/process/HistoryTimeline";
+import ProcessDiagram from "./components/process/ProcessDiagram";
 
 export default function InstanceInspector() {
-  const { instanceId } = useParams();
-  const [selectedSubmission, setSelectedSubmission] = useState<{
-    key: string;
-    id: string;
-    name: string;
-  } | null>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [xml, setXml] = useState("");
-  const viewerRef = useRef<HTMLDivElement>(null);
-  const bpmnViewer = useRef<any>(null);
+  // 1. Get Path Param (if using /admin/inspect/:instanceId)
+  const { instanceId: pathInstanceId } = useParams();
 
+  // 2. Get Query Params (if using /inspect?taskId=...)
+  const [searchParams] = useSearchParams();
+  const queryInstanceId = searchParams.get("instanceId");
+  const queryBusinessKey = searchParams.get("businessKey");
+  const queryTaskId = searchParams.get("taskId");
+  const queryProcessKey = searchParams.get("processKey");
+  // 🟢 STATE: effectiveId holds the final resolved Instance ID
+  const [effectiveId, setEffectiveId] = useState<string | null>(null);
+
+  const [businessHistory, setBusinessHistory] = useState<HistoryEvent[]>([]);
+  const [technicalTrace, setTechnicalTrace] = useState<any[]>([]);
+  const [xml, setXml] = useState<string | null>(null);
+
+  const [replayIndex, setReplayIndex] = useState<number>(0);
+  const [maxSteps, setMaxSteps] = useState<number>(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // 🟢 RESOLUTION LOGIC
+  useEffect(() => {
+    const resolveContext = async () => {
+      // Priority 1: Direct Instance ID
+      const directId = pathInstanceId || queryInstanceId;
+      if (directId) {
+        setEffectiveId(directId);
+        return;
+      }
+
+      // Priority 2: Task ID -> Instance ID
+      if (queryTaskId) {
+        try {
+          const taskData = await fetchTaskMetadata(queryTaskId);
+          if (taskData && taskData.processInstanceId) {
+            setEffectiveId(taskData.processInstanceId);
+          }
+        } catch (e) {
+          console.error("Failed to resolve task", e);
+        }
+        return;
+      }
+
+      // Priority 3: Process Key + Business Key (The Robust Way)
+      if (queryProcessKey && queryBusinessKey) {
+        try {
+          const id = await fetchInstanceByKeys(
+            queryProcessKey,
+            queryBusinessKey,
+          );
+          if (id) {
+            setEffectiveId(id);
+          } else {
+            console.warn("No instance found for these keys");
+          }
+        } catch (e) {
+          console.error("Failed to resolve keys", e);
+        }
+        return;
+      }
+
+      // Priority 4: Business Key only (Fallback / Risky)
+      // Only use if you are sure BK is globally unique, otherwise this might fetch the wrong process.
+      if (queryBusinessKey && !queryProcessKey) {
+        // Optionally you can try to fetch just by BK here if your API supports it,
+        // or force the user to provide processKey.
+        // setEffectiveId(queryBusinessKey);
+        console.warn("Missing processKey for safe resolution");
+      }
+    };
+
+    resolveContext();
+  }, [
+    pathInstanceId,
+    queryInstanceId,
+    queryTaskId,
+    queryBusinessKey,
+    queryProcessKey,
+  ]);
+  // ... (Rest of the component remains EXACTLY the same)
+  // ... (Data Fetching Effect, Auto-Play, Render, etc.)
+
+  // 🟢 2. FETCH DATA (Using effectiveId)
   useEffect(() => {
     const init = async () => {
-      // 1. Fetch historical steps and full activity path
-      const [activities, taskHistory] = await Promise.all([
-        fetchHistoricActivities(instanceId!),
-        fetchProcessHistory(instanceId!),
-      ]);
-      setHistory(taskHistory);
+      if (!effectiveId) return;
 
-      // 2. Fetch XML from the first activity's definition
-      if (activities.length > 0) {
-        const xmlData = await fetchProcessXml(
-          activities[0].processDefinitionId
-        );
-        setXml(xmlData);
-        renderPath(xmlData, activities);
+      try {
+        const rawActivities = await fetchHistoricActivities(effectiveId);
+        // ... (sorting logic) ...
+        const sortedTrace = [...rawActivities].sort((a: any, b: any) => {
+          const timeA = new Date(a.startTime).getTime();
+          const timeB = new Date(b.startTime).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          if (
+            a.activityType === "sequenceFlow" &&
+            b.activityType !== "sequenceFlow"
+          )
+            return -1;
+          if (
+            a.activityType !== "sequenceFlow" &&
+            b.activityType === "sequenceFlow"
+          )
+            return 1;
+          return 0;
+        });
+
+        setTechnicalTrace(sortedTrace);
+        setMaxSteps(sortedTrace.length);
+        setReplayIndex(sortedTrace.length);
+
+        if (rawActivities.length > 0) {
+          const xmlData = await fetchProcessXml(
+            rawActivities[0].processDefinitionId,
+          );
+          setXml(xmlData);
+        }
+      } catch (e) {
+        console.error("Failed to load instance", e);
       }
     };
     init();
-  }, [instanceId]);
+  }, [effectiveId]);
 
-  const renderPath = async (xmlContent: string, activities: any[]) => {
-    if (!viewerRef.current) return;
+  // ... (Keep the rest of your component unchanged) ...
 
-    if (bpmnViewer.current) bpmnViewer.current.destroy();
-    bpmnViewer.current = new BpmnViewer({ container: viewerRef.current });
+  // Auto-Play
+  useEffect(() => {
+    let interval: any;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setReplayIndex((prev) => {
+          if (prev >= maxSteps) {
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 200);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, maxSteps]);
 
-    await bpmnViewer.current.importXML(xmlContent);
-    const canvas = bpmnViewer.current.get("canvas");
-
-    // 🟢 Highlight the path
-    activities.forEach((act) => {
-      // Finished activities = Green
-      if (act.endTime) {
-        canvas.addMarker(act.activityId, "path-completed");
-      } else {
-        // Active activities = Orange
-        canvas.addMarker(act.activityId, "path-active");
-      }
-    });
-
-    canvas.zoom("fit-viewport");
-  };
+  const handleHistoryLoaded = useCallback((data: HistoryEvent[]) => {
+    setBusinessHistory(data);
+  }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-canvas overflow-hidden">
-      <header className="bg-surface border-b p-4 flex justify-between items-center shadow-soft z-10">
-        <div className="flex items-center gap-4">
-          <Link to="/admin/instances" className="btn-icon">
-            <i className="fas fa-arrow-left"></i>
-          </Link>
-          <h2 className="text-lg font-serif font-bold text-ink-primary">
-            Live Path Inspector:{" "}
-            <span className="text-brand-500">{instanceId}</span>
-          </h2>
-        </div>
-      </header>
+    <div className="h-full flex flex-col bg-canvas overflow-hidden font-sans">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* LEFT SIDEBAR */}
+        <div className="w-80 bg-surface border-r border-canvas-active flex flex-col z-20 shadow-xl">
+          <div className="p-5 border-b border-canvas-active bg-surface-elevated">
+            <h3 className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest flex items-center gap-2">
+              <i className="fas fa-history"></i> Business Log
+            </h3>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar: Step History with Submission Links */}
-        <div className="w-80 bg-surface border-r p-6 overflow-y-auto custom-scrollbar">
-          <h3 className="text-[10px] font-black uppercase text-ink-tertiary tracking-widest mb-6">
-            Execution Log
-          </h3>
-          <div className="space-y-6">
-            {history.map((step, idx) => (
-              <div
-                key={idx}
-                className="relative pl-6 border-l-2 border-canvas-active"
-              >
+            {/* Context Info */}
+            <div className="mt-3 flex flex-col gap-1.5 pl-0.5">
+              {queryBusinessKey && (
                 <div
-                  className={`absolute -left-[7px] top-0 w-3 h-3 rounded-full ${
-                    step.endTime ? "bg-sage-500" : "bg-brand-500 animate-pulse"
-                  }`}
-                ></div>
-                <div className="text-sm font-bold text-ink-primary leading-none">
-                  {step.taskName}
+                  className="text-[10px] text-ink-secondary flex items-center gap-2"
+                  title="Business Key"
+                >
+                  <i className="fas fa-tag w-3 opacity-50"></i>
+                  <span className="font-mono truncate">{queryBusinessKey}</span>
                 </div>
-                <div className="text-[10px] text-ink-tertiary mt-1">
-                  {new Date(step.startTime).toLocaleString()}
-                </div>
-                {step.formSubmissionId && (
-                  <button
-                    onClick={() =>
-                      setSelectedSubmission({
-                        key: step.formKey,
-                        id: step.formSubmissionId,
-                        name: step.taskName,
-                      })
-                    }
-                    className="mt-2 text-[10px] font-black text-brand-600 bg-brand-50 px-2 py-1 rounded hover:bg-brand-100 transition-colors"
-                  >
-                    <i className="fas fa-database mr-1"></i> VIEW SUBMISSION
-                  </button>
-                )}
+              )}
+              <div
+                className="text-[10px] text-ink-tertiary flex items-center gap-2"
+                title="Instance ID"
+              >
+                <i className="fas fa-fingerprint w-3 opacity-50"></i>
+                <span className="font-mono truncate opacity-70">
+                  {effectiveId || "Resolving..."}
+                </span>
               </div>
-            ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-surface/50">
+            {effectiveId && (
+              <HistoryTimeline
+                processInstanceId={effectiveId}
+                onDataLoaded={handleHistoryLoaded}
+                compact={true}
+              />
+            )}
           </div>
         </div>
 
-        {/* Live Diagram */}
-        <div className="flex-1 bg-white relative">
-          <div ref={viewerRef} className="absolute inset-0" />
-          <style>{`
-            .path-completed .djs-visual rect, .path-completed .djs-visual circle { 
-              fill: #f0fdf4 !important; stroke: #22c55e !important; stroke-width: 3px !important; 
-            }
-            .path-active .djs-visual rect, .path-active .djs-visual circle { 
-              fill: #fff7ed !important; stroke: #f97316 !important; stroke-width: 3px !important; stroke-dasharray: 5 !important;
-            }
-          `}</style>
+        {/* CENTER: Diagram */}
+        <div className="flex-1 relative bg-[#FDFDFD] ">
+          <ProcessDiagram
+            xml={xml}
+            trace={technicalTrace}
+            history={businessHistory}
+            activeStepIndex={replayIndex}
+          />
+
+          {/* RIGHT OVERLAY: Stepper */}
+          <div className="absolute right-10 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4">
+            <div className="h-[400px] w-3 bg-white/50 backdrop-blur rounded-full border border-canvas-active shadow-sm relative group hover:w-4 transition-all duration-200">
+              <input
+                type="range"
+                min="0"
+                max={maxSteps}
+                value={replayIndex}
+                onChange={(e) => {
+                  setReplayIndex(Number(e.target.value));
+                  setIsPlaying(false);
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-ns-resize z-20 appearance-none"
+                style={{ writingMode: "vertical-lr", direction: "rtl" }}
+              />
+              <div
+                className="absolute bottom-0 left-0 right-0 bg-brand-500 rounded-full transition-all duration-100 ease-out"
+                style={{ height: `${(replayIndex / maxSteps) * 100}%` }}
+              />
+              <div
+                className="absolute left-1/2 -translate-x-1/2 w-6 h-6 bg-white border-2 border-brand-500 rounded-full shadow-md z-10 pointer-events-none transition-all duration-100 ease-out flex items-center justify-center"
+                style={{
+                  bottom: `calc(${(replayIndex / maxSteps) * 100}% - 12px)`,
+                }}
+              >
+                <i className="fas fa-sort text-[10px] text-brand-600"></i>
+              </div>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur-md shadow-sm border border-canvas-active p-1.5 rounded-lg flex flex-col gap-2">
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${isPlaying ? "bg-brand-100 text-brand-600" : "hover:bg-brand-50 text-ink-secondary hover:text-brand-600"}`}
+                title={isPlaying ? "Pause" : "Auto Play"}
+              >
+                <i className={`fas ${isPlaying ? "fa-pause" : "fa-play"}`}></i>
+              </button>
+
+              <button
+                onClick={() => {
+                  setReplayIndex(maxSteps);
+                  setIsPlaying(false);
+                }}
+                className="w-8 h-8 flex items-center justify-center hover:bg-brand-50 text-ink-secondary hover:text-brand-600 rounded-md transition-colors"
+                title="Jump to End"
+              >
+                <i className="fas fa-fast-forward"></i>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* 🟢 Add the Modal at the bottom of the JSX */}
-      <SubmissionModal
-        isOpen={!!selectedSubmission}
-        onClose={() => setSelectedSubmission(null)}
-        title={`Data Log: ${selectedSubmission?.name}`}
-        formKey={selectedSubmission?.key || ""}
-        submissionId={selectedSubmission?.id || ""}
-      />
     </div>
   );
 }

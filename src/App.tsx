@@ -425,8 +425,8 @@ export default function App() {
                     {type === "success"
                       ? "Success"
                       : type === "error"
-                      ? "Error"
-                      : "Notification"}
+                        ? "Error"
+                        : "Notification"}
                   </p>
                   <p className="mt-1 text-sm text-neutral-600 leading-relaxed">
                     {message}
@@ -444,10 +444,10 @@ export default function App() {
             </div>
           </div>
         ),
-        { duration: 5000 }
+        { duration: 5000 },
       );
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -554,6 +554,16 @@ export default function App() {
                 <Route path="/admin/view-builder" element={<ViewBuilder />} />
               </Route>
 
+<Route
+                path="/inspect/instance"
+                element={<InstanceInspector />}
+              />
+
+              {/* 🟢 3. Task ID (Will resolve to Instance ID) */}
+              <Route
+                path="/inspect/instance/task/:taskId"
+                element={<InstanceInspector />}
+              />
               {/* USER ROUTES */}
               <Route
                 path="/"

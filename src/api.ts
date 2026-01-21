@@ -30,7 +30,7 @@ api.interceptors.response.use(
       window.location.href = "/";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // 🟢 NEW: Error Parsing Helper
@@ -74,14 +74,14 @@ export const submitTask = async (taskId: string, payload: any) => {
 
 export const fetchProcessHistory = async (processInstanceId: string) => {
   const res = await api.get(
-    `/api/workflow/process/${processInstanceId}/history`
+    `/api/workflow/process/${processInstanceId}/history`,
   );
   return res.data;
 };
 
 export const fetchSubmissionData = async (
   formKey: string,
-  submissionId: string
+  submissionId: string,
 ) => {
   const res = await api.get(`/api/forms/${formKey}/submission/${submissionId}`);
   return res.data;
@@ -90,14 +90,14 @@ export const fetchSubmissionData = async (
 export const fetchTasks = async (user: string): Promise<Task[]> => {
   // Using candidateOrAssigned is the standard way to fetch a user's full "Inbox"
   const res = await api.get(
-    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=1000&sort=createTime&order=desc`
+    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=1000&sort=createTime&order=desc`,
   );
   return res.data.data;
 };
 
 export const claimTask = async (
   taskId: string,
-  userId: string
+  userId: string,
 ): Promise<void> => {
   // Use your custom endpoint which handles claims safely
   await api.post(`/api/workflow/claim-task?taskId=${taskId}`, null, {
@@ -114,7 +114,7 @@ export const fetchDashboardStats = async () => {
 export const fetchCompletedTasks = async (
   page: number,
   size: number,
-  search: string
+  search: string,
 ) => {
   const res = await api.get(`/api/dashboard/completed`, {
     params: { page, size, search },
@@ -125,7 +125,7 @@ export const fetchCompletedTasks = async (
 // --- ADMIN APIs (Kept as is) ---
 export const fetchAdminProcesses = async () => {
   const res = await api.get(
-    "/process-api/repository/process-definitions?latest=true"
+    "/process-api/repository/process-definitions?latest=true",
   );
   return res.data.data;
 };
@@ -133,7 +133,7 @@ export const fetchAdminProcesses = async () => {
 export const fetchProcessVersions = async (processKey: string) => {
   // 1. Fetch the list of process definitions (Versions)
   const res = await api.get(
-    `/process-api/repository/process-definitions?key=${processKey}&sort=version&order=desc`
+    `/process-api/repository/process-definitions?key=${processKey}&sort=version&order=desc`,
   );
 
   const definitions = res.data.data;
@@ -145,7 +145,7 @@ export const fetchProcessVersions = async (processKey: string) => {
       try {
         // Fetch the deployment object using the ID found in the process definition
         const deploymentRes = await api.get(
-          `/process-api/repository/deployments/${def.deploymentId}`
+          `/process-api/repository/deployments/${def.deploymentId}`,
         );
 
         // Return the definition merged with the deployment name (where the comment lives)
@@ -157,7 +157,7 @@ export const fetchProcessVersions = async (processKey: string) => {
         // If deployment fetch fails, just return original def without name
         return def;
       }
-    })
+    }),
   );
 
   return enrichedDefinitions;
@@ -165,7 +165,7 @@ export const fetchProcessVersions = async (processKey: string) => {
 
 export const fetchProcessXml = async (id: string) => {
   const res = await api.get(
-    `/process-api/repository/process-definitions/${id}/resourcedata`
+    `/process-api/repository/process-definitions/${id}/resourcedata`,
   );
   return res.data;
 };
@@ -173,7 +173,7 @@ export const fetchProcessXml = async (id: string) => {
 export const deployProcess = async (
   file: File,
   name: string,
-  comment?: string
+  comment?: string,
 ) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -203,7 +203,7 @@ export const terminateProcessInstance = async (id: string) => {
 
 export const fetchInstanceVariables = async (id: string) => {
   const res = await api.get(
-    `/process-api/runtime/process-instances/${id}/variables`
+    `/process-api/runtime/process-instances/${id}/variables`,
   );
   return res.data;
 };
@@ -211,7 +211,7 @@ export const fetchInstanceVariables = async (id: string) => {
 export const updateInstanceVariable = async (
   processId: string,
   varName: string,
-  value: any
+  value: any,
 ) => {
   const payload = [
     {
@@ -222,7 +222,7 @@ export const updateInstanceVariable = async (
   ];
   return await api.put(
     `/process-api/runtime/process-instances/${processId}/variables`,
-    payload
+    payload,
   );
 };
 
@@ -266,25 +266,25 @@ export const fetchSystemStats = async () => {
 export const fetchHistoricActivities = async (processInstanceId: string) => {
   // Added size=1000 to fetch ALL history items, preventing cutoff
   const res = await api.get(
-    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc&size=1000`
+    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc&size=1000`,
   );
   return res.data.data;
 };
 
 export const fetchHistoricProcessInstances = async (
-  finished: boolean = true
+  finished: boolean = true,
 ) => {
   const res = await api.get(
-    `/process-api/history/historic-process-instances?finished=${finished}&size=1000&sort=startTime&order=desc`
+    `/process-api/history/historic-process-instances?finished=${finished}&size=1000&sort=startTime&order=desc`,
   );
   return res.data.data;
 };
 
 export const fetchJobs = async (
-  type: "timer" | "executable" | "deadletter" | "suspended"
+  type: "timer" | "executable" | "deadletter" | "suspended",
 ) => {
   const res = await api.get(
-    `/process-api/management/jobs?type=${type}&size=1000`
+    `/process-api/management/jobs?type=${type}&size=1000`,
   );
   return res.data.data;
 };
@@ -309,14 +309,14 @@ export const bulkTerminateInstances = async (instanceIds: string[]) => {
 
 export const fetchVariableHistory = async (processInstanceId: string) => {
   const res = await api.get(
-    `/process-api/history/historic-variable-instances?processInstanceId=${processInstanceId}&sort=variableName`
+    `/process-api/history/historic-variable-instances?processInstanceId=${processInstanceId}&sort=variableName`,
   );
   return res.data.data;
 };
 
 export const suspendProcessDefinition = async (
   id: string,
-  suspend: boolean
+  suspend: boolean,
 ) => {
   return await api.put(`/process-api/repository/process-definitions/${id}`, {
     action: suspend ? "suspend" : "activate",
@@ -326,13 +326,13 @@ export const suspendProcessDefinition = async (
 
 export const deleteDeployment = async (deploymentId: string) => {
   return await api.delete(
-    `/process-api/repository/deployments/${deploymentId}?cascade=true`
+    `/process-api/repository/deployments/${deploymentId}?cascade=true`,
   );
 };
 
 export const fireGlobalSignal = async (
   signalName: string,
-  variables: any[] = []
+  variables: any[] = [],
 ) => {
   return await api.post("/process-api/runtime/signals", {
     signalName,
@@ -346,11 +346,11 @@ export const fetchDecisionTables = async () => {
 };
 
 export const fetchHistoricActivitiesForDefinition = async (
-  definitionId: string
+  definitionId: string,
 ) =>
   (
     await api.get(
-      `/process-api/history/historic-activity-instances?processDefinitionId=${definitionId}&size=5000`
+      `/process-api/history/historic-activity-instances?processDefinitionId=${definitionId}&size=5000`,
     )
   ).data.data;
 
@@ -360,17 +360,17 @@ export const fetchDecisionTableXml = async (id: string) =>
 
 export const migrateProcessInstance = async (
   instanceId: string,
-  targetDefinitionId: string
+  targetDefinitionId: string,
 ) => {
   return await api.post(
     `/process-api/runtime/process-instances/${instanceId}/migrate`,
-    { toProcessDefinitionId: targetDefinitionId }
+    { toProcessDefinitionId: targetDefinitionId },
   );
 };
 export const updateTaskActions = async (
   processKey: string,
   taskKey: string,
-  actionsJson: string
+  actionsJson: string,
 ) => {
   return await api.post(
     `/api/admin/add-static-buttons`,
@@ -383,7 +383,7 @@ export const updateTaskActions = async (
       headers: {
         "Content-Type": "text/plain", // Important: Backend expects String body
       },
-    }
+    },
   );
 };
 export const fetchAllForms = async () => {
@@ -391,7 +391,7 @@ export const fetchAllForms = async () => {
   // limit=1000 -> Overrides default 10 items per page limit
   // select=... -> Optimization: Only fetch fields we need for the dropdown
   const res = await api.get(
-    "/api/forms/form?type=form&limit=1000&select=_id,title,path,name,key"
+    "/api/forms/form?type=form&limit=1000&select=_id,title,path,name,key",
   );
 
   // Normalize response
@@ -403,10 +403,36 @@ export default api;
 
 export const migrateInstancesToVersion = async (
   processKey: string,
-  version: number
+  version: number,
 ) => {
   // 1. Use 'api.post' so the JWT token is attached automatically
   // 2. Ensure path matches Controller: @RequestMapping("/api/admin")
   const res = await api.post(`/api/admin/migrate/${processKey}/${version}`);
   return res.data;
+};
+
+// New function to fetch task metadata 
+export const fetchTaskMetadata = async (taskId: string) => {
+  const res = await api.get("/process-api/history/historic-task-instances", {
+    params: { taskId },
+  });
+  // Returns array, pick the first one
+  return res.data.data && res.data.data.length > 0 ? res.data.data[0] : null;
+};
+
+
+export const fetchInstanceByKeys = async (processKey: string, businessKey: string) => {
+  // Queries history to find the process instance
+  const res = await api.get("/process-api/history/historic-process-instances", {
+    params: {
+      processDefinitionKey: processKey,
+      processInstanceBusinessKey: businessKey,
+      sort: "startTime",
+      order: "desc", // Get the most recent one if multiple versions exist
+      size: 1
+    }
+  });
+  
+  // Return the ID of the first match
+  return res.data.data && res.data.data.length > 0 ? res.data.data[0].id : null;
 };
