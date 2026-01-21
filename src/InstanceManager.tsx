@@ -1,35 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   fetchProcessInstances,
   fetchHistoricProcessInstances,
   terminateProcessInstance,
   fetchInstanceVariables,
   updateInstanceVariable,
-  // 🟢 NEW API CALLS
   bulkTerminateInstances,
   fetchVariableHistory,
   fetchProcessVersions,
   migrateProcessInstance,
+  fetchAdminProcesses,
 } from "./api";
 import { Link, useSearchParams } from "react-router-dom";
+import DataGrid, { type Column } from "./components/common/DataGrid";
 
 export default function InstanceManager() {
-  const [searchParams] = useSearchParams();
-  const filterKey = searchParams.get("key");
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlFilterKey = searchParams.get("key");
   const [instances, setInstances] = useState<any[]>([]);
+  const [definitions, setDefinitions] = useState<any[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<any>(null);
   const [variables, setVariables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 🟢 NEW STATE FOR GOD-MODE FEATURES
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [inspectorTab, setInspectorTab] = useState<"current" | "audit">(
-    "current"
+    "current",
   );
   const [varAudit, setVarAudit] = useState<any[]>([]);
   const [targetVersions, setTargetVersions] = useState<any[]>([]);
+  const [filterKey, setFilterKey] = useState(urlFilterKey || "ALL");
+
+  useEffect(() => {
+    if (urlFilterKey) setFilterKey(urlFilterKey);
+  }, [urlFilterKey]);
 
   const loadInstances = () => {
     setLoading(true);
@@ -37,72 +41,54 @@ export default function InstanceManager() {
       viewMode === "active"
         ? fetchProcessInstances()
         : fetchHistoricProcessInstances(true);
-
     apiCall
-      .then((data) => {
-        const filtered = filterKey
-          ? data.filter((i: any) => i.processDefinitionKey === filterKey)
-          : data;
-        setInstances(filtered);
-      })
-      .catch((err) => console.error("Failed to load instances:", err))
+      .then(setInstances)
+      .catch(console.error)
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    setSelectedIds(new Set()); // Clear selection on mode change
     loadInstances();
-  }, [filterKey, viewMode]);
+    fetchAdminProcesses().then(setDefinitions).catch(console.error);
+  }, [viewMode]);
 
-  // 🟢 ENHANCED INSPECTOR: Load Variables, History, and Migration Targets
+  const uniqueKeys = useMemo(() => {
+    const keys = new Set(definitions.map((def) => def.key));
+    return Array.from(keys).filter(Boolean).sort();
+  }, [definitions]);
+
+  const filteredInstances = useMemo(() => {
+    if (filterKey === "ALL") return instances;
+    return instances.filter((i) => {
+      const instKey =
+        i.processDefinitionKey ||
+        (i.processDefinitionId ? i.processDefinitionId.split(":")[0] : "");
+      return instKey === filterKey;
+    });
+  }, [instances, filterKey]);
+
   const handleInspect = async (inst: any) => {
     setSelectedInstance(inst);
     setInspectorTab("current");
-
     try {
-      // 1. 🟢 ROBUST KEY EXTRACTION
-      // Active instances don't have 'processDefinitionKey', so we extract it from the ID.
-      // Format is usually: "processKey:version:id"
-      let defKey = inst.processDefinitionKey;
-      if (!defKey && inst.processDefinitionId) {
-        defKey = inst.processDefinitionId.split(":")[0];
-      }
-
-      console.log("🔍 Inspecting ID:", inst.id);
-      console.log("🔑 Resolved Key:", defKey);
-
-      if (!defKey) {
-        console.error("❌ Could not determine Process Definition Key");
-        return;
-      }
-
-      // 2. Fetch Data in Parallel
+      const defKey =
+        inst.processDefinitionKey ||
+        (inst.processDefinitionId
+          ? inst.processDefinitionId.split(":")[0]
+          : "");
+      if (!defKey) return;
       const [vars, history, versions] = await Promise.all([
         fetchInstanceVariables(inst.id),
         fetchVariableHistory(inst.id),
-        fetchProcessVersions(defKey), // <--- Use the resolved 'defKey' here
+        fetchProcessVersions(defKey),
       ]);
-
       setVariables(vars);
       setVarAudit(history);
-
-      // 3. Filter versions (remove the current one)
-      const validTargets = versions.filter(
-        (v: any) => v.id !== inst.processDefinitionId
+      setTargetVersions(
+        versions.filter((v: any) => v.id !== inst.processDefinitionId),
       );
-
-      console.log("🎯 Potential Migration Targets:", validTargets);
-      setTargetVersions(validTargets);
     } catch (e) {
       console.error("Deep inspection failed", e);
-    }
-  };
-  const handleUpdateVar = async (name: string, currentVal: any) => {
-    const newVal = prompt(`Update ${name}:`, currentVal);
-    if (newVal !== null && selectedInstance) {
-      await updateInstanceVariable(selectedInstance.id, name, newVal);
-      const updatedVars = await fetchInstanceVariables(selectedInstance.id);
-      setVariables(updatedVars);
     }
   };
 
@@ -114,14 +100,6 @@ export default function InstanceManager() {
     }
   };
 
-  // 🟢 BULK ACTION LOGIC
-  const toggleSelect = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedIds(newSet);
-  };
-
   const handleBulkTerminate = async () => {
     if (window.confirm(`Terminate ${selectedIds.size} instances?`)) {
       setLoading(true);
@@ -131,304 +109,348 @@ export default function InstanceManager() {
     }
   };
 
-  // 🟢 MIGRATION LOGIC
   const handleMigrate = async (targetId: string) => {
-    if (
-      window.confirm(
-        "Migrate this instance to the selected version? Existing variables will be preserved."
-      )
-    ) {
+    if (window.confirm("Migrate this instance to the selected version?")) {
       try {
         await migrateProcessInstance(selectedInstance.id, targetId);
         alert("Instance migrated successfully.");
         loadInstances();
         setSelectedInstance(null);
       } catch (e) {
-        alert("Migration failed. Ensure the target version is compatible.");
+        alert("Migration failed.");
       }
     }
   };
 
+  const columns: Column<any>[] = [
+    {
+      header: "Definition",
+      key: "processDefinitionName",
+      sortable: true,
+      render: (inst) => (
+        <div className="space-y-1">
+          <div className="font-bold text-xs leading-tight text-ink-primary">
+            {inst.processDefinitionName || inst.processDefinitionKey}
+          </div>
+          <div className="text-[11px] font-mono text-ink-muted bg-canvas-subtle/50 px-2 py-0.5 rounded-md w-fit">
+            {inst.id}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Started",
+      key: "startTime",
+      sortable: true,
+      render: (inst) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-ink-primary font-semibold">
+            {new Date(inst.startTime).toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+          <span className="text-[11px] text-ink-secondary font-medium">
+            {new Date(inst.startTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (inst) =>
+        inst.endTime ? (
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border transition-all ${
+              inst.deleteReason
+                ? "bg-status-error/15 text-status-error border-status-error/30 shadow-sm"
+                : "bg-sage-100/60 text-sage-700 border-sage-200 shadow-sm"
+            }`}
+          >
+            <i
+              className={`fas text-[9px] ${inst.deleteReason ? "fa-ban" : "fa-check-circle"}`}
+            ></i>
+            {inst.deleteReason ? "Terminated" : "Completed"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-brand-50/80 text-brand-600 border border-brand-200 shadow-sm">
+            <i className="fas fa-play text-[9px] animate-pulse"></i>
+            Active
+          </span>
+        ),
+    },
+    {
+      header: "Business Key",
+      key: "businessKey",
+      sortable: true,
+      render: (inst) => (
+        <span className="font-mono text-xs text-ink-primary bg-canvas-subtle/50 px-2 py-1 rounded-md block w-fit">
+          {inst.businessKey ? (
+            <>{inst.businessKey}</>
+          ) : (
+            <span className="text-ink-muted italic">Not set</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      header: "Actions",
+      key: "actions",
+      className: "text-right",
+      render: (inst) => (
+        <div
+          className="flex justify-end gap-1.5 items-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Link
+            to={`/admin/inspect/${inst.id}`}
+            className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
+            title="View Process Path"
+          >
+            <i className="fas fa-map-signs mr-1"></i>Path
+          </Link>
+          <button
+            onClick={() => handleInspect(inst)}
+            className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
+            title="Inspect Instance Details"
+          >
+            <i className="fas fa-microscope mr-1"></i>Inspect
+          </button>
+          {viewMode === "active" && (
+            <button
+              onClick={() => handleTerminate(inst.id)}
+              className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
+              title="Terminate Instance"
+            >
+              <i className="fas fa-power-off text-xs"></i>
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
   return (
-    <div className="min-h-screen bg-canvas p-8 flex gap-6">
-      <div className="flex-1">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-canvas p-6 flex gap-6 font-sans">
+      <div className="flex-1 flex flex-col min-h-0">
+        <header className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-serif font-bold text-ink-primary">
-              {filterKey ? `Instances: ${filterKey}` : "Process Instances"}
+            <h2 className="text-2xl font-serif font-bold text-ink-primary tracking-tight">
+              Instance Manager
             </h2>
-            <p className="text-xs text-ink-tertiary mt-1 font-medium">
-              Manage live execution, batch terminate, or migrate between
-              versions.
+            <p className="text-xs text-ink-tertiary mt-0.5 font-medium italic">
+              Monitor & manipulate workflow executions.
             </p>
           </div>
+          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-soft">
+            <button
+              onClick={() => setViewMode("active")}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                viewMode === "active"
+                  ? "bg-surface text-brand-500 shadow-lifted"
+                  : "text-ink-tertiary"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setViewMode("history")}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                viewMode === "history"
+                  ? "bg-surface text-brand-500 shadow-lifted"
+                  : "text-ink-tertiary"
+              }`}
+            >
+              History
+            </button>
+          </div>
+        </header>
 
-          <div className="flex items-center gap-4">
-            <div className="flex bg-canvas-subtle p-1 rounded-lg border border-canvas-active shadow-inner">
+        {selectedIds.size > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-ink-primary text-ink-inverted px-6 py-3.5 rounded-2xl shadow-premium flex items-center gap-8 z-50 animate-slideUp border border-white/10">
+            <span className="text-xs font-bold uppercase tracking-widest">
+              {selectedIds.size} Selected
+            </span>
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setViewMode("active")}
-                className={`px-5 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
-                  viewMode === "active"
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-ink-tertiary"
-                }`}
+                onClick={handleBulkTerminate}
+                className="bg-status-error text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest"
               >
-                Active
+                Terminate
               </button>
               <button
-                onClick={() => setViewMode("history")}
-                className={`px-5 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
-                  viewMode === "history"
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-ink-tertiary"
-                }`}
+                onClick={() => setSelectedIds(new Set())}
+                className="text-white/40 hover:text-white transition-colors"
               >
-                History
+                <i className="fas fa-times text-sm"></i>
               </button>
             </div>
           </div>
-        </div>
-
-        {/* 🟢 FLOATING BULK ACTIONS */}
-        {selectedIds.size > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-ink-primary text-white px-8 py-4 rounded-2xl shadow-premium flex items-center gap-8 z-50 animate-slideUp border border-white/10">
-            <span className="text-sm font-bold uppercase tracking-widest">
-              {selectedIds.size} Instances Selected
-            </span>
-            <button
-              onClick={handleBulkTerminate}
-              className="bg-status-error text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-            >
-              Terminate All
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="text-white/40 hover:text-white"
-            >
-              <i className="fas fa-times"></i>
-            </button>
-          </div>
         )}
 
-        <div className="bg-surface rounded-xl border border-canvas-active overflow-hidden shadow-soft">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-canvas-subtle border-b border-canvas-active">
-              <tr>
-                <th className="px-6 py-4 w-10">
-                  <input
-                    type="checkbox"
-                    onChange={(e) =>
-                      setSelectedIds(
-                        e.target.checked
-                          ? new Set(instances.map((i) => i.id))
-                          : new Set()
-                      )
-                    }
-                    className="accent-brand-500"
-                  />
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                  Process Definition
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                  Business Key
-                </th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-canvas-subtle">
-              {instances.map((inst) => (
-                <tr
-                  key={inst.id}
-                  className={`hover:bg-canvas-subtle/30 transition-colors ${
-                    selectedIds.has(inst.id) ? "bg-brand-50/50" : ""
-                  }`}
-                >
-                  <td className="px-6 py-4">
-                    {viewMode === "active" && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(inst.id)}
-                        onChange={() => toggleSelect(inst.id)}
-                        className="accent-brand-500"
-                      />
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-ink-primary">
-                      {inst.processDefinitionName}
-                    </div>
-                    <div className="text-[10px] font-mono opacity-60">
-                      ID: {inst.id.substring(0, 8)}...
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {inst.endTime ? (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
-                          inst.deleteReason
-                            ? "bg-status-error/10 text-status-error border-status-error/20"
-                            : "bg-sage-100 text-sage-700 border-sage-200"
-                        }`}
-                      >
-                        {inst.deleteReason ? "Terminated" : "Completed"}
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-brand-50 text-brand-600 border border-brand-100">
-                        Active
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 font-mono text-xs">
-                    {inst.businessKey || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 text-right flex gap-3 justify-end">
-                    <Link
-                      to={`/admin/inspect/${inst.id}`}
-                      className="text-[11px] font-black uppercase text-brand-600 hover:underline"
-                    >
-                      Path
-                    </Link>
-                    <button
-                      onClick={() => handleInspect(inst)}
-                      className="text-[11px] font-black uppercase text-ink-secondary hover:text-ink-primary"
-                    >
-                      Inspect
-                    </button>
-                    {viewMode === "active" && (
-                      <button
-                        onClick={() => handleTerminate(inst.id)}
-                        className="text-[11px] font-black uppercase text-status-error hover:opacity-80"
-                      >
-                        Terminate
-                      </button>
-                    )}
-                  </td>
-                </tr>
+        {/* 🟢 DataGrid with Filter in Header */}
+        <DataGrid
+          data={filteredInstances}
+          columns={columns}
+          loading={loading}
+          getRowId={(inst) => inst.id}
+          searchFields={["id", "businessKey", "processDefinitionName"]}
+          onSelectionChange={setSelectedIds}
+          activeRowId={selectedInstance?.id}
+          onRowClick={handleInspect}
+          headerActions={
+            <select
+              value={filterKey}
+              onChange={(e) => {
+                setFilterKey(e.target.value);
+                setSearchParams(
+                  e.target.value === "ALL" ? {} : { key: e.target.value },
+                );
+              }}
+              className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+            >
+              <option value="ALL">All Definitions</option>
+              {uniqueKeys.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </select>
+          }
+        />
       </div>
 
-      {/* 🟢 DEEP INSPECTOR PANEL: Includes History Log & Migration */}
+      {/* Deep Inspector Panel */}
       {selectedInstance && (
-        <div className="w-96 bg-surface border border-canvas-active rounded-xl p-6 shadow-premium h-[90vh] sticky top-8 animate-slideInRight flex flex-col">
-          <div className="flex justify-between items-start mb-6">
+        <aside className="w-80 bg-surface border border-canvas-active rounded-panel p-5 shadow-premium h-[calc(100vh-4rem)] sticky top-8 animate-slideInRight flex flex-col overflow-hidden">
+          <div className="flex justify-between items-start mb-5">
             <div>
-              <h3 className="font-bold text-ink-primary">Deep Inspector</h3>
-              <p className="text-[10px] text-ink-tertiary font-mono">
-                {selectedInstance.id}
+              <h3 className="text-base font-serif font-bold text-ink-primary leading-tight">
+                Deep Inspector
+              </h3>
+              <p className="text-[8px] text-ink-tertiary font-mono uppercase mt-1 opacity-60">
+                UUID: {selectedInstance.id}
               </p>
             </div>
             <button
               onClick={() => setSelectedInstance(null)}
-              className="text-ink-tertiary hover:text-ink-primary"
+              className="text-ink-muted hover:text-ink-primary transition-colors"
             >
-              <i className="fas fa-times"></i>
+              <i className="fas fa-times text-xs"></i>
             </button>
           </div>
-
-          <div className="flex bg-canvas-subtle p-1 rounded-lg mb-6 text-[10px] font-black uppercase">
+          <div className="flex bg-canvas-subtle p-0.5 rounded-lg mb-5 border border-canvas-active shadow-inner">
             <button
               onClick={() => setInspectorTab("current")}
-              className={`flex-1 py-2 rounded ${
+              className={`flex-1 py-1.5 rounded-md text-[9px] font-black uppercase transition-all ${
                 inspectorTab === "current"
-                  ? "bg-white text-brand-600 shadow-sm"
-                  : "text-ink-tertiary"
+                  ? "bg-white text-brand-600 shadow-soft"
+                  : "text-ink-muted"
               }`}
             >
-              Current Vars
+              State
             </button>
             <button
               onClick={() => setInspectorTab("audit")}
-              className={`flex-1 py-2 rounded ${
+              className={`flex-1 py-1.5 rounded-md text-[9px] font-black uppercase transition-all ${
                 inspectorTab === "audit"
-                  ? "bg-white text-brand-600 shadow-sm"
-                  : "text-ink-tertiary"
+                  ? "bg-white text-brand-600 shadow-soft"
+                  : "text-ink-muted"
               }`}
             >
-              History Log
+              History
             </button>
           </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-4">
             {inspectorTab === "current" ? (
               <>
-                {/* 🟢 MIGRATION TOOL SECTION */}
-
-                <div className="p-4 bg-brand-50 rounded-xl border border-brand-100 mb-6">
-                  <span className="text-[9px] font-black uppercase text-brand-700 mb-2 block tracking-widest">
-                    Migration Tool
+                <div className="p-4 bg-accent-50/50 rounded-xl border border-accent-100 mb-2 shadow-accent-sm">
+                  <span className="text-[8px] font-black uppercase text-accent-700 block mb-1.5 tracking-widest">
+                    Migration Hub
                   </span>
-                  <p className="text-[10px] text-brand-800/60 mb-3 leading-tight">
-                    Move this instance to a different version of the workflow
-                    definition.
-                  </p>
                   <select
                     onChange={(e) => handleMigrate(e.target.value)}
-                    className="w-full bg-white border border-brand-200 rounded-lg p-2 text-xs font-bold outline-none focus:ring-2 ring-brand-500"
+                    className="w-full bg-white border border-accent-200 rounded-md p-1.5 text-[10px] font-bold text-accent-900 outline-none"
                   >
-                    <option value="">Select Target Version...</option>
+                    <option value="">Target version...</option>
                     {targetVersions.map((v) => (
                       <option key={v.id} value={v.id}>
-                        Version {v.version} (ID: {v.id.substring(0, 8)})
+                        Version {v.version} ({v.id.substring(0, 5)})
                       </option>
                     ))}
                   </select>
                 </div>
-
-                {variables.map((v) => (
-                  <div
-                    key={v.name}
-                    className="p-3 bg-canvas-subtle rounded-lg border border-canvas-active group"
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] font-black uppercase text-ink-tertiary">
-                        {v.name}
-                      </span>
-                      <button
-                        onClick={() => handleUpdateVar(v.name, v.value)}
-                        className="text-[10px] font-bold text-brand-600 opacity-0 group-hover:opacity-100"
-                      >
-                        Edit
-                      </button>
+                <div className="space-y-2.5">
+                  <span className="text-[8px] font-black uppercase text-ink-muted px-1 block">
+                    Live Variables
+                  </span>
+                  {variables.map((v) => (
+                    <div
+                      key={v.name}
+                      className="p-3 bg-canvas-subtle rounded-lg border border-canvas-active group hover:border-brand-200"
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[9px] font-black text-ink-tertiary uppercase truncate pr-2">
+                          {v.name}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const newVal = prompt(`Update ${v.name}:`, v.value);
+                            if (newVal !== null)
+                              updateInstanceVariable(
+                                selectedInstance.id,
+                                v.name,
+                                newVal,
+                              ).then(() =>
+                                fetchInstanceVariables(
+                                  selectedInstance.id,
+                                ).then(setVariables),
+                              );
+                          }}
+                          className="text-[8px] font-black text-brand-500 opacity-0 group-hover:opacity-100 uppercase tracking-tighter"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                      <code className="text-[10px] font-mono text-ink-primary break-all block bg-white/40 p-1 rounded border border-canvas-active/20">
+                        {JSON.stringify(v.value)}
+                      </code>
                     </div>
-                    <div className="text-sm font-mono break-all text-ink-primary">
-                      {JSON.stringify(v.value)}
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-6 pl-1">
+                {varAudit.map((h, i) => (
+                  <div
+                    key={i}
+                    className="relative pl-5 border-l border-canvas-active last:pb-0"
+                  >
+                    <div className="absolute -left-[4.5px] top-0 w-2 h-2 rounded-full bg-accent-500 shadow-sm border border-white"></div>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="text-[9px] font-black text-accent-600 uppercase pr-2 truncate">
+                        {h.variableName}
+                      </div>
+                      <div className="text-[8px] text-ink-muted font-bold">
+                        {new Date(h.createTime).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                    <div className="bg-canvas-subtle p-2 rounded border border-canvas-active text-[10px] font-mono text-ink-secondary leading-tight">
+                      {JSON.stringify(h.value)}
                     </div>
                   </div>
                 ))}
-              </>
-            ) : (
-              /* 🟢 VARIABLE AUDIT TRAIL (HISTORY LOG) */
-              varAudit.map((h, i) => (
-                <div
-                  key={i}
-                  className="relative pl-6 pb-6 border-l-2 border-canvas-active last:pb-0"
-                >
-                  <div className="absolute -left-[7px] top-0 w-3 h-3 rounded-full bg-brand-500 shadow-sm"></div>
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="text-[10px] font-black text-brand-600 uppercase tracking-tighter">
-                      {h.variableName}
-                    </div>
-                    <div className="text-[9px] text-ink-tertiary font-bold">
-                      {new Date(h.createTime).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <div className="bg-canvas-subtle p-2 rounded border border-canvas-active text-xs font-mono text-ink-primary">
-                    {JSON.stringify(h.value)}
-                  </div>
-                </div>
-              ))
+              </div>
             )}
           </div>
-        </div>
+        </aside>
       )}
     </div>
   );

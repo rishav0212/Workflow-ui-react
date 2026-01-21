@@ -90,7 +90,7 @@ export const fetchSubmissionData = async (
 export const fetchTasks = async (user: string): Promise<Task[]> => {
   // Using candidateOrAssigned is the standard way to fetch a user's full "Inbox"
   const res = await api.get(
-    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=1000&sort=createTime&order=desc`,
+    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=100000&sort=createTime&order=desc`,
   );
   return res.data.data;
 };
@@ -193,7 +193,7 @@ export const deployProcess = async (
 };
 
 export const fetchProcessInstances = async () => {
-  const res = await api.get("/process-api/runtime/process-instances?size=1000");
+  const res = await api.get("/process-api/runtime/process-instances?size=100000");
   return res.data.data;
 };
 
@@ -264,9 +264,9 @@ export const fetchSystemStats = async () => {
 };
 
 export const fetchHistoricActivities = async (processInstanceId: string) => {
-  // Added size=1000 to fetch ALL history items, preventing cutoff
+  // Added size=100000 to fetch ALL history items, preventing cutoff
   const res = await api.get(
-    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc&size=1000`,
+    `/process-api/history/historic-activity-instances?processInstanceId=${processInstanceId}&sort=startTime&order=asc&size=100000`,
   );
   return res.data.data;
 };
@@ -275,7 +275,7 @@ export const fetchHistoricProcessInstances = async (
   finished: boolean = true,
 ) => {
   const res = await api.get(
-    `/process-api/history/historic-process-instances?finished=${finished}&size=1000&sort=startTime&order=desc`,
+    `/process-api/history/historic-process-instances?finished=${finished}&size=100000&sort=startTime&order=desc`,
   );
   return res.data.data;
 };
@@ -284,7 +284,7 @@ export const fetchJobs = async (
   type: "timer" | "executable" | "deadletter" | "suspended",
 ) => {
   const res = await api.get(
-    `/process-api/management/jobs?type=${type}&size=1000`,
+    `/process-api/management/jobs?type=${type}&size=100000`,
   );
   return res.data.data;
 };
@@ -388,10 +388,10 @@ export const updateTaskActions = async (
 };
 export const fetchAllForms = async () => {
   // type=form -> Excludes 'resources' (like User, Submission data definitions)
-  // limit=1000 -> Overrides default 10 items per page limit
+  // limit=100000 -> Overrides default 10 items per page limit
   // select=... -> Optimization: Only fetch fields we need for the dropdown
   const res = await api.get(
-    "/api/forms/form?type=form&limit=1000&select=_id,title,path,name,key",
+    "/api/forms/form?type=form&limit=100000&select=_id,title,path,name,key",
   );
 
   // Normalize response

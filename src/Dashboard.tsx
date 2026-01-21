@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { fetchDashboardStats, fetchCompletedTasks, parseApiError } from "./api"; // 🟢 Import helper
+import { fetchDashboardStats, fetchCompletedTasks, parseApiError } from "./api";
 import { useNavigate } from "react-router-dom";
+import DataGrid, { type Column } from "./components/common/DataGrid";
 
-// 🟢 NEW: Accept addNotification prop
 export default function Dashboard({
   addNotification,
 }: {
@@ -22,16 +22,7 @@ export default function Dashboard({
   // Table State
   const [tasks, setTasks] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  // Search Debounce: Triggers the backend OR query (Name + Description)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 500);
-    return () => clearTimeout(timer);
-  }, [search]);
 
   // Load Stats
   useEffect(() => {
@@ -39,7 +30,6 @@ export default function Dashboard({
       .then(setStats)
       .catch((err) => {
         console.error(err);
-        // 🟢 Show error toast
         addNotification(
           `Failed to load dashboard stats: ${parseApiError(err)}`,
           "error",
@@ -51,13 +41,10 @@ export default function Dashboard({
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
-      // The backend now handles the "Name OR Description" logic via this call
-      const data = await fetchCompletedTasks(page, 10, debouncedSearch);
+      const data = await fetchCompletedTasks(0, 100, search);
       setTasks(data.content || []);
-      setTotalPages(data.totalPages || 0);
     } catch (err: any) {
       console.error(err);
-      // 🟢 Show error toast
       addNotification(
         `Failed to load task history: ${parseApiError(err)}`,
         "error",
@@ -65,21 +52,89 @@ export default function Dashboard({
     } finally {
       setLoadingHistory(false);
     }
-  }, [page, debouncedSearch, addNotification]);
+  }, [search, addNotification]);
 
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setPage(0); // Reset to first page on new search
-  };
+    const timer = setTimeout(() => {
+      loadHistory();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, loadHistory]);
 
   const clearSearch = () => {
     setSearch("");
-    setPage(0);
   };
+
+  // Columns for DataGrid
+  const columns: Column<any>[] = [
+    {
+      header: "Task Name",
+      key: "name",
+      sortable: true,
+      render: (task) => (
+        <div className="space-y-1">
+          <div className="font-bold text-xs leading-tight text-ink-primary">
+            {task.name}
+          </div>
+          <div className="text-[11px] text-ink-tertiary font-mono bg-canvas-subtle/50 px-2 py-0.5 rounded-md w-fit">
+            ID: {task.id.substring(0, 8)}...
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Description",
+      key: "description",
+      render: (task) => (
+        <p className="text-xs text-ink-secondary leading-relaxed max-w-lg truncate">
+          {task.description ? (
+            task.description
+          ) : (
+            <span className="text-ink-muted italic">No description</span>
+          )}
+        </p>
+      ),
+    },
+    {
+      header: "Completed On",
+      key: "endTime",
+      sortable: true,
+      render: (task) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-ink-primary font-semibold">
+            {new Date(task.endTime).toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+          <span className="text-[11px] text-ink-secondary font-medium">
+            {new Date(task.endTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Action",
+      key: "action",
+      className: "text-right",
+      render: (task) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/inspect/instance?taskId=${task.id}`);
+          }}
+          className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
+          title="View Task Details"
+        >
+          <i className="fas fa-arrow-right mr-1"></i>Details
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar bg-canvas p-6 md:p-10">
@@ -170,121 +225,24 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* 3. HISTORY TABLE */}
-      <div className="panel-rounded overflow-hidden bg-surface border border-slate-200 shadow-sm">
-        {/* INTEGRATED HEADER: Title + Pagination + Search */}
-        <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap gap-4 justify-between items-center bg-slate-50/50">
-          <h2 className="text-lg font-bold text-slate-800">Recent History</h2>
-
-          <div className="flex items-center gap-4">
-            {/* PAGINATION CONTROLS */}
-            <div className="flex items-center gap-3 pr-4 border-r border-slate-200">
-              <span className="text-xs text-slate-500 font-medium">
-                Page {page + 1} of {totalPages || 1}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0 || loadingHistory}
-                  className="px-2 py-1 text-xs font-semibold rounded border border-slate-300 bg-white disabled:opacity-50 hover:bg-slate-50 transition-colors"
-                >
-                  <i className="fas fa-chevron-left mr-1"></i> Prev
-                </button>
-                <button
-                  onClick={() =>
-                    setPage((p) => Math.min(totalPages - 1, p + 1))
-                  }
-                  disabled={page >= totalPages - 1 || loadingHistory}
-                  className="px-2 py-1 text-xs font-semibold rounded border border-slate-300 bg-white disabled:opacity-50 hover:bg-slate-50 transition-colors"
-                >
-                  Next <i className="fas fa-chevron-right ml-1"></i>
-                </button>
-              </div>
+      {/* 3. HISTORY TABLE - Using DataGrid */}
+      <div className="mb-10">
+        <h2 className="text-lg font-bold text-ink-primary mb-4">
+          Recent History
+        </h2>
+        <DataGrid
+          data={tasks}
+          columns={columns}
+          loading={loadingHistory}
+          getRowId={(task) => task.id}
+          searchFields={["name", "description"]}
+          itemsPerPage={10}
+          headerActions={
+            <div className="text-sm text-ink-secondary font-medium">
+              {tasks.length} completed tasks
             </div>
-
-            {/* SEARCH INPUT */}
-            <div className="relative group">
-              <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-              <input
-                type="text"
-                placeholder="Search name or description..."
-                value={search}
-                onChange={handleSearchChange}
-                className="pl-9 pr-8 py-1.5 input-base w-64 focus:ring-2 focus:ring-brand-400/20"
-              />
-              {search && (
-                <button
-                  onClick={clearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <i className="fas fa-times-circle"></i>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold tracking-wider border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Task Name</th>
-                <th className="px-6 py-4">Description</th>
-                <th className="px-6 py-4">Completed On</th>
-                <th className="px-6 py-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loadingHistory ? (
-                <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-400">
-                    <i className="fas fa-circle-notch fa-spin text-2xl text-orange-400 mb-2"></i>
-                    <p>Loading history...</p>
-                  </td>
-                </tr>
-              ) : tasks.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-400">
-                    {debouncedSearch
-                      ? `No matches found for "${debouncedSearch}"`
-                      : "No records found."}
-                  </td>
-                </tr>
-              ) : (
-                tasks.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 font-medium text-slate-700">
-                      {t.name}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 text-sm truncate max-w-xs">
-                      {t.description || (
-                        <span className="text-slate-300 italic">
-                          No description
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-xs font-mono">
-                      {new Date(t.endTime).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() =>
-                          navigate(`/inspect/instance?taskId=${t.id}`)
-                        }
-                        className="text-orange-600 text-xs font-bold hover:text-orange-700 hover:underline"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+          }
+        />
       </div>
     </div>
   );

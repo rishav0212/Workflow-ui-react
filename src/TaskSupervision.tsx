@@ -6,71 +6,47 @@ import {
   reassignTask,
   bulkReassignTasks,
 } from "./api";
-import DataTable, { type Column } from "./components/common/DataTable";
+import DataGrid, { type Column } from "./components/common/DataGrid";
 
 export default function TaskSupervision() {
-  // Updated state to handle pagination data
   const [tasks, setTasks] = useState<any[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  // Controls
   const [viewMode, setViewMode] = useState<"active" | "completed">("active");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>({ key: "createTime", direction: "desc" });
 
-  // Search and Sort Params
-  const [queryParams, setQueryParams] = useState({
-    search: "",
-    sort: "createTime",
-    order: "desc" as "asc" | "desc",
-  });
-
-  // 🟢 Enhanced Logic: Load Tasks with Pagination/Search/Sort
   const loadTasks = () => {
     setLoading(true);
-
-    // Construct Flowable-compatible parameters
-    const params = {
-      start: currentPage * pageSize,
-      size: pageSize,
-      sort: viewMode === "active" ? queryParams.sort : "endTime",
-      order: queryParams.order,
-      // Backend expects % for partial matches
-      nameLike: queryParams.search ? `%${queryParams.search}%` : undefined,
-    };
-
     const apiCall =
       viewMode === "active"
-        ? fetchAllSystemTasks(params)
-        : fetchHistoricTasks(params);
+        ? fetchAllSystemTasks({ size: 100000 })
+        : fetchHistoricTasks({ size: 100000 });
 
     apiCall
       .then((res: any) => {
-        // Flowable returns { data: [], total: X, size: Y, start: Z }
         setTasks(res.data || []);
-        setTotalItems(res.total || 0);
+        setSelectedIds(new Set());
       })
       .catch((err) => console.error("Failed to load tasks:", err))
       .finally(() => setLoading(false));
   };
 
-  // Reload when any control changes
   useEffect(() => {
     loadTasks();
-  }, [viewMode, currentPage, queryParams]);
+  }, [viewMode]);
 
-  // Reset page when switching modes or searching
   const handleModeChange = (mode: "active" | "completed") => {
     setViewMode(mode);
-    setCurrentPage(0);
     setSelectedIds(new Set());
   };
 
   const handleBulkReassign = async (ids: string[]) => {
     const newUser = prompt(
-      `Enter username to reassign ${ids.length} tasks to:`
+      `Enter username to reassign ${ids.length} tasks to:`,
     );
     if (newUser) {
       setLoading(true);
@@ -92,11 +68,11 @@ export default function TaskSupervision() {
       key: "name",
       sortable: true,
       render: (task) => (
-        <div>
-          <div className="font-bold text-ink-primary leading-tight">
+        <div className="space-y-1">
+          <div className="font-bold text-xs leading-tight text-ink-primary">
             {task.name}
           </div>
-          <div className="text-[10px] text-ink-tertiary font-mono mt-0.5">
+          <div className="text-[11px] text-ink-tertiary font-mono bg-canvas-subtle/50 px-2 py-0.5 rounded-md w-fit">
             PID: {task.processInstanceId?.substring(0, 8)}...
           </div>
         </div>
@@ -108,12 +84,15 @@ export default function TaskSupervision() {
       sortable: true,
       render: (task) => (
         <span
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border transition-all ${
             task.assignee
-              ? "bg-brand-50 text-brand-700 border border-brand-100"
-              : "bg-status-warning/10 text-status-warning border border-status-warning/20"
+              ? "bg-brand-50/80 text-brand-600 border-brand-200 shadow-sm"
+              : "bg-status-warning/15 text-status-warning border-status-warning/30 shadow-sm"
           }`}
         >
+          <i
+            className={`fas text-[9px] ${task.assignee ? "fa-user-check" : "fa-user-clock"}`}
+          ></i>
           {task.assignee || "Unassigned"}
         </span>
       ),
@@ -123,31 +102,50 @@ export default function TaskSupervision() {
       key: viewMode === "active" ? "createTime" : "endTime",
       sortable: true,
       render: (task) => (
-        <span className="text-ink-tertiary font-medium">
-          {new Date(task.endTime || task.createTime).toLocaleDateString()}
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-ink-primary font-semibold">
+            {new Date(task.endTime || task.createTime).toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+          <span className="text-[11px] text-ink-secondary font-medium">
+            {new Date(task.endTime || task.createTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
       ),
     },
     {
       header: "Actions",
       key: "actions",
+      className: "text-right",
       render: (task) => (
-        <div className="flex gap-4 justify-end items-center">
+        <div
+          className="flex justify-end gap-1.5 items-center"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Link
             to={`/admin/inspect/${task.processInstanceId}`}
-            className="text-[10px] font-black uppercase text-accent-600 hover:text-accent-700 tracking-widest flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
+            title="View Process Path"
           >
-            <i className="fas fa-fingerprint"></i> Path
+            <i className="fas fa-map-signs mr-1"></i>Path
           </Link>
           {viewMode === "active" && (
             <button
               onClick={() => {
                 const newUser = prompt("Enter username:", task.assignee || "");
-                if (newUser) reassignTask(task.id, newUser).then(loadTasks);
+                if (newUser)
+                  reassignTask(task.id, newUser).then(() => loadTasks());
               }}
-              className="text-[10px] font-black uppercase text-brand-600 hover:underline"
+              className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
+              title="Reassign Task"
             >
-              Reassign
+              <i className="fas fa-user-edit mr-1"></i>Reassign
             </button>
           )}
         </div>
@@ -156,46 +154,54 @@ export default function TaskSupervision() {
   ];
 
   return (
-    <div className="min-h-screen bg-canvas p-8">
-      <DataTable
-        title="Global Task Supervision"
-        description="High-level orchestration of all system activities."
+    <div className="min-h-screen bg-canvas p-6 flex flex-col">
+      <header className="mb-6">
+        <h1 className="text-2xl font-serif font-bold text-ink-primary tracking-tight">
+          Global Task Supervision
+        </h1>
+        <p className="text-xs text-ink-tertiary mt-0.5 font-medium italic">
+          High-level orchestration of all system activities.
+        </p>
+      </header>
+
+      {/* Bulk Actions Floating Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-ink-primary text-ink-inverted px-6 py-3.5 rounded-2xl shadow-premium flex items-center gap-8 z-50 animate-slideUp border border-white/10">
+          <span className="text-xs font-bold uppercase tracking-widest">
+            {selectedIds.size} Selected
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleBulkReassign(Array.from(selectedIds))}
+              className="bg-brand-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-soft hover:bg-brand-600 transition-all"
+            >
+              <i className="fas fa-user-edit mr-1"></i>Reassign All
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-white/40 hover:text-white transition-colors"
+            >
+              <i className="fas fa-times text-sm"></i>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DataGrid with View Mode Filter */}
+      <DataGrid
         data={tasks}
         columns={columns}
         loading={loading}
-        // 🟢 Pagination Props
-        totalItems={totalItems}
-        pageSize={pageSize}
-        currentPage={currentPage}
-        onPageChange={setCurrentPage}
-        // 🟢 Search & Sort Props
-        onParamsChange={(newParams) => {
-          setCurrentPage(0); // Reset to page 1 on search/sort
-          setQueryParams((prev) => ({
-            ...prev,
-            ...newParams,
-            // Ensure order is strictly cast to the expected literal type
-            order: newParams.order as "asc" | "desc",
-          }));
-        }}
-        // 🟢 Selection Props
-        selectedIds={selectedIds}
+        getRowId={(task) => task.id}
+        searchFields={["name", "assignee", "processInstanceId"]}
         onSelectionChange={setSelectedIds}
-        bulkActions={[
-          {
-            label: "Bulk Reassign",
-            icon: "fas fa-user-edit",
-            onClick: handleBulkReassign,
-          },
-        ]}
-        // 🟢 Filter Logic
-        filterElement={
-          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-inner">
+        headerActions={
+          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-inner relative z-30">
             {(["active", "completed"] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => handleModeChange(mode)}
-                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                   viewMode === mode
                     ? "bg-white text-brand-600 shadow-sm"
                     : "text-ink-tertiary"
