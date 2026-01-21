@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom"; // 🟢 Import useSearchParams
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   fetchProcessXml,
   fetchHistoricActivities,
@@ -12,17 +12,17 @@ import HistoryTimeline, {
 import ProcessDiagram from "./components/process/ProcessDiagram";
 
 export default function InstanceInspector() {
-  // 1. Get Path Param (if using /admin/inspect/:instanceId)
   const { instanceId: pathInstanceId } = useParams();
-
-  // 2. Get Query Params (if using /inspect?taskId=...)
   const [searchParams] = useSearchParams();
+
+  // 🟢 Capture params clearly
   const queryInstanceId = searchParams.get("instanceId");
   const queryBusinessKey = searchParams.get("businessKey");
   const queryTaskId = searchParams.get("taskId");
   const queryProcessKey = searchParams.get("processKey");
-  // 🟢 STATE: effectiveId holds the final resolved Instance ID
+
   const [effectiveId, setEffectiveId] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false); // 🟢 Add loading state for resolution
 
   const [businessHistory, setBusinessHistory] = useState<HistoryEvent[]>([]);
   const [technicalTrace, setTechnicalTrace] = useState<any[]>([]);
@@ -32,58 +32,79 @@ export default function InstanceInspector() {
   const [maxSteps, setMaxSteps] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // 🟢 RESOLUTION LOGIC
+  // 🟢 ROBUST RESOLUTION LOGIC
   useEffect(() => {
+    let active = true; // Prevents race conditions
+
     const resolveContext = async () => {
-      // Priority 1: Direct Instance ID
-      const directId = pathInstanceId || queryInstanceId;
-      if (directId) {
-        setEffectiveId(directId);
-        return;
-      }
+      // 1. Reset ID immediately to clear previous view
+      setEffectiveId(null);
+      setIsResolving(true);
 
-      // Priority 2: Task ID -> Instance ID
-      if (queryTaskId) {
-        try {
-          const taskData = await fetchTaskMetadata(queryTaskId);
-          if (taskData && taskData.processInstanceId) {
-            setEffectiveId(taskData.processInstanceId);
-          }
-        } catch (e) {
-          console.error("Failed to resolve task", e);
+      try {
+        // Priority 1: Direct Instance ID
+        const directId = pathInstanceId || queryInstanceId;
+        if (directId) {
+          if (active) setEffectiveId(directId);
+          return;
         }
-        return;
-      }
 
-      // Priority 3: Process Key + Business Key (The Robust Way)
-      if (queryProcessKey && queryBusinessKey) {
-        try {
-          const id = await fetchInstanceByKeys(
-            queryProcessKey,
-            queryBusinessKey,
-          );
-          if (id) {
-            setEffectiveId(id);
-          } else {
-            console.warn("No instance found for these keys");
+        // Priority 2: Task ID -> Instance ID
+        if (queryTaskId) {
+          try {
+            const taskData = await fetchTaskMetadata(queryTaskId);
+            if (active && taskData && taskData.processInstanceId) {
+              setEffectiveId(taskData.processInstanceId);
+            }
+          } catch (e) {
+            console.error("Failed to resolve task", e);
           }
-        } catch (e) {
-          console.error("Failed to resolve keys", e);
+          return;
         }
-        return;
-      }
 
-      // Priority 4: Business Key only (Fallback / Risky)
-      // Only use if you are sure BK is globally unique, otherwise this might fetch the wrong process.
-      if (queryBusinessKey && !queryProcessKey) {
-        // Optionally you can try to fetch just by BK here if your API supports it,
-        // or force the user to provide processKey.
-        // setEffectiveId(queryBusinessKey);
-        console.warn("Missing processKey for safe resolution");
+        // Priority 3: Process Key + Business Key
+        if (queryProcessKey && queryBusinessKey) {
+          try {
+            const id = await fetchInstanceByKeys(
+              queryProcessKey,
+              queryBusinessKey,
+            );
+            if (active) {
+              if (id) {
+                setEffectiveId(id);
+              } else {
+                console.warn(
+                  `No instance found for Process: ${queryProcessKey}, Key: ${queryBusinessKey}`,
+                );
+              }
+            }
+          } catch (e) {
+            console.error("Failed to resolve keys", e);
+          }
+          return;
+        }
+
+        // Priority 4: Business Key Only
+        // (Warning: This might find the wrong process if keys aren't unique across definitions)
+        if (queryBusinessKey && !queryProcessKey) {
+          try {
+            // Pass null for processKey to search globally by Business Key
+            const id = await fetchInstanceByKeys("", queryBusinessKey);
+            if (active && id) setEffectiveId(id);
+          } catch (e) {
+            console.error("Failed to resolve business key", e);
+          }
+        }
+      } finally {
+        if (active) setIsResolving(false);
       }
     };
 
     resolveContext();
+
+    return () => {
+      active = false; // Cleanup if params change quickly
+    };
   }, [
     pathInstanceId,
     queryInstanceId,
@@ -91,8 +112,6 @@ export default function InstanceInspector() {
     queryBusinessKey,
     queryProcessKey,
   ]);
-  // ... (Rest of the component remains EXACTLY the same)
-  // ... (Data Fetching Effect, Auto-Play, Render, etc.)
 
   // 🟢 2. FETCH DATA (Using effectiveId)
   useEffect(() => {
@@ -101,7 +120,7 @@ export default function InstanceInspector() {
 
       try {
         const rawActivities = await fetchHistoricActivities(effectiveId);
-        // ... (sorting logic) ...
+
         const sortedTrace = [...rawActivities].sort((a: any, b: any) => {
           const timeA = new Date(a.startTime).getTime();
           const timeB = new Date(b.startTime).getTime();
@@ -136,9 +155,7 @@ export default function InstanceInspector() {
     init();
   }, [effectiveId]);
 
-  // ... (Keep the rest of your component unchanged) ...
-
-  // Auto-Play
+  // ... (Keep Auto-Play Logic) ...
   useEffect(() => {
     let interval: any;
     if (isPlaying) {
@@ -186,7 +203,12 @@ export default function InstanceInspector() {
               >
                 <i className="fas fa-fingerprint w-3 opacity-50"></i>
                 <span className="font-mono truncate opacity-70">
-                  {effectiveId || "Resolving..."}
+                  {/* 🟢 Show resolving state */}
+                  {isResolving ? (
+                    <span className="animate-pulse">Resolving...</span>
+                  ) : (
+                    effectiveId || "No Instance Found"
+                  )}
                 </span>
               </div>
             </div>
@@ -212,7 +234,7 @@ export default function InstanceInspector() {
             activeStepIndex={replayIndex}
           />
 
-          {/* RIGHT OVERLAY: Stepper */}
+          {/* ... (Keep Right Overlay Stepper exactly as is) ... */}
           <div className="absolute right-10 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4">
             <div className="h-[400px] w-3 bg-white/50 backdrop-blur rounded-full border border-canvas-active shadow-sm relative group hover:w-4 transition-all duration-200">
               <input

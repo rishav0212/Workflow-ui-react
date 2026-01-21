@@ -426,9 +426,9 @@ export const fetchInstanceByKeys = async (processKey: string, businessKey: strin
   const res = await api.get("/process-api/history/historic-process-instances", {
     params: {
       processDefinitionKey: processKey,
-      processInstanceBusinessKey: businessKey,
+      businessKey: businessKey,
       sort: "startTime",
-      order: "desc", // Get the most recent one if multiple versions exist
+      order: "desc", 
       size: 1
     }
   });
