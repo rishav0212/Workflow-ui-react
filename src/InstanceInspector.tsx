@@ -197,6 +197,7 @@ export default function InstanceInspector() {
                 processInstanceId={effectiveId}
                 onDataLoaded={handleHistoryLoaded}
                 compact={true}
+                highlightTaskId={queryTaskId}
               />
             )}
           </div>

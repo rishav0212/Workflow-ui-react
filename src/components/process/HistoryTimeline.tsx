@@ -19,6 +19,7 @@ interface HistoryTimelineProps {
   processInstanceId: string | null | undefined;
   onDataLoaded?: (data: HistoryEvent[]) => void;
   compact?: boolean;
+  highlightTaskId?: string | null;
 }
 
 const HistoryTimeline = memo(
@@ -26,6 +27,7 @@ const HistoryTimeline = memo(
     processInstanceId,
     onDataLoaded,
     compact = false,
+    highlightTaskId = null,
   }: HistoryTimelineProps) => {
     const [history, setHistory] = useState<HistoryEvent[]>([]);
     const [loading, setLoading] = useState(false);
@@ -38,7 +40,17 @@ const HistoryTimeline = memo(
       title: string;
     } | null>(null);
     const [viewingLoading, setViewingLoading] = useState(false);
+    useEffect(() => {
+      if (highlightTaskId && history.length > 0) {
+        const targetEvent = history.find((h) => h.taskId === highlightTaskId);
 
+        // Only open if found AND it hasn't been opened yet (check selectedSubmission to prevent loops)
+        if (targetEvent && !selectedSubmission) {
+          // Reuse your existing view handler
+          handleViewEvent(targetEvent);
+        }
+      }
+    }, [history, highlightTaskId]);
     useEffect(() => {
       if (!processInstanceId) return;
 
