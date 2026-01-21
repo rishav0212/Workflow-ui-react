@@ -272,7 +272,7 @@ export default function Dashboard({
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() =>
-                          navigate(`/inbox/task/${t.id}?tab=history`)
+                          navigate(`/inspect/inspect/`)
                         }
                         className="text-orange-600 text-xs font-bold hover:text-orange-700 hover:underline"
                       >
