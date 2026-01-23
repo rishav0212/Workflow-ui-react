@@ -14,6 +14,22 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 
+/**
+ * GLOBAL CACHE STORAGE
+ * We define this outside the component function so it persists even when
+ * the component unmounts (e.g., when navigating to a different page and back).
+ * This prevents re-fetching data unnecessarily during the user's session.
+ */
+const DATA_CACHE: {
+  active: any[] | null;
+  history: any[] | null;
+  definitions: any[] | null;
+} = {
+  active: null,
+  history: null,
+  definitions: null,
+};
+
 export default function InstanceManager() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlFilterKey = searchParams.get("key");
@@ -35,21 +51,63 @@ export default function InstanceManager() {
     if (urlFilterKey) setFilterKey(urlFilterKey);
   }, [urlFilterKey]);
 
-  const loadInstances = () => {
+  /**
+   * Loads process definitions.
+   * Optimized to use global cache first, preventing redundant API calls on remount.
+   */
+  const loadDefinitions = (force = false) => {
+    if (!force && DATA_CACHE.definitions) {
+      setDefinitions(DATA_CACHE.definitions);
+      return;
+    }
+    fetchAdminProcesses()
+      .then((defs) => {
+        setDefinitions(defs);
+        DATA_CACHE.definitions = defs;
+      })
+      .catch(console.error);
+  };
+
+  /**
+   * Main data fetcher for instances.
+   * @param forceRefresh - If true, bypasses cache and forces a network request.
+   */
+  const loadInstances = (forceRefresh = false) => {
+    // 1. Check Global Cache: If data exists and we aren't forcing a refresh, use it.
+    if (!forceRefresh && DATA_CACHE[viewMode]) {
+      setInstances(DATA_CACHE[viewMode] || []);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fallback to API: If no cache or forced refresh, fetch from server.
     setLoading(true);
     const apiCall =
       viewMode === "active"
         ? fetchProcessInstances()
         : fetchHistoricProcessInstances(true);
+
     apiCall
-      .then(setInstances)
+      .then((data) => {
+        setInstances(data);
+        // Update the global cache with the fresh data
+        DATA_CACHE[viewMode] = data;
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
+  // Initial Load Effect for Definitions (Runs only once on mount)
+  useEffect(() => {
+    loadDefinitions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Effect for fetching instances when viewMode changes
   useEffect(() => {
     loadInstances();
-    fetchAdminProcesses().then(setDefinitions).catch(console.error);
+    // We strictly depend on viewMode here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
   const uniqueKeys = useMemo(() => {
@@ -66,6 +124,16 @@ export default function InstanceManager() {
       return instKey === filterKey;
     });
   }, [instances, filterKey]);
+
+  /**
+   * Manual Refresh Handler.
+   * Invalidates the cache for the current view and re-fetches.
+   */
+  const handleRefresh = () => {
+    // We only need to force load instances. Definitions rarely change, but
+    // if you want to refresh everything, you could call loadDefinitions(true) here too.
+    loadInstances(true);
+  };
 
   const handleInspect = async (inst: any) => {
     setSelectedInstance(inst);
@@ -95,7 +163,8 @@ export default function InstanceManager() {
   const handleTerminate = async (id: string) => {
     if (window.confirm("Terminate this process instance? Data will be lost.")) {
       await terminateProcessInstance(id);
-      loadInstances();
+      // Force refresh to update list and cache after termination
+      loadInstances(true);
       setSelectedInstance(null);
     }
   };
@@ -105,7 +174,8 @@ export default function InstanceManager() {
       setLoading(true);
       await bulkTerminateInstances(Array.from(selectedIds));
       setSelectedIds(new Set());
-      loadInstances();
+      // Force refresh to update list and cache after bulk termination
+      loadInstances(true);
     }
   };
 
@@ -114,7 +184,8 @@ export default function InstanceManager() {
       try {
         await migrateProcessInstance(selectedInstance.id, targetId);
         alert("Instance migrated successfully.");
-        loadInstances();
+        // Force refresh to reflect migration changes
+        loadInstances(true);
         setSelectedInstance(null);
       } catch (e) {
         alert("Migration failed.");
@@ -234,6 +305,7 @@ export default function InstanceManager() {
       ),
     },
   ];
+
   return (
     <div className="min-h-screen bg-canvas p-6 flex gap-6 font-sans">
       <div className="flex-1 flex flex-col min-h-0">
@@ -246,27 +318,40 @@ export default function InstanceManager() {
               Monitor & manipulate workflow executions.
             </p>
           </div>
-          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-soft">
+          <div className="flex items-center gap-3">
+            {/* Refresh Button: Calls handleRefresh to bypass cache */}
             <button
-              onClick={() => setViewMode("active")}
-              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                viewMode === "active"
-                  ? "bg-surface text-brand-500 shadow-lifted"
-                  : "text-ink-tertiary"
-              }`}
+              onClick={handleRefresh}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-canvas-active text-ink-secondary hover:text-brand-600 hover:border-brand-200 shadow-soft transition-all"
+              title="Refresh Data"
             >
-              Active
+              <i
+                className={`fas fa-sync-alt text-xs ${loading ? "animate-spin" : ""}`}
+              ></i>
             </button>
-            <button
-              onClick={() => setViewMode("history")}
-              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                viewMode === "history"
-                  ? "bg-surface text-brand-500 shadow-lifted"
-                  : "text-ink-tertiary"
-              }`}
-            >
-              History
-            </button>
+
+            <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-soft">
+              <button
+                onClick={() => setViewMode("active")}
+                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                  viewMode === "active"
+                    ? "bg-surface text-brand-500 shadow-lifted"
+                    : "text-ink-tertiary"
+                }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setViewMode("history")}
+                className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                  viewMode === "history"
+                    ? "bg-surface text-brand-500 shadow-lifted"
+                    : "text-ink-tertiary"
+                }`}
+              >
+                History
+              </button>
+            </div>
           </div>
         </header>
 
@@ -292,7 +377,6 @@ export default function InstanceManager() {
           </div>
         )}
 
-        {/* 🟢 DataGrid with Filter in Header */}
         <DataGrid
           data={filteredInstances}
           columns={columns}
@@ -324,7 +408,6 @@ export default function InstanceManager() {
         />
       </div>
 
-      {/* Deep Inspector Panel */}
       {selectedInstance && (
         <aside className="w-80 bg-surface border border-canvas-active rounded-panel p-5 shadow-premium h-[calc(100vh-4rem)] sticky top-8 animate-slideInRight flex flex-col overflow-hidden">
           <div className="flex justify-between items-start mb-5">

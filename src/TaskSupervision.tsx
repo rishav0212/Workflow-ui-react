@@ -8,6 +8,20 @@ import {
 } from "./api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 
+/**
+ * GLOBAL TASK CACHE
+ * Stores the 'active' and 'completed' task lists outside the component lifecycle.
+ * This ensures that if the user navigates away (e.g., to inspect a process)
+ * and returns, the data is instantly available without a network call.
+ */
+const TASK_CACHE: {
+  active: any[] | null;
+  completed: any[] | null;
+} = {
+  active: null,
+  completed: null,
+};
+
 export default function TaskSupervision() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,10 +31,26 @@ export default function TaskSupervision() {
   // Filter States
   const [taskNameFilter, setTaskNameFilter] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
-  // 🟢 NEW: Process Filter State
   const [processFilter, setProcessFilter] = useState("");
 
-  const loadTasks = () => {
+  /**
+   * Optimized Task Loader
+   * @param forceRefresh - If true, bypasses the global cache and fetches fresh data from the API.
+   *
+   * Logic:
+   * 1. Check if data exists in TASK_CACHE for the current viewMode.
+   * 2. If cached & !forceRefresh -> Use Cache (Instant Load).
+   * 3. Else -> Fetch from API -> Update Cache -> Update State.
+   */
+  const loadTasks = (forceRefresh = false) => {
+    // 1. Check Global Cache
+    if (!forceRefresh && TASK_CACHE[viewMode]) {
+      setTasks(TASK_CACHE[viewMode] || []);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fetch from API (Fallback or Forced)
     setLoading(true);
     const apiCall =
       viewMode === "active"
@@ -29,15 +59,23 @@ export default function TaskSupervision() {
 
     apiCall
       .then((res: any) => {
-        setTasks(res.data || []);
+        const data = res.data || [];
+        setTasks(data);
+        // Update the global cache so subsequent visits are instant
+        TASK_CACHE[viewMode] = data;
         setSelectedIds(new Set());
       })
       .catch((err) => console.error("Failed to load tasks:", err))
       .finally(() => setLoading(false));
   };
 
+  /**
+   * Effect to trigger load on viewMode change.
+   * We rely on the loadTasks internal logic to decide whether to fetch or use cache.
+   */
   useEffect(() => {
     loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
   const uniqueAssignees = useMemo(() => {
@@ -48,7 +86,6 @@ export default function TaskSupervision() {
     return Array.from(assignees).sort();
   }, [tasks]);
 
-  // 🟢 NEW: Derive Unique Process Names for Filter
   const uniqueProcesses = useMemo(() => {
     const processes = new Set<string>();
     tasks.forEach((t) => {
@@ -70,7 +107,6 @@ export default function TaskSupervision() {
           ? !task.assignee
           : task.assignee === assigneeFilter);
 
-      // 🟢 NEW: Process Filter Logic
       const pName = task.processDefinitionName || task.processDefinitionId;
       const matchesProcess = !processFilter || pName === processFilter;
 
@@ -86,6 +122,14 @@ export default function TaskSupervision() {
     setSelectedIds(new Set());
   };
 
+  /**
+   * Manual Refresh Handler
+   * Allows the user to force a data update without reloading the page.
+   */
+  const handleRefresh = () => {
+    loadTasks(true);
+  };
+
   const handleBulkReassign = async (ids: string[]) => {
     const newUser = prompt(
       `Enter username to reassign ${ids.length} tasks to:`,
@@ -95,7 +139,8 @@ export default function TaskSupervision() {
       try {
         await bulkReassignTasks(ids, newUser);
         setSelectedIds(new Set());
-        loadTasks();
+        // Force refresh after reassign to show the new assignee immediately (bypassing cache)
+        loadTasks(true);
       } catch (err) {
         console.error("Bulk reassignment failed", err);
       } finally {
@@ -122,7 +167,6 @@ export default function TaskSupervision() {
         </div>
       ),
     },
-    // 🟢 NEW: Process Column
     {
       header: "Process",
       key: "processDefinitionName",
@@ -220,7 +264,10 @@ export default function TaskSupervision() {
               onClick={() => {
                 const newUser = prompt("Enter username:", task.assignee || "");
                 if (newUser)
-                  reassignTask(task.id, newUser).then(() => loadTasks());
+                  reassignTask(task.id, newUser).then(() =>
+                    // Force refresh after reassign to show the new assignee
+                    loadTasks(true),
+                  );
               }}
               className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
             >
@@ -283,7 +330,18 @@ export default function TaskSupervision() {
         onSelectionChange={setSelectedIds}
         headerActions={
           <div className="flex items-center gap-3">
-            {/* 🟢 NEW: Inline Process Filter */}
+            {/* REFRESH BUTTON: Moved into DataGrid actions row */}
+            <button
+              onClick={handleRefresh}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-canvas-active text-ink-secondary hover:text-brand-600 hover:border-brand-200 shadow-soft transition-all"
+              title="Force Refresh Data"
+            >
+              <i
+                className={`fas fa-sync-alt text-xs ${loading ? "animate-spin" : ""}`}
+              ></i>
+            </button>
+
+            {/* Inline Process Filter */}
             <div className="relative w-40">
               <i className="fas fa-project-diagram absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px]"></i>
               <select
