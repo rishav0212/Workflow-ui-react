@@ -683,10 +683,20 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const handleTabChange = (tab: TabId) => {
     setSearchParams({ tab });
   };
-
   useEffect(() => {
-    if (taskId) loadTask();
-  }, [taskId, loadTask]);
+    if (taskId) {
+      // 1. Reset the submission lock so new tasks can load
+      isSubmitted.current = false;
+
+      // 2. Clear old task data immediately to prevent the "ghost" of the last task
+      setTaskData(null);
+      setMainFormSchema(null);
+      setButtons([]);
+
+      // 3. Trigger the fresh load
+      loadTask();
+    }
+  }, [taskId, loadTask]); // This ensures every time the ID changes, we clean house first
 
   if (loading) {
     return (
@@ -754,23 +764,11 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                 {mainFormSchema ? (
                   <Form
                     src={""}
-                    key={taskId}
+                    key={`${taskId}_${activeTab}`}
                     form={mainFormSchema}
                     onFormReady={onFormReady}
                     submission={memoizedSubmission}
                     options={memoizedOptions}
-                    onChange={(submission: any) => {
-                      // Only update if the data actually changed to avoid infinite loops
-                      if (
-                        JSON.stringify(submission.data) !==
-                        JSON.stringify(taskData?.data)
-                      ) {
-                        setTaskData((prev: any) => ({
-                          ...prev,
-                          data: submission.data,
-                        }));
-                      }
-                    }}
                   />
                 ) : (
                   <NoFormState />
