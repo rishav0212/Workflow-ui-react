@@ -459,63 +459,50 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
 
   const onFormReady = useCallback(
     (instance: any) => {
+      const activeIntervals: number[] = [];
+
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") {
-          const pollInterval = 100;
-          const maxWait = 10000;
           let elapsedTime = 0;
-
           const intervalId = setInterval(() => {
-            elapsedTime += pollInterval;
+            elapsedTime += 100;
 
-            // Check if options are loaded
-            if (comp.selectOptions && comp.selectOptions.length > 0) {
-              const uniqueOptionsMap = new Map();
-              comp.selectOptions.forEach((opt: any) => {
-                if (!opt?.value) return;
-                const key =
-                  typeof opt.value === "object"
-                    ? opt.value.id || opt.value._id || JSON.stringify(opt.value)
-                    : String(opt.value);
-                if (!uniqueOptionsMap.has(key)) uniqueOptionsMap.set(key, opt);
-              });
-
-              const uniqueOptions = Array.from(uniqueOptionsMap.values());
+            if (comp.selectOptions?.length > 0) {
+              const uniqueOptions: any = [
+                ...new Set(
+                  comp.selectOptions.map((o: any) => JSON.stringify(o.value)),
+                ),
+              ];
 
               if (uniqueOptions.length === 1) {
-                const newValue = uniqueOptions[0].value;
-                const isValueEmpty =
+                const newValue = JSON.parse(uniqueOptions[0]);
+                // Check if currently empty before auto-filling
+                if (
                   !comp.dataValue ||
-                  (typeof comp.dataValue === "object" &&
-                    Object.keys(comp.dataValue).length === 0);
-
-                if (isValueEmpty) {
-                  console.log(`✅ Auto-selecting: ${comp.key}`);
-
-                  /* FIX: We use 'noUpdateControl' to prevent Form.io from 
-                    triggering a component refresh that might clear the data 
-                    during the fetch cycle.
-                  */
+                  Object.keys(comp.dataValue).length === 0
+                ) {
                   comp.setValue(newValue, {
                     modified: true,
                     noUpdateControl: true,
                   });
-
-                  // Tell the instance a change happened without triggering a full React re-render loop
                   comp.triggerChange();
                 }
                 clearInterval(intervalId);
-              } else if (uniqueOptions.length > 1) {
+              } else if (uniqueOptions.length > 1 || elapsedTime > 10000) {
                 clearInterval(intervalId);
               }
             }
-
-            if (elapsedTime >= maxWait) clearInterval(intervalId);
-          }, pollInterval);
+          }, 100);
+          activeIntervals.push(intervalId as any);
         }
       });
+
+      // Cleanup: If the user switches tasks, stop all current polling logic
+      return () => {
+        activeIntervals.forEach((id) => clearInterval(id));
+      };
     },
-    [], // Removed makeCaseInsensitive dependency to keep it stable
+    [taskId], // Now depends on taskId so the logic refreshes for new forms
   );
 
   const loadTask = useCallback(async () => {
@@ -688,15 +675,13 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       // 1. Reset the submission lock so new tasks can load
       isSubmitted.current = false;
 
-      // 2. Clear old task data immediately to prevent the "ghost" of the last task
       setTaskData(null);
       setMainFormSchema(null);
       setButtons([]);
 
-      // 3. Trigger the fresh load
       loadTask();
     }
-  }, [taskId, loadTask]); // This ensures every time the ID changes, we clean house first
+  }, [taskId, loadTask]);
 
   if (loading) {
     return (
