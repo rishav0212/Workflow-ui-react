@@ -1,0 +1,33 @@
+/* src/components/Admin/bpmn-styles.css */
+
+/* The Canvas */
+.bpmn-container {
+    height: 100%;
+    width: 100%;
+    position: relative;
+    background-color: white;
+}
+
+/* The Properties Panel Container */
+.properties-panel-parent {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 300px;
+    border-left: 1px solid #ccc;
+    background: #f8f8f8;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+/* Fix some conflicts with Tailwind/Bootstrap if you have them */
+.bio-properties-panel-group-header {
+    padding: 10px;
+    background: #eee;
+    font-weight: bold;
+    cursor: pointer;
+}
+.bio-properties-panel-entry {
+    padding: 10px;
+}
