@@ -457,142 +457,62 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     }
   }, [activeTab]);
 
-  const onFormReady = useCallback(
+const onFormReady = useCallback(
     (instance: any) => {
-      const selectComponents: any[] = [];
       instance.everyComponent((comp: any) => {
-        if (comp.component.type === "select") selectComponents.push(comp);
-      });
+        if (comp.component.type === "select") {
+          const pollInterval = 100;
+          const maxWait = 10000;
+          let elapsedTime = 0;
 
-      selectComponents.forEach((comp) => {
-        const pollInterval = 100;
-        const maxWait = 10000;
-        let elapsedTime = 0;
+          const intervalId = setInterval(() => {
+            elapsedTime += pollInterval;
 
-        console.log(`🔍 [DEBUG-INIT] Polling started for: ${comp.key}`);
+            // Check if options are loaded
+            if (comp.selectOptions && comp.selectOptions.length > 0) {
+              const uniqueOptionsMap = new Map();
+              comp.selectOptions.forEach((opt: any) => {
+                if (!opt?.value) return;
+                const key = (typeof opt.value === 'object') 
+                  ? (opt.value.id || opt.value._id || JSON.stringify(opt.value)) 
+                  : String(opt.value);
+                if (!uniqueOptionsMap.has(key)) uniqueOptionsMap.set(key, opt);
+              });
 
-        const intervalId = setInterval(() => {
-          elapsedTime += pollInterval;
+              const uniqueOptions = Array.from(uniqueOptionsMap.values());
 
-          // Only proceed if options exist
-          if (comp.selectOptions && comp.selectOptions.length > 0) {
-            // --- START DEBUG LOGGING ---
-            console.groupCollapsed(`🔍 [DEBUG] ${comp.key} Inspection`);
+              if (uniqueOptions.length === 1) {
+                const newValue = uniqueOptions[0].value;
+                const isValueEmpty = !comp.dataValue || 
+                  (typeof comp.dataValue === 'object' && Object.keys(comp.dataValue).length === 0);
 
-            // 1. Inspect Current Value
-            const currentValue = comp.dataValue;
-            console.log(
-              `Current comp.dataValue:`,
-              JSON.parse(JSON.stringify(currentValue || "NULL")),
-            );
-
-            // 2. Inspect Raw Options
-            console.log(`Raw Options Count: ${comp.selectOptions.length}`);
-
-            // 🟢 STEP 1: DEDUPLICATION
-            // We filter out duplicates based on ID or JSON content
-            const uniqueOptionsMap = new Map();
-
-            comp.selectOptions.forEach((opt: any, idx: number) => {
-              if (!opt || !opt.value) return;
-
-              // Determine unique key
-              let valueKey = "UNKNOWN";
-              if (opt.value && typeof opt.value === "object") {
-                if (opt.value.id) valueKey = String(opt.value.id);
-                else if (opt.value._id) valueKey = String(opt.value._id);
-                else valueKey = JSON.stringify(opt.value);
-              } else {
-                valueKey = String(opt.value);
-              }
-
-              if (!uniqueOptionsMap.has(valueKey)) {
-                uniqueOptionsMap.set(valueKey, opt);
-                console.log(`   [Unique] Added Opt ${idx} (Key: ${valueKey})`);
-              } else {
-                console.log(
-                  `   [Duplicate] Skipped Opt ${idx} (Key: ${valueKey})`,
-                );
-              }
-            });
-
-            const uniqueOptions = Array.from(uniqueOptionsMap.values());
-            console.log(`Final Unique Options: ${uniqueOptions.length}`);
-
-            // 🟢 STEP 2: CHECK VALUE STATUS
-            const isValueEmpty =
-              !currentValue ||
-              (typeof currentValue === "object" &&
-                Object.keys(currentValue).length === 0);
-
-            // 🟢 STEP 3: DECISION LOGIC
-            if (uniqueOptions.length === 1) {
-              const firstOption = makeCaseInsensitive(uniqueOptions[0]);
-              const newValue = firstOption.value;
-
-              // Check if it already matches (to avoid unnecessary updates, OR force update if UI is desync)
-              let alreadyMatches = false;
-              if (!isValueEmpty) {
-                const currentId = currentValue.id || currentValue._id;
-                const newId = newValue.id || newValue._id;
-                if (currentId && newId && currentId === newId) {
-                  alreadyMatches = true;
-                }
-              }
-
-              console.log(
-                `Decision Check: Empty? ${isValueEmpty}, Matches? ${alreadyMatches}`,
-              );
-
-              // 🟢 ACTION: If empty OR matches (we force it to ensure UI sync)
-              if (isValueEmpty || alreadyMatches) {
-                console.log(`✅ [DEBUG] AUTO-SELECTING value:`, newValue);
-                clearInterval(intervalId);
-
-                setTimeout(() => {
-                  console.log(`🚀 [DEBUG] Executing setValue...`);
-
-                  // Force update with modified flag
-                  comp.setValue(newValue, { modified: true });
-                  comp.triggerChange();
-
-                  // Update React State
-                  setTaskData((prev: any) => {
-                    const prevData = prev?.data || {};
-                    return {
-                      ...prev,
-                      data: {
-                        ...prevData,
-                        [comp.key]: newValue,
-                      },
-                    };
+                if (isValueEmpty) {
+                  console.log(`✅ Auto-selecting: ${comp.key}`);
+                  
+                  /* FIX: We use 'noUpdateControl' to prevent Form.io from 
+                    triggering a component refresh that might clear the data 
+                    during the fetch cycle.
+                  */
+                  comp.setValue(newValue, { 
+                    modified: true,
+                    noUpdateControl: true 
                   });
-                }, 100);
-              } else {
-                console.warn(
-                  `🛑 [DEBUG] Conflict: Value is set to something else. Stopping.`,
-                );
+                  
+                  // Tell the instance a change happened without triggering a full React re-render loop
+                  comp.triggerChange(); 
+                }
+                clearInterval(intervalId);
+              } else if (uniqueOptions.length > 1) {
                 clearInterval(intervalId);
               }
-            } else if (uniqueOptions.length > 0) {
-              console.log(
-                `🛑 [DEBUG] Multiple unique options found (${uniqueOptions.length}). User must select.`,
-              );
-              clearInterval(intervalId);
             }
 
-            console.groupEnd();
-            // --- END DEBUG LOGGING ---
-          }
-
-          if (elapsedTime >= maxWait) {
-            console.warn(`❌ [DEBUG] ${comp.key} Timed Out`);
-            clearInterval(intervalId);
-          }
-        }, pollInterval);
+            if (elapsedTime >= maxWait) clearInterval(intervalId);
+          }, pollInterval);
+        }
       });
     },
-    [makeCaseInsensitive],
+    [] // Removed makeCaseInsensitive dependency to keep it stable
   );
 
   const loadTask = useCallback(async () => {
