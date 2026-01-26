@@ -457,7 +457,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     }
   }, [activeTab]);
 
-const onFormReady = useCallback(
+  const onFormReady = useCallback(
     (instance: any) => {
       instance.everyComponent((comp: any) => {
         if (comp.component.type === "select") {
@@ -473,9 +473,10 @@ const onFormReady = useCallback(
               const uniqueOptionsMap = new Map();
               comp.selectOptions.forEach((opt: any) => {
                 if (!opt?.value) return;
-                const key = (typeof opt.value === 'object') 
-                  ? (opt.value.id || opt.value._id || JSON.stringify(opt.value)) 
-                  : String(opt.value);
+                const key =
+                  typeof opt.value === "object"
+                    ? opt.value.id || opt.value._id || JSON.stringify(opt.value)
+                    : String(opt.value);
                 if (!uniqueOptionsMap.has(key)) uniqueOptionsMap.set(key, opt);
               });
 
@@ -483,23 +484,25 @@ const onFormReady = useCallback(
 
               if (uniqueOptions.length === 1) {
                 const newValue = uniqueOptions[0].value;
-                const isValueEmpty = !comp.dataValue || 
-                  (typeof comp.dataValue === 'object' && Object.keys(comp.dataValue).length === 0);
+                const isValueEmpty =
+                  !comp.dataValue ||
+                  (typeof comp.dataValue === "object" &&
+                    Object.keys(comp.dataValue).length === 0);
 
                 if (isValueEmpty) {
                   console.log(`✅ Auto-selecting: ${comp.key}`);
-                  
+
                   /* FIX: We use 'noUpdateControl' to prevent Form.io from 
                     triggering a component refresh that might clear the data 
                     during the fetch cycle.
                   */
-                  comp.setValue(newValue, { 
+                  comp.setValue(newValue, {
                     modified: true,
-                    noUpdateControl: true 
+                    noUpdateControl: true,
                   });
-                  
+
                   // Tell the instance a change happened without triggering a full React re-render loop
-                  comp.triggerChange(); 
+                  comp.triggerChange();
                 }
                 clearInterval(intervalId);
               } else if (uniqueOptions.length > 1) {
@@ -512,7 +515,7 @@ const onFormReady = useCallback(
         }
       });
     },
-    [] // Removed makeCaseInsensitive dependency to keep it stable
+    [], // Removed makeCaseInsensitive dependency to keep it stable
   );
 
   const loadTask = useCallback(async () => {
@@ -756,6 +759,18 @@ const onFormReady = useCallback(
                     onFormReady={onFormReady}
                     submission={memoizedSubmission}
                     options={memoizedOptions}
+                    onChange={(submission: any) => {
+                      // Only update if the data actually changed to avoid infinite loops
+                      if (
+                        JSON.stringify(submission.data) !==
+                        JSON.stringify(taskData?.data)
+                      ) {
+                        setTaskData((prev: any) => ({
+                          ...prev,
+                          data: submission.data,
+                        }));
+                      }
+                    }}
                   />
                 ) : (
                   <NoFormState />
