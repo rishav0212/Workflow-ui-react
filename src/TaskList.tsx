@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback, memo } from "react";
 import { fetchTasks, parseApiError } from "./api";
 import { type Task } from "./types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -103,6 +103,50 @@ const TaskListSkeleton = () => (
   </div>
 );
 
+// 🎨 FIXED: Isolated Input Component with Internal Debounce
+const SearchInput = memo(
+  ({
+    initialValue,
+    onSearchChange,
+  }: {
+    initialValue: string;
+    onSearchChange: (val: string) => void;
+  }) => {
+    const [value, setValue] = useState(initialValue);
+
+    // 1. Sync with parent ONLY if the difference is significant (prevents echo loop)
+    useEffect(() => {
+      if (initialValue !== value) {
+        setValue(initialValue);
+      }
+    }, [initialValue]);
+
+    // 2. Handle typing immediately (Visual Update)
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(e.target.value);
+    };
+
+    // 3. Debounce the callback to parent (Logic Update)
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        onSearchChange(value);
+      }, 300);
+
+      return () => clearTimeout(handler);
+    }, [value, onSearchChange]);
+
+    return (
+      <input
+        type="text"
+        placeholder="Search tasks..."
+        value={value}
+        onChange={handleChange}
+        className="w-full pl-10 pr-20 py-2.5 bg-canvas-subtle border border-canvas-active focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 focus:shadow-brand-sm rounded-xl text-sm text-ink-primary transition-all outline-none placeholder:text-neutral-400 hover:border-neutral-300"
+      />
+    );
+  },
+);
+
 export default function TaskList({
   currentUser,
   refreshTrigger = 0,
@@ -111,13 +155,18 @@ export default function TaskList({
   const navigate = useNavigate();
   const { taskId: activeTaskId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // REMOVED: localSearch state and duplicate useEffect.
+  // We now rely on the SearchInput component to handle the typing state.
+
   const [tooltip, setTooltip] = useState({
-    opacity: 0, // Control visibility via CSS opacity
+    opacity: 0,
     x: 0,
     y: 0,
     text: "",
-    isVisible: false, // Logical state to prevent clicking/interactions
+    isVisible: false,
   });
+
   const searchQuery = searchParams.get("q") || "";
   const filterPriority = searchParams.get("priority") === "true";
   const filterTaskName = searchParams.get("category") || "all";
@@ -129,6 +178,21 @@ export default function TaskList({
   const [showSortMenu, setShowSortMenu] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
+
+  // Direct handler for search updates (Child handles debounce now)
+  const handleSearchChange = useCallback(
+    (val: string) => {
+      setSearchParams(
+        (prev) => {
+          if (val) prev.set("q", val);
+          else prev.delete("q");
+          return prev;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -290,12 +354,9 @@ export default function TaskList({
         <div className="relative group mb-2">
           <i className="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-brand-500 text-xs transition-colors"></i>
 
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => updateFilter("q", e.target.value)}
-            className="w-full pl-10 pr-20 py-2.5 bg-canvas-subtle border border-canvas-active focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 focus:shadow-brand-sm rounded-xl text-sm text-ink-primary transition-all outline-none placeholder:text-neutral-400 hover:border-neutral-300"
+          <SearchInput
+            initialValue={searchQuery}
+            onSearchChange={handleSearchChange}
           />
 
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
