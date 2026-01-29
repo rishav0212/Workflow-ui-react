@@ -1,4 +1,12 @@
-import { useEffect, useState, useMemo, useRef, useCallback, memo } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  memo,
+  useDeferredValue,
+} from "react";
 import { fetchTasks, parseApiError } from "./api";
 import { type Task } from "./types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -17,33 +25,21 @@ interface TaskListProps {
   addNotification: (msg: string, type: "success" | "error" | "info") => void;
 }
 
+// ... (keep timeAgo and TaskListSkeleton same as before) ...
 const timeAgo = (dateStr: string) => {
   if (!dateStr) return "";
-
   const date = new Date(dateStr);
   const now = new Date();
-
-  // Check if date is valid
   if (isNaN(date.getTime())) return "Invalid Date";
-
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  // FIX: Handle future dates (negative diff) caused by clock skew
   if (diff < 0) return "Just now";
-
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-
-  // Optional: Show actual date if older than 7 days
-  if (diff > 604800) {
-    return date.toLocaleDateString();
-  }
-
+  if (diff > 604800) return date.toLocaleDateString();
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
-// 🎨 FIXED: Premium Shimmer Loading Skeleton
 const TaskListSkeleton = () => (
   <div className="space-y-3 p-3">
     {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -56,7 +52,6 @@ const TaskListSkeleton = () => (
           animation: "skeletonFade 0.4s ease-out forwards",
         }}
       >
-        {/* Shimmer Effect */}
         <div
           className="absolute inset-0"
           style={{
@@ -66,8 +61,6 @@ const TaskListSkeleton = () => (
             transform: "translateX(-100%)",
           }}
         />
-
-        {/* Header Row */}
         <div className="flex justify-between items-center mb-3 relative z-10">
           <div className="flex items-center gap-2 flex-1">
             <div className="w-2.5 h-2.5 rounded-full bg-neutral-200 animate-pulse" />
@@ -75,8 +68,6 @@ const TaskListSkeleton = () => (
           </div>
           <div className="h-4 bg-neutral-100 rounded-full w-16 animate-pulse" />
         </div>
-
-        {/* Description Row */}
         <div className="flex justify-between items-center pl-4 relative z-10">
           <div className="flex-1 space-y-2">
             <div className="h-3.5 bg-neutral-100 rounded w-4/5 animate-pulse" />
@@ -89,60 +80,121 @@ const TaskListSkeleton = () => (
         </div>
       </div>
     ))}
-
     <style>{`
-      @keyframes shimmer {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(200%); }
-      }
-      @keyframes skeletonFade {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
+      @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+      @keyframes skeletonFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     `}</style>
   </div>
 );
 
-// 🎨 FIXED: Isolated Input Component with Internal Debounce
-const SearchInput = memo(
+// 🎨 OPTIMIZED TASK ITEM
+// Accepts `onNavigate` as a generic handler to avoid inline function prop changes
+const TaskItem = memo(
   ({
-    initialValue,
-    onSearchChange,
+    task,
+    isActive,
+    index,
+    onNavigate,
+    onHover,
+    onLeave,
   }: {
-    initialValue: string;
-    onSearchChange: (val: string) => void;
+    task: ExtendedTask;
+    isActive: boolean;
+    index: number;
+    onNavigate: (id: string) => void;
+    onHover: (e: React.MouseEvent, text: string) => void;
+    onLeave: () => void;
   }) => {
-    const [value, setValue] = useState(initialValue);
+    const isHighPriority = (task.priority || 0) > 50;
 
-    // 1. Sync with parent ONLY if the difference is significant (prevents echo loop)
-    useEffect(() => {
-      if (initialValue !== value) {
-        setValue(initialValue);
-      }
-    }, [initialValue]);
-
-    // 2. Handle typing immediately (Visual Update)
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(e.target.value);
-    };
-
-    // 3. Debounce the callback to parent (Logic Update)
-    useEffect(() => {
-      const handler = setTimeout(() => {
-        onSearchChange(value);
-      }, 300);
-
-      return () => clearTimeout(handler);
-    }, [value, onSearchChange]);
+    // Use local handler to pass ID back to parent
+    const handleClick = useCallback(() => {
+      onNavigate(task.id);
+    }, [onNavigate, task.id]);
 
     return (
-      <input
-        type="text"
-        placeholder="Search tasks..."
-        value={value}
-        onChange={handleChange}
-        className="w-full pl-10 pr-20 py-2.5 bg-canvas-subtle border border-canvas-active focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 focus:shadow-brand-sm rounded-xl text-sm text-ink-primary transition-all outline-none placeholder:text-neutral-400 hover:border-neutral-300"
-      />
+      <div
+        onClick={handleClick}
+        className={`
+        group relative p-3.5 cursor-pointer transition-all duration-200 border rounded-xl
+        hover:scale-[1.01] active:scale-[0.99]
+        ${
+          isActive
+            ? "bg-brand-50 border-brand-400 shadow-brand-md ring-2 ring-brand-200/50"
+            : "bg-white border-canvas-subtle hover:border-brand-300 hover:shadow-lifted"
+        }
+      `}
+        style={{
+          animationDelay: `${index * 35}ms`,
+          animation: "taskFade 0.35s ease-out forwards",
+          opacity: 0,
+        }}
+      >
+        {isHighPriority && (
+          <div className="absolute left-0 top-3.5 bottom-3.5 w-1 bg-gradient-to-b from-status-error via-status-warning to-status-error rounded-r-full shadow-sm"></div>
+        )}
+
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div
+              className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${
+                isActive
+                  ? "bg-brand-500 animate-pulse-soft shadow-brand-sm ring-2 ring-brand-200"
+                  : "bg-neutral-300"
+              }`}
+            ></div>
+
+            <h4
+              className={`text-base font-semibold truncate transition-colors ${
+                isActive ? "text-brand-900" : "text-ink-primary"
+              }`}
+            >
+              {task.name}
+            </h4>
+          </div>
+          <span
+            className={`text-xs whitespace-nowrap font-medium transition-colors ${
+              isActive ? "text-brand-700" : "text-neutral-500"
+            }`}
+          >
+            {timeAgo(task.createTime)}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-end gap-2 pl-5">
+          <div
+            className="flex-1 min-w-0 cursor-help py-1"
+            onMouseEnter={(e) => {
+              if (task.description) onHover(e, task.description);
+            }}
+            onMouseLeave={onLeave}
+          >
+            <p className="text-sm text-neutral-600 truncate leading-relaxed">
+              {task.description || (
+                <span className="text-neutral-400 italic">No description</span>
+              )}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isHighPriority && (
+              <span className="text-[10px] font-bold text-status-error bg-status-error/10 px-2 py-0.5 rounded-md border border-status-error/20 flex items-center gap-1 shadow-soft">
+                <i className="fas fa-fire text-[8px]"></i>
+                High
+              </span>
+            )}
+            <span className="text-[10px] text-neutral-400 font-mono bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+              #{task.id?.substring(0, 4)}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={`absolute inset-0 rounded-xl ring-2 ring-inset ring-brand-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
+            isActive ? "hidden" : ""
+          }`}
+        ></div>
+      </div>
     );
   },
 );
@@ -156,8 +208,9 @@ export default function TaskList({
   const { taskId: activeTaskId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // REMOVED: localSearch state and duplicate useEffect.
-  // We now rely on the SearchInput component to handle the typing state.
+  // 🚀 PERFORMANCE: Local state + Deferred Value to unblock typing
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const [tooltip, setTooltip] = useState({
     opacity: 0,
@@ -167,7 +220,6 @@ export default function TaskList({
     isVisible: false,
   });
 
-  const searchQuery = searchParams.get("q") || "";
   const filterPriority = searchParams.get("priority") === "true";
   const filterTaskName = searchParams.get("category") || "all";
   const sortBy = searchParams.get("sort") || "priority";
@@ -179,21 +231,7 @@ export default function TaskList({
   const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
-  // Direct handler for search updates (Child handles debounce now)
-  const handleSearchChange = useCallback(
-    (val: string) => {
-      setSearchParams(
-        (prev) => {
-          if (val) prev.set("q", val);
-          else prev.delete("q");
-          return prev;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
+  // Close menus on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -210,6 +248,7 @@ export default function TaskList({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Load Data
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -229,6 +268,7 @@ export default function TaskList({
     if (currentUser) loadData();
   }, [currentUser, refreshTrigger, loadData]);
 
+  // Filter Handlers
   const updateFilter = (key: string, value: string | null) => {
     setSearchParams((prev) => {
       if (value) prev.set(key, value);
@@ -237,7 +277,10 @@ export default function TaskList({
     });
   };
 
-  const clearAllFilters = () => setSearchParams({});
+  const clearAllFilters = () => {
+    setSearchParams({});
+    setSearchQuery("");
+  };
 
   const uniqueTaskNames = useMemo(() => {
     const names = new Set(
@@ -246,21 +289,47 @@ export default function TaskList({
     return Array.from(names).sort();
   }, [tasks]);
 
+  // 🚀 STABLE HANDLERS (Critical for Performance)
+  // These prevent TaskItem re-renders during typing
+
+  const handleNavigate = useCallback(
+    (id: string) => {
+      navigate(`/task/${id}?${searchParams.toString()}`);
+    },
+    [navigate, searchParams],
+  );
+
+  const handleTooltipHover = useCallback(
+    (e: React.MouseEvent, text: string) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setTooltip({
+        opacity: 1,
+        x: rect.left,
+        y: rect.bottom + 6,
+        text: text,
+        isVisible: true,
+      });
+    },
+    [],
+  );
+
+  const handleTooltipLeave = useCallback(() => {
+    setTooltip((prev) => ({ ...prev, opacity: 0, isVisible: false }));
+  }, []);
+
+  // 🚀 FILTERING (Uses Deferred Query)
   const filteredTasks = useMemo(() => {
     const filtered = tasks.filter((task) => {
-      if (searchQuery) {
-        const lowerQ = searchQuery.toLowerCase();
+      if (deferredSearchQuery) {
+        const lowerQ = deferredSearchQuery.toLowerCase();
         const matchesName = task.name?.toLowerCase().includes(lowerQ);
         const matchesDesc = task.description?.toLowerCase().includes(lowerQ);
         const matchesId = task.id?.includes(lowerQ);
-
         if (!matchesName && !matchesDesc && !matchesId) return false;
       }
-
       if (filterPriority && (task.priority || 0) <= 50) return false;
       if (filterTaskName !== "all" && task.name !== filterTaskName)
         return false;
-
       return true;
     });
 
@@ -285,7 +354,7 @@ export default function TaskList({
       }
       return 0;
     });
-  }, [tasks, searchQuery, filterPriority, filterTaskName, sortBy]);
+  }, [tasks, deferredSearchQuery, filterPriority, filterTaskName, sortBy]);
 
   const activeFiltersCount =
     (filterPriority ? 1 : 0) + (filterTaskName !== "all" ? 1 : 0);
@@ -332,13 +401,9 @@ export default function TaskList({
               title="Refresh Tasks"
             >
               <i
-                className={`fas fa-sync-alt text-xs ${
-                  loading ? "animate-spin" : ""
-                }`}
+                className={`fas fa-sync-alt text-xs ${loading ? "animate-spin" : ""}`}
               ></i>
             </button>
-
-            {/* Counter Badge */}
             <span className="text-xs font-bold bg-canvas-subtle px-3 py-1.5 rounded-lg border border-canvas-active flex items-center gap-2 shadow-soft">
               <span className="text-brand-600 font-black text-sm">
                 {filteredTasks.length}
@@ -350,19 +415,22 @@ export default function TaskList({
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar - No separate component, direct controlled input */}
         <div className="relative group mb-2">
           <i className="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-brand-500 text-xs transition-colors"></i>
 
-          <SearchInput
-            initialValue={searchQuery}
-            onSearchChange={handleSearchChange}
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-20 py-2.5 bg-canvas-subtle border border-canvas-active focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 focus:shadow-brand-sm rounded-xl text-sm text-ink-primary transition-all outline-none placeholder:text-neutral-400 hover:border-neutral-300"
           />
 
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {searchQuery && (
               <button
-                onClick={() => updateFilter("q", null)}
+                onClick={() => setSearchQuery("")}
                 className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-ink-primary hover:bg-canvas-active rounded-md transition-all hover:scale-110"
               >
                 <i className="fas fa-times text-[10px]"></i>
@@ -384,7 +452,6 @@ export default function TaskList({
                 <i className="fas fa-sort text-[10px]"></i>
                 <span className="hidden sm:inline">{getSortLabel()}</span>
               </button>
-
               {showSortMenu && (
                 <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-xl shadow-floating border border-canvas-subtle p-1.5 z-50 animate-slideDown">
                   {[
@@ -449,7 +516,7 @@ export default function TaskList({
             </button>
           </div>
 
-          {/* Filter Dropdown - FIXED: No transparency issues */}
+          {/* Filter Dropdown */}
           {showFilterMenu && (
             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-floating border border-canvas-subtle p-3 z-50 animate-slideDown">
               <div className="mb-3">
@@ -570,120 +637,23 @@ export default function TaskList({
           </div>
         ) : (
           <div className="space-y-2.5">
-            {filteredTasks.map((task, index) => {
-              const isActive = task.id === activeTaskId;
-              const isHighPriority = (task.priority || 0) > 50;
-
-              return (
-                <div
-                  key={task.id}
-                  onClick={() =>
-                    navigate(`/task/${task.id}?${searchParams.toString()}`)
-                  }
-                  className={`
-                    group relative p-3.5 cursor-pointer transition-all duration-200 border rounded-xl
-                    hover:scale-[1.01] active:scale-[0.99]
-                    ${
-                      isActive
-                        ? "bg-brand-50 border-brand-400 shadow-brand-md ring-2 ring-brand-200/50"
-                        : "bg-white border-canvas-subtle hover:border-brand-300 hover:shadow-lifted"
-                    }
-                  `}
-                  style={{
-                    animationDelay: `${index * 35}ms`,
-                    animation: "taskFade 0.35s ease-out forwards",
-                    opacity: 0,
-                  }}
-                >
-                  {/* Priority Indicator */}
-                  {isHighPriority && (
-                    <div className="absolute left-0 top-3.5 bottom-3.5 w-1 bg-gradient-to-b from-status-error via-status-warning to-status-error rounded-r-full shadow-sm"></div>
-                  )}
-
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${
-                          isActive
-                            ? "bg-brand-500 animate-pulse-soft shadow-brand-sm ring-2 ring-brand-200"
-                            : "bg-neutral-300"
-                        }`}
-                      ></div>
-
-                      <h4
-                        className={`text-base font-semibold truncate transition-colors ${
-                          isActive ? "text-brand-900" : "text-ink-primary"
-                        }`}
-                      >
-                        {task.name}
-                      </h4>
-                    </div>
-                    <span
-                      className={`text-xs whitespace-nowrap font-medium transition-colors ${
-                        isActive ? "text-brand-700" : "text-neutral-500"
-                      }`}
-                    >
-                      {timeAgo(task.createTime)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-end gap-2 pl-5">
-                    <div
-                      className="flex-1 min-w-0 cursor-help py-1" // Added py-1 to increase hover target area
-                      onMouseEnter={(e) => {
-                        if (!task.description) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setTooltip({
-                          opacity: 1,
-                          x: rect.left,
-                          y: rect.bottom + 6, // 6px gap
-                          text: task.description,
-                          isVisible: true,
-                        });
-                      }}
-                      onMouseLeave={() => {
-                        // Only hide opacity, keep position/text stable for the fade-out anim
-                        setTooltip((prev) => ({
-                          ...prev,
-                          opacity: 0,
-                          isVisible: false,
-                        }));
-                      }}
-                    >
-                      <p className="text-sm text-neutral-600 truncate leading-relaxed">
-                        {task.description || (
-                          <span className="text-neutral-400 italic">
-                            No description
-                          </span>
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {isHighPriority && (
-                        <span className="text-[10px] font-bold text-status-error bg-status-error/10 px-2 py-0.5 rounded-md border border-status-error/20 flex items-center gap-1 shadow-soft">
-                          <i className="fas fa-fire text-[8px]"></i>
-                          High
-                        </span>
-                      )}
-                      <span className="text-[10px] text-neutral-400 font-mono bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
-                        #{task.id?.substring(0, 4)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Hover Ring Effect */}
-                  <div
-                    className={`absolute inset-0 rounded-xl ring-2 ring-inset ring-brand-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
-                      isActive ? "hidden" : ""
-                    }`}
-                  ></div>
-                </div>
-              );
-            })}
+            {filteredTasks.map((task, index) => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                isActive={task.id === activeTaskId}
+                index={index}
+                // 🚀 PASSING STABLE HANDLERS HERE
+                onNavigate={handleNavigate}
+                onHover={handleTooltipHover}
+                onLeave={handleTooltipLeave}
+              />
+            ))}
           </div>
         )}
       </div>
+
+      {/* Tooltip */}
       <div
         className="fixed z-[100] max-w-96 pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{
@@ -697,25 +667,18 @@ export default function TaskList({
         }}
       >
         <div className="relative bg-accent-50/95 backdrop-blur-md rounded-xl shadow-premium border border-accent-100 ring-1 ring-accent-200/50 p-3.5">
-          {/* Decorative Left Bar (Plum) */}
           <div className="absolute top-3 bottom-3 left-0 w-[3px] bg-accent-500 rounded-r-full"></div>
-
           <div className="pl-3">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-accent-900 font-medium">
               {tooltip.text}
             </p>
           </div>
-
-          {/* Arrow (Color matched to accent-50) */}
           <div className="absolute -top-1.5 left-6 w-3 h-3 bg-accent-50 border-t border-l border-accent-100 rotate-45 transform"></div>
         </div>
       </div>
 
       <style>{`
-        @keyframes taskFade {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes taskFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );

@@ -554,10 +554,7 @@ export default function App() {
                 <Route path="/admin/view-builder" element={<ViewBuilder />} />
               </Route>
 
-<Route
-                path="/inspect/instance"
-                element={<InstanceInspector />}
-              />
+              <Route path="/inspect/instance" element={<InstanceInspector />} />
 
               {/* 🟢 3. Task ID (Will resolve to Instance ID) */}
               <Route
