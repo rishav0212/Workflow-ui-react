@@ -74,7 +74,7 @@ const GlobalNav = () => (
       />
 
       <NavIcon
-      to="/apps/39a2985a-8ffb-4551-ab1c-2b279b308acc"
+      to="/apps/b3181e6c-13a8-4129-9216-1972d3683e24"
       icon="fas fa-tools"
       label="ToolJet App 2"
       />
