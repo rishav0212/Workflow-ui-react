@@ -27,7 +27,7 @@ import AdminAnalytics from "./AdminAnalytics";
 import JobManager from "./JobManager";
 import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
-import { ViewBuilder } from "./components/Views/ViewBuilder";
+import ToolJetViewer from "./components/Views/ToolJetViewer";
 
 interface User {
   username: string;
@@ -63,6 +63,21 @@ const GlobalNav = () => (
     <div className="flex-1 flex flex-col gap-3 w-full px-3 items-center">
       <NavIcon to="/dashboard" icon="fas fa-chart-pie" label="Dashboard" />
       <NavIcon to="/" icon="fas fa-inbox" label="Inbox" />
+
+      <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
+      
+      {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL */}
+      <NavIcon 
+        to="/apps/55f596c7-949c-43c1-a38e-875d450ecd70" 
+        icon="fas fa-rocket" 
+        label="Test App" 
+      />
+
+      <NavIcon
+      to="/apps/39a2985a-8ffb-4551-ab1c-2b279b308acc"
+      icon="fas fa-tools"
+      label="ToolJet App 2"
+      />
     </div>
 
     {/* Settings at Bottom */}
@@ -551,13 +566,9 @@ export default function App() {
                 />
                 <Route path="/admin/jobs" element={<JobManager />} />
                 <Route path="/admin/dmn" element={<DmnViewer />} />
-                <Route path="/admin/view-builder" element={<ViewBuilder />} />
               </Route>
 
-<Route
-                path="/inspect/instance"
-                element={<InstanceInspector />}
-              />
+              <Route path="/inspect/instance" element={<InstanceInspector />} />
 
               {/* 🟢 3. Task ID (Will resolve to Instance ID) */}
               <Route
@@ -586,6 +597,7 @@ export default function App() {
                 path="/dashboard"
                 element={<Dashboard addNotification={addNotification} />}
               />
+              <Route path="/apps/:appId" element={<ToolJetViewer />} />
               <Route
                 path="/inbox"
                 element={

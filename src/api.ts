@@ -193,7 +193,9 @@ export const deployProcess = async (
 };
 
 export const fetchProcessInstances = async () => {
-  const res = await api.get("/process-api/runtime/process-instances?size=100000");
+  const res = await api.get(
+    "/process-api/runtime/process-instances?size=100000",
+  );
   return res.data.data;
 };
 
@@ -411,7 +413,7 @@ export const migrateInstancesToVersion = async (
   return res.data;
 };
 
-// New function to fetch task metadata 
+// New function to fetch task metadata
 export const fetchTaskMetadata = async (taskId: string) => {
   const res = await api.get("/process-api/history/historic-task-instances", {
     params: { taskId },
@@ -420,19 +422,28 @@ export const fetchTaskMetadata = async (taskId: string) => {
   return res.data.data && res.data.data.length > 0 ? res.data.data[0] : null;
 };
 
-
-export const fetchInstanceByKeys = async (processKey: string, businessKey: string) => {
+export const fetchInstanceByKeys = async (
+  processKey: string,
+  businessKey: string,
+) => {
   // Queries history to find the process instance
   const res = await api.get("/process-api/history/historic-process-instances", {
     params: {
       processDefinitionKey: processKey,
       businessKey: businessKey,
       sort: "startTime",
-      order: "desc", 
-      size: 1
-    }
+      order: "desc",
+      size: 1,
+    },
   });
-  
+
   // Return the ID of the first match
   return res.data.data && res.data.data.length > 0 ? res.data.data[0].id : null;
+};
+
+// src/api.ts (Add this)
+
+export const fetchToolJetUrl = async (appId: string) => {
+  const res = await api.get(`/api/tooljet/embed/${appId}`);
+  return res.data.url;
 };
