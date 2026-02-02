@@ -1,50 +1,41 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchToolJetUrl } from "../../api";
-import { toast } from "react-hot-toast";
+import api from "../../api"; // Your Axios instance with JWT
 
 const ToolJetViewer = () => {
-  const { appId } = useParams(); // We will get the App ID from the URL
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { appId } = useParams();
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!appId) return;
+    const initSecureSession = async () => {
+      try {
+        // Step 1: Exchange JWT for a short-lived ticket
+        const response = await api.post(
+          `/api/tooljet/embed-ticket?appId=${appId}`,
+        );
+        // Step 2: Use the ticket URL for the iframe
+        // Ensure you point to your Spring Boot Backend (Port 8080)
+        setIframeUrl(`http://localhost:8080${response.data.iframeUrl}`);
+      } catch (err) {
+        console.error("❌ BFF Security Error:", err);
+      }
+    };
 
-    setLoading(true);
-    fetchToolJetUrl(appId)
-      .then((url) => {
-        setEmbedUrl(url);
-      })
-      .catch((err) => {
-        console.error("Failed to load ToolJet app", err);
-        toast.error("Could not load application. Please contact admin.");
-      })
-      .finally(() => setLoading(false));
+    if (appId) initSecureSession();
   }, [appId]);
 
-  if (loading) {
+  if (!iframeUrl)
     return (
-      <div className="flex h-full items-center justify-center bg-canvas">
-        <div className="flex flex-col items-center gap-4">
-          <i className="fas fa-circle-notch fa-spin text-brand-500 text-3xl"></i>
-          <p className="text-neutral-500 text-sm">
-            Securing connection to App...
-          </p>
-        </div>
-      </div>
+      <div className="p-10 text-center">Establishing Secure Gateway...</div>
     );
-  }
-
-  if (!embedUrl) return null;
 
   return (
-    <div className="w-full h-full bg-white">
+    <div className="w-full h-full">
       <iframe
-        src={embedUrl}
+        src={iframeUrl}
         className="w-full h-full border-none"
-        title="ToolJet Application"
-        allow="camera; microphone; geolocation" 
+        title="Secured ToolJet Instance"
+        allow="camera; microphone; geolocation; clipboard-write"
       />
     </div>
   );
