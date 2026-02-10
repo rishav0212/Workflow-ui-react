@@ -6,8 +6,10 @@ import {
   suspendProcessDefinition,
   deleteDeployment,
   fireGlobalSignal,
+  purgeProcessData,
 } from "./api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
+import BatchStartModal from "./components/process/BatchStartModal";
 
 /**
  * GLOBAL CACHE STORAGE
@@ -22,6 +24,7 @@ const DATA_CACHE: {
 
 export default function ProcessManager() {
   const [processes, setProcesses] = useState<any[]>([]);
+  const [batchProcess, setBatchProcess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +55,27 @@ export default function ProcessManager() {
   useEffect(() => {
     loadProcesses();
   }, []);
+
+  const handlePurge = async (processKey: string) => {
+    const confirmed = window.confirm(
+      `⚠️ PURGE DATA WARNING ⚠️\n\nThis will delete ALL running and historic instances for "${processKey}".\n\nThe process definition (BPMN) will NOT be deleted.\n\nAre you sure?`,
+    );
+
+    if (confirmed) {
+      try {
+        setLoading(true);
+        const res = await purgeProcessData(processKey);
+        alert(
+          `Purge Complete!\n\nDeleted Active: ${res.deletedActive}\nDeleted History: ${res.deletedHistory}`,
+        );
+        loadProcesses(true); // Refresh stats
+      } catch (err) {
+        alert("Purge failed. Check server logs.");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const handleRefresh = () => {
     loadProcesses(true);
@@ -204,6 +228,27 @@ export default function ProcessManager() {
           >
             {p.suspended ? "Activate" : "Suspend"}
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setBatchProcess(p.key);
+            }}
+            className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-800 hover:text-white transition-all flex items-center gap-1.5"
+            title="Import Excel/JSON to start multiple instances"
+          >
+            <i className="fas fa-file-import"></i>
+            Batch
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePurge(p.key);
+            }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+            title="Purge All Data (Keep Definition)"
+          >
+            <i className="fas fa-broom text-[10px]"></i>
+          </button>
 
           <button
             onClick={(e) => {
@@ -304,6 +349,16 @@ export default function ProcessManager() {
           }
         />
       </div>
+      {batchProcess && (
+        <BatchStartModal
+          processKey={batchProcess}
+          onClose={() => setBatchProcess(null)}
+          onSuccess={() => {
+            // Optional: Refresh list if needed
+            setBatchProcess(null);
+          }}
+        />
+      )}
     </div>
   );
 }

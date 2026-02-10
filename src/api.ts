@@ -447,3 +447,17 @@ export const fetchToolJetUrl = async (appId: string) => {
   const res = await api.get(`/api/tooljet/embed/${appId}`);
   return res.data.url;
 };
+// Add to src/api.ts
+
+export const batchStartProcess = async (processKey: string, data: any[]) => {
+  // Sends the whole list in one POST request
+  const res = await api.post(
+    `/api/workflow/process/${processKey}/batch-start`,
+    data,
+  );
+  return res.data;
+};
+export const purgeProcessData = async (processKey: string) => {
+  const res = await api.delete(`/api/admin/purge/${processKey}`);
+  return res.data;
+};

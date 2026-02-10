@@ -38,7 +38,6 @@ import {
   migrateInstancesToVersion,
 } from "./api";
 import ActionEditorModal from "./ActionEditorModal";
-import FormSelectBuilderModal from "./FormSelectBuilderModal";
 
 // ============================================================================
 // TYPES
@@ -1155,14 +1154,6 @@ export default function ProcessViewer({
         />
       )}
 
-      {selectedFormForPicker && (
-        <FormSelectBuilderModal
-          isOpen={true}
-          onClose={() => setSelectedFormForPicker(null)}
-          formKey={selectedFormForPicker}
-          formName={selectedFormForPicker}
-        />
-      )}
 
       <style>{`
         .diagram-container {
