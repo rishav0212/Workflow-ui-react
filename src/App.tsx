@@ -7,6 +7,8 @@ import {
   useSearchParams,
   Outlet,
   NavLink,
+  useParams,
+  Navigate,
 } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import api from "./api";
@@ -33,6 +35,7 @@ interface User {
   username: string;
   email: string;
   authorities: Array<{ authority: string }>;
+  tenantId?: string;
 }
 export interface NotificationItem {
   id: number;
@@ -52,45 +55,57 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = () => (
-  <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
-    {/* Logo */}
-    <div className="w-12 h-12 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 rounded-xl flex items-center justify-center text-white text-xl shadow-brand-lg mb-8 ring-2 ring-brand-400/20 hover:scale-105 transition-transform cursor-pointer">
-      <i className="fas fa-layer-group"></i>
+const GlobalNav = () => {
+  const { tenantId } = useParams<{ tenantId: string }>();
+  const currentTenant = tenantId;
+  return (
+    <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
+      {/* Logo */}
+      <div className="w-12 h-12 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 rounded-xl flex items-center justify-center text-white text-xl shadow-brand-lg mb-8 ring-2 ring-brand-400/20 hover:scale-105 transition-transform cursor-pointer">
+        <i className="fas fa-layer-group"></i>
+      </div>
+
+      {/* Navigation Icons */}
+      <div className="flex-1 flex flex-col gap-3 w-full px-3 items-center">
+        <NavIcon
+          to={`/${currentTenant}/dashboard`}
+          icon="fas fa-chart-pie"
+          label="Dashboard"
+        />
+        <NavIcon
+          to={`/${currentTenant}/inbox`}
+          icon="fas fa-inbox"
+          label="Inbox"
+        />
+
+        <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
+
+        {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL */}
+        <NavIcon
+          to={`/${currentTenant}/apps/55f596c7-949c-43c1-a38e-875d450ecd70`}
+          icon="fas fa-rocket"
+          label="Test App"
+        />
+
+        <NavIcon
+          to={`/${currentTenant}/apps/b3181e6c-13a8-4129-9216-1972d3683e24`}
+          icon="fas fa-tools"
+          label="ToolJet App 2"
+        />
+      </div>
+
+      {/* Settings at Bottom */}
+      <div className="pb-4">
+        <button className="nav-item group">
+          <i className="fas fa-cog"></i>
+          <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
+            Settings
+          </span>
+        </button>
+      </div>
     </div>
-
-    {/* Navigation Icons */}
-    <div className="flex-1 flex flex-col gap-3 w-full px-3 items-center">
-      <NavIcon to="/dashboard" icon="fas fa-chart-pie" label="Dashboard" />
-      <NavIcon to="/" icon="fas fa-inbox" label="Inbox" />
-
-      <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
-      
-      {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL */}
-      <NavIcon 
-        to="/apps/55f596c7-949c-43c1-a38e-875d450ecd70" 
-        icon="fas fa-rocket" 
-        label="Test App" 
-      />
-
-      <NavIcon
-      to="/apps/b3181e6c-13a8-4129-9216-1972d3683e24"
-      icon="fas fa-tools"
-      label="ToolJet App 2"
-      />
-    </div>
-
-    {/* Settings at Bottom */}
-    <div className="pb-4">
-      <button className="nav-item group">
-        <i className="fas fa-cog"></i>
-        <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
-          Settings
-        </span>
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 // 🎨 ENHANCED: Refined Navigation Icons
 const NavIcon = ({ to, icon, label }: any) => (
@@ -482,17 +497,35 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleLogin = () => {
-    const currentPath = window.location.pathname + window.location.search;
-    if (!currentPath.includes("/oauth2/redirect") && currentPath !== "/") {
-      localStorage.setItem("redirect_after_login", currentPath);
-    }
-    window.location.href = GOOGLE_LOGIN_URL;
-  };
 
   const handleLogout = () => {
+    const tenantId = user?.tenantId;
     localStorage.removeItem("jwt_token");
-    window.location.href = "/";
+
+    window.location.href = `/${tenantId}`;
+  };
+
+  const LoginRedirect = () => {
+    const currentPath = window.location.pathname + window.location.search;
+    if (
+      !currentPath.includes("/login") &&
+      !currentPath.includes("/oauth2") &&
+      currentPath !== "/"
+    ) {
+      localStorage.setItem("redirect_after_login", currentPath);
+    }
+    const { tenantId } = useParams();
+    return <Navigate to={`/${tenantId}/login`} replace />;
+  };
+
+  // REQUIRED: To check cookies (Standard JS)
+  const RootRedirect = () => {
+    const cookie = document.cookie.match(
+      new RegExp("(^| )WORKFLOW_TENANT=([^;]+)"),
+    );
+    return (
+      <Navigate to={`/${cookie ? cookie[2] : "saar_biotech"}/login`} replace />
+    );
   };
 
   if (loading)
@@ -515,7 +548,18 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
-          <Route path="*" element={<LoginScreen onLogin={handleLogin} />} />
+
+          {/* 1. Login Screen */}
+          <Route
+            path="/:tenantId/login"
+            element={<LoginScreen />}
+          />
+
+          {/* 2. Catch "/acme/dashboard" -> Send to "/acme/login" */}
+          <Route path="/:tenantId/*" element={<LoginRedirect />} />
+
+          {/* 3. Catch "/" -> Send to Cookie Tenant or Default */}
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
       </BrowserRouter>
     );
@@ -523,106 +567,114 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-canvas overflow-hidden">
-        <Toaster position="top-right" reverseOrder={false} gutter={12} />
-        <GlobalNav />
-        <div className="flex-1 flex flex-col min-w-0">
-          <TopHeader
-            user={user}
-            onLogout={handleLogout}
-            notifications={notifications}
-            clearNotifications={() => {
-              setNotifications([]);
-              localStorage.removeItem("app_notifications");
-            }}
+      <Routes>
+        {/* 🟢 2. Root Redirect: If user goes to '/', send them to their default tenant */}
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to={`/${user.tenantId || "saar-biotech"}/inbox`}
+              replace
+            />
+          }
+        />
+
+        {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
+        <Route
+          path="/:tenantId"
+          element={
+            <div className="flex h-screen bg-canvas overflow-hidden">
+              <Toaster position="top-right" reverseOrder={false} gutter={12} />
+              <GlobalNav /> {/* ✅ Now works because it's inside the Route */}
+              <div className="flex-1 flex flex-col min-w-0">
+                <TopHeader
+                  user={user}
+                  onLogout={handleLogout}
+                  notifications={notifications}
+                  clearNotifications={() => {
+                    setNotifications([]);
+                    localStorage.removeItem("app_notifications");
+                  }}
+                />
+                <div className="flex-1 overflow-y-auto relative">
+                  <Outlet /> {/* ✅ This renders Dashboard, Inbox, etc. */}
+                </div>
+              </div>
+            </div>
+          }
+        >
+          {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
+
+          {/* Dashboard */}
+          <Route
+            path="dashboard"
+            element={<Dashboard addNotification={addNotification} />}
           />
-          <div className="flex-1 overflow-y-auto relative">
-            <Routes>
-              {/* ADMIN ROUTES - SECURED */}
-              <Route
-                element={
-                  <AdminGuard
-                    isUnlocked={adminUnlocked}
-                    onUnlock={() => setAdminUnlocked(true)}
-                  />
-                }
-              >
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/processes" element={<ProcessManager />} />
-                <Route
-                  path="/admin/processes/:processKey"
-                  element={<ProcessViewer addNotification={addNotification} />}
-                />
-                <Route path="/admin/instances" element={<InstanceManager />} />
-                <Route path="/admin/tasks" element={<TaskSupervision />} />
-                <Route
-                  path="/admin/process-groups"
-                  element={<ProcessGroups />}
-                />
-                <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                <Route
-                  path="/admin/inspect/:instanceId"
-                  element={<InstanceInspector />}
-                />
-                <Route path="/admin/jobs" element={<JobManager />} />
-                <Route path="/admin/dmn" element={<DmnViewer />} />
-              </Route>
+          <Route
+            path="/:tenantId/login"
+            element={<Navigate to="../inbox" replace />}
+          />
 
-              <Route path="/inspect/instance" element={<InstanceInspector />} />
+          {/* ToolJet Apps */}
+          <Route path="apps/:appId" element={<ToolJetViewer />} />
 
-              {/* 🟢 3. Task ID (Will resolve to Instance ID) */}
-              <Route
-                path="/inspect/instance/task/:taskId"
-                element={<InstanceInspector />}
+          {/* Inbox & Tasks */}
+          <Route
+            path="inbox"
+            element={
+              <InboxLayout
+                user={user}
+                refreshTrigger={refreshTrigger}
+                onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+                addNotification={addNotification}
               />
-              {/* USER ROUTES */}
-              <Route
-                path="/"
-                element={
-                  <InboxLayout
-                    user={user}
-                    refreshTrigger={refreshTrigger}
-                    onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
-                    addNotification={addNotification}
-                  />
-                }
-              >
-                <Route index element={<NoTaskSelected />} />
-                <Route
-                  path="task/:taskId"
-                  element={<TaskViewer currentUser={user.username} />}
-                />
-              </Route>
-              <Route
-                path="/dashboard"
-                element={<Dashboard addNotification={addNotification} />}
+            }
+          >
+            <Route index element={<NoTaskSelected />} />
+            <Route
+              path="task/:taskId"
+              element={<TaskViewer currentUser={user.username} />}
+            />
+          </Route>
+
+          {/* User Root (e.g. /saar_biotech/) -> Redirect to Inbox */}
+          <Route path="" element={<Navigate to="inbox" replace />} />
+
+          {/* Inspect Routes */}
+          <Route path="inspect/instance" element={<InstanceInspector />} />
+          <Route
+            path="inspect/instance/task/:taskId"
+            element={<InstanceInspector />}
+          />
+
+          {/* 🟢 5. ADMIN ROUTES (Nested inside Tenant + Guard) */}
+          <Route
+            element={
+              <AdminGuard
+                isUnlocked={adminUnlocked}
+                onUnlock={() => setAdminUnlocked(true)}
               />
-              <Route path="/apps/:appId" element={<ToolJetViewer />} />
-              <Route
-                path="/inbox"
-                element={
-                  <InboxLayout
-                    user={user}
-                    refreshTrigger={refreshTrigger}
-                    onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
-                    addNotification={addNotification}
-                  />
-                }
-              >
-                <Route index element={<NoTaskSelected />} />
-                <Route
-                  path="task/:taskId"
-                  element={<TaskViewer currentUser={user.username} />}
-                />
-              </Route>
-              <Route
-                path="/oauth2/redirect"
-                element={<OAuth2RedirectHandler />}
-              />
-            </Routes>
-          </div>
-        </div>
-      </div>
+            }
+          >
+            <Route path="admin" element={<AdminDashboard />} />
+            <Route path="admin/processes" element={<ProcessManager />} />
+            <Route
+              path="admin/processes/:processKey"
+              element={<ProcessViewer addNotification={addNotification} />}
+            />
+            <Route path="admin/instances" element={<InstanceManager />} />
+            <Route path="admin/tasks" element={<TaskSupervision />} />
+            <Route path="admin/process-groups" element={<ProcessGroups />} />
+            <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route
+              path="admin/inspect/:instanceId"
+              element={<InstanceInspector />}
+            />
+            <Route path="admin/jobs" element={<JobManager />} />
+            <Route path="admin/dmn" element={<DmnViewer />} />
+          </Route>
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

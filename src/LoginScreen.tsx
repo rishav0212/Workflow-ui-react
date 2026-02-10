@@ -1,6 +1,16 @@
 import React from "react";
+import { useParams } from "react-router-dom"; // 🟢 1. Import useParams
+import { GOOGLE_LOGIN_URL } from "./config";
 
-export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
+export default function LoginScreen() {
+  // 🟢 2. Logic: Auto-detect Tenant ID from URL
+  const { tenantId } = useParams<{ tenantId: string }>();
+  const activeWorkspace = tenantId || "default";
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${GOOGLE_LOGIN_URL}?tenantId=${activeWorkspace}`;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Background Shapes (Bronze Theme) */}
@@ -12,17 +22,17 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
           <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-700 text-white rounded-xl flex items-center justify-center text-3xl mx-auto mb-5 shadow-lg shadow-orange-500/30">
             <i className="fas fa-layer-group"></i>
           </div>
+
+          {/* 🟢 4. UI RESTORED: "InfinityPlus" branding is back */}
           <h1 className="text-3xl font-serif font-bold text-slate-800 mb-2">
-            Welcome Back
+            InfinityPlus
           </h1>
-          <p className="text-slate-400 text-sm">
-            Sign in to your InfinityPlus dashboard
-          </p>
+          <p className="text-slate-400 text-sm">Sign in to your dashboard</p>
         </div>
 
         <div className="space-y-4">
           <button
-            onClick={onLogin}
+            onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 font-bold py-3.5 px-4 rounded-xl transition-all duration-200 shadow-sm group"
           >
             <img
@@ -42,6 +52,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
           </div>
         </div>
 
+        {/* Subtle footer to confirm context (Optional - helpful for debugging) */}
         <p className="mt-8 text-center text-xs text-slate-400">
           Powered by InfinityPlus System
         </p>
