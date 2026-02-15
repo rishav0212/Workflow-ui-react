@@ -89,10 +89,8 @@ export const fetchSubmissionData = async (
 
 export const fetchTasks = async (user: string): Promise<Task[]> => {
   // Using candidateOrAssigned is the standard way to fetch a user's full "Inbox"
-  const res = await api.get(
-    `/process-api/runtime/tasks?candidateOrAssigned=${user}&size=100000&sort=createTime&order=desc`,
-  );
-  return res.data.data;
+  const res = await api.get(`/api/workflow/my-tasks`);
+  return res.data;
 };
 
 export const claimTask = async (
@@ -100,9 +98,7 @@ export const claimTask = async (
   userId: string,
 ): Promise<void> => {
   // Use your custom endpoint which handles claims safely
-  await api.post(`/api/workflow/claim-task?taskId=${taskId}`, null, {
-    headers: { userId },
-  });
+  await api.post(`/api/workflow/claim-task?taskId=${taskId}`);
 };
 
 // --- DASHBOARD API ---
@@ -249,13 +245,11 @@ export const fetchHistoricTasks = async (params = {}) => {
   return res.data;
 };
 export const reassignTask = async (taskId: string, userId: string) => {
-  return await api.put(`/process-api/runtime/tasks/${taskId}`, {
-    assignee: userId,
-  });
+  return await api.put(`/api/workflow/tasks/${taskId}/assign`);
 };
 
 export const updateTaskDueDate = async (taskId: string, dueDate: string) => {
-  return await api.put(`/process-api/runtime/tasks/${taskId}`, {
+  return await api.put(`/api/workflow/tasks/${taskId}/due-date`, {
     dueDate: dueDate,
   });
 };
