@@ -193,6 +193,17 @@ const onFormReady = useCallback(
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fadeIn">
+
+    <style>{`
+        .modal-body-scroll {
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          padding-bottom: 200px !important; /* Extra space for dropdowns */
+        }
+        .choices__list--dropdown {
+          z-index: 9999 !important; /* Ensure it floats on top */
+        }
+      `}</style>
       <div
         className="absolute inset-0 bg-ink-primary/30 backdrop-blur-sm"
         onClick={onClose}
@@ -222,7 +233,7 @@ const onFormReady = useCallback(
             <i className="fas fa-times"></i>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 bg-surface">
+        <div className="flex-1 p-6 bg-surface modal-body-scroll">
           {loading ? (
             <div className="space-y-6 animate-pulse">
               {[1, 2].map((i) => (
