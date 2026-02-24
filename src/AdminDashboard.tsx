@@ -1,9 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 export default function AdminDashboard() {
+  const { tenantId } = useParams<{ tenantId: string }>();
+
   const adminCards = [
     {
-      to: "/admin/processes",
+      to: `/${tenantId}/admin/processes`,
       icon: "fas fa-project-diagram",
       title: "Workflow Explorer",
       desc: "View BPMN diagrams, XML source, and deploy new process versions.",
@@ -11,7 +13,7 @@ export default function AdminDashboard() {
       bg: "bg-brand-50",
     },
     {
-      to: "/admin/instances",
+      to: `/${tenantId}/admin/instances`,
       icon: "fas fa-microchip",
       title: "Instance Manager",
       desc: "Monitor running workflows, inspect/edit variables, and terminate stuck processes.",
@@ -19,7 +21,7 @@ export default function AdminDashboard() {
       bg: "bg-status-info/10",
     },
     {
-      to: "/admin/tasks",
+      to: `/${tenantId}/admin/tasks`,
       icon: "fas fa-tasks",
       title: "Task Supervision",
       desc: "God-mode view of all system tasks. Reassign work and override deadlines.",
@@ -27,22 +29,23 @@ export default function AdminDashboard() {
       bg: "bg-status-warning/10",
     },
     {
-      to: "/admin/analytics",
+      to: `/${tenantId}/admin/analytics`,
       icon: "fas fa-chart-line",
       title: "Analytics",
       desc: "Return to the standard user dashboard for performance metrics.",
       color: "text-sage-600",
       bg: "bg-sage-50",
-    },{
-  to: "/admin/process-groups",
-  icon: "fas fa-layer-group",
-  title: "Process Groups",
-  desc: "Manage instances and tasks grouped specifically by their workflow definition.",
-  color: "text-purple-600",
-  bg: "bg-purple-50",
-},
+    },
     {
-      to: "/admin/jobs",
+      to: `/${tenantId}/admin/process-groups`,
+      icon: "fas fa-layer-group",
+      title: "Process Groups",
+      desc: "Manage instances and tasks grouped specifically by their workflow definition.",
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+    },
+    {
+      to: `/${tenantId}/admin/jobs`,
       icon: "fas fa-tools",
       title: "Incident Manager",
       desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
@@ -50,7 +53,7 @@ export default function AdminDashboard() {
       bg: "bg-status-error/10",
     },
     {
-      to: "/admin/dmn",
+      to: `/${tenantId}/admin/dmn`,
       icon: "fas fa-table",
       title: "Business Rules",
       desc: "Inspect DMN Decision Tables and business logic implementations.",

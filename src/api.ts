@@ -174,16 +174,12 @@ export const deployProcess = async (
   const formData = new FormData();
   formData.append("file", file);
 
-  // This sets the DEPLOYMENT name (Metadata only).
-  // It does NOT overwrite the XML process name.
   const deploymentName = comment ? `${name} - ${comment}` : name;
   formData.append("deployment-name", deploymentName);
 
-  // Note: Some engines require "deployment-source" to identify where it came from
-  formData.append("deployment-source", "Process Manager UI");
-
-  // Call your API endpoint (adjust URL as needed)
-  return await api.post("/process-api/repository/deployments", formData, {
+  // 🟢 We now hit our custom secure endpoint instead of the raw Flowable API.
+  // The backend will automatically attach the tenantId and fix the file extension.
+  return await api.post("/api/admin/processes/deploy", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };

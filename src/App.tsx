@@ -55,9 +55,12 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = () => {
+const GlobalNav = ({ user }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
+  const isSuperAdmin = user?.authorities?.some(
+    (auth: any) => auth.authority === "ROLE_SUPER_ADMIN",
+  );
   return (
     <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
       {/* Logo */}
@@ -80,7 +83,15 @@ const GlobalNav = () => {
 
         <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
 
-        {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL */}
+        {isSuperAdmin && (
+          <NavIcon
+            to={`/${currentTenant}/admin`}
+            icon="fas fa-shield-alt"
+            label="Admin Portal"
+          />
+        )}
+
+        {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL
         <NavIcon
           to={`/${currentTenant}/apps/55f596c7-949c-43c1-a38e-875d450ecd70`}
           icon="fas fa-rocket"
@@ -91,7 +102,7 @@ const GlobalNav = () => {
           to={`/${currentTenant}/apps/b3181e6c-13a8-4129-9216-1972d3683e24`}
           icon="fas fa-tools"
           label="ToolJet App 2"
-        />
+        /> */}
       </div>
 
       {/* Settings at Bottom */}
@@ -334,58 +345,37 @@ const InboxLayout = ({
 };
 
 // --- COMPONENT: Admin Guard ---
-const AdminGuard = ({
-  isUnlocked,
-  onUnlock,
-}: {
-  isUnlocked: boolean;
-  onUnlock: () => void;
-}) => {
-  const [password, setPassword] = useState("");
+// We removed the password state and replaced it with a direct roles validation from the user's JWT data
+const AdminGuard = ({ user }: { user: User }) => {
+  // Check if the authorities array contains the 'ROLE_SUPER_ADMIN' string
+  // Using optional chaining safely in case authorities is undefined
+  const isSuperAdmin = user?.authorities?.some(
+    (auth) => auth.authority === "ROLE_SUPER_ADMIN",
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === "asdfghjkl") {
-      onUnlock();
-      toast.success("Admin Access Granted");
-    } else {
-      toast.error("Incorrect Admin Password");
-      setPassword("");
-    }
-  };
-
-  if (isUnlocked) {
+  if (isSuperAdmin) {
     return <Outlet />;
   }
 
+  // Render an unauthorized access screen for users without the Super Admin role
   return (
-    <div className="flex-1 flex items-center justify-center bg-canvas">
-      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full">
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-600">
-            <i className="fas fa-lock"></i>
-          </div>
-          <h2 className="text-xl font-bold text-ink-primary">Admin Access</h2>
-          <p className="text-sm text-neutral-500 mt-2">
-            Enter password to continue
-          </p>
+    <div className="flex-1 flex items-center justify-center bg-canvas h-full">
+      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
+        <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
+          <i className="fas fa-shield-alt text-2xl"></i>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
-            placeholder="Password"
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="w-full bg-brand-600 text-white font-bold py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-brand-sm"
-          >
-            Unlock
-          </button>
-        </form>
+        <h2 className="text-xl font-bold text-ink-primary">
+          Access Restricted
+        </h2>
+        <p className="text-sm text-neutral-500 mt-2 mb-6">
+          You do not have the required Super Admin privileges to view this area.
+        </p>
+        <button
+          onClick={() => (window.location.href = "/")}
+          className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
+        >
+          Return to Inbox
+        </button>
       </div>
     </div>
   );
@@ -397,7 +387,6 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Admin Security State
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     try {
@@ -497,7 +486,6 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
-
   const handleLogout = () => {
     const tenantId = user?.tenantId;
     localStorage.removeItem("jwt_token");
@@ -550,10 +538,7 @@ export default function App() {
           <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
 
           {/* 1. Login Screen */}
-          <Route
-            path="/:tenantId/login"
-            element={<LoginScreen />}
-          />
+          <Route path="/:tenantId/login" element={<LoginScreen />} />
 
           {/* 2. Catch "/acme/dashboard" -> Send to "/acme/login" */}
           <Route path="/:tenantId/*" element={<LoginRedirect />} />
@@ -585,7 +570,8 @@ export default function App() {
           element={
             <div className="flex h-screen bg-canvas overflow-hidden">
               <Toaster position="top-right" reverseOrder={false} gutter={12} />
-              <GlobalNav /> {/* ✅ Now works because it's inside the Route */}
+              <GlobalNav user={user} />{" "}
+              {/* ✅ Now works because it's inside the Route */}
               <div className="flex-1 flex flex-col min-w-0">
                 <TopHeader
                   user={user}
@@ -648,14 +634,7 @@ export default function App() {
           />
 
           {/* 🟢 5. ADMIN ROUTES (Nested inside Tenant + Guard) */}
-          <Route
-            element={
-              <AdminGuard
-                isUnlocked={adminUnlocked}
-                onUnlock={() => setAdminUnlocked(true)}
-              />
-            }
-          >
+          <Route element={<AdminGuard user={user} />}>
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/processes" element={<ProcessManager />} />
             <Route

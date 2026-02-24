@@ -146,6 +146,7 @@ export default function ProcessViewer({
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
   const [isDeploying, setIsDeploying] = useState<boolean>(false);
   const [isLoadingVersions, setIsLoadingVersions] = useState<boolean>(false);
+  const { tenantId } = useParams<{ tenantId: string }>();
 
   // ─────────────────────────────────────────────────────────────────────────
   // STATE: Editor State Management
@@ -806,7 +807,7 @@ export default function ProcessViewer({
       {/* HEADER */}
       <header className="bg-surface border-b border-canvas-active p-4 flex justify-between items-center shadow-soft z-30">
         <div className="flex items-center gap-4">
-          <Link to="/admin/processes" className="btn-icon" title="Back">
+          <Link to={`/${tenantId}/admin/processes`} className="btn-icon" title="Back">
             <i className="fas fa-arrow-left"></i>
           </Link>
           <h2 className="text-xl font-serif font-bold text-ink-primary tracking-tight">

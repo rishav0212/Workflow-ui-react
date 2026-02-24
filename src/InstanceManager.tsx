@@ -11,7 +11,7 @@ import {
   migrateProcessInstance,
   fetchAdminProcesses,
 } from "./api";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 
 /**
@@ -46,6 +46,7 @@ export default function InstanceManager() {
   const [varAudit, setVarAudit] = useState<any[]>([]);
   const [targetVersions, setTargetVersions] = useState<any[]>([]);
   const [filterKey, setFilterKey] = useState(urlFilterKey || "ALL");
+  const { tenantId } = useParams<{ tenantId: string }>();
 
   useEffect(() => {
     if (urlFilterKey) setFilterKey(urlFilterKey);
@@ -279,7 +280,7 @@ export default function InstanceManager() {
           onClick={(e) => e.stopPropagation()}
         >
           <Link
-            to={`/admin/inspect/${inst.id}`}
+            to={`/${tenantId}/admin/inspect/${inst.id}`}
             className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
             title="View Process Path"
           >

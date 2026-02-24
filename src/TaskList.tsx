@@ -105,12 +105,13 @@ const TaskItem = memo(
     onHover: (e: React.MouseEvent, text: string) => void;
     onLeave: () => void;
   }) => {
+    const { tenantId } = useParams<{ tenantId: string }>();
     const isHighPriority = (task.priority || 0) > 50;
 
     // Use local handler to pass ID back to parent
     const handleClick = useCallback(() => {
       onNavigate(task.id);
-    }, [onNavigate, task.id]);
+    }, [onNavigate, task.id, tenantId]);
 
     return (
       <div
@@ -211,6 +212,7 @@ export default function TaskList({
   // 🚀 PERFORMANCE: Local state + Deferred Value to unblock typing
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const { tenantId } = useParams<{ tenantId: string }>();
 
   const [tooltip, setTooltip] = useState({
     opacity: 0,
@@ -294,7 +296,7 @@ export default function TaskList({
 
   const handleNavigate = useCallback(
     (id: string) => {
-      navigate(`/task/${id}?${searchParams.toString()}`);
+      navigate(`/${tenantId}/inbox/task/${id}?${searchParams.toString()}`);
     },
     [navigate, searchParams],
   );
@@ -386,7 +388,7 @@ export default function TaskList({
               Inbox
             </h2>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(`/${tenantId}/dashboard`)}
               className="text-xs font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full hover:bg-brand-100 hover:shadow-brand-sm transition-all hover:scale-105 border border-brand-100"
               title="Go to Dashboard"
             >

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   fetchAdminProcesses,
   deployProcess,
@@ -28,7 +28,7 @@ export default function ProcessManager() {
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const { tenantId } = useParams<{ tenantId: string }>();
   /**
    * Loads process definitions.
    * Uses global cache if available and not forced.
@@ -261,7 +261,7 @@ export default function ProcessManager() {
           </button>
 
           <Link
-            to={`/admin/processes/${p.key}`}
+            to={`/${tenantId}/admin/processes/${p.key}`}
             className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-brand-600 text-brand-600 hover:bg-brand-600 hover:text-white transition-all"
             onClick={(e) => e.stopPropagation()}
           >
@@ -299,7 +299,7 @@ export default function ProcessManager() {
 
             {/* Navigation Close Button */}
             <Link
-              to="/admin"
+              to={`/${tenantId}/admin`}
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface border border-canvas-active text-ink-secondary hover:bg-canvas-subtle transition-all"
             >
               <i className="fas fa-times text-sm"></i>
