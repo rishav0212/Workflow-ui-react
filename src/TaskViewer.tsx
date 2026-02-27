@@ -4,6 +4,7 @@ import {
   useParams,
   useSearchParams,
   useOutletContext,
+  useLocation,
 } from "react-router-dom";
 import "formiojs/dist/formio.full.min.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -384,6 +385,7 @@ const ClaimTaskOverlay = memo(
 export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isSubmitted = useRef(false);
 
@@ -457,7 +459,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     }
   }, [activeTab]);
 
-const onFormReady = useCallback(
+  const onFormReady = useCallback(
     (instance: any) => {
       const activeIntervals: number[] = [];
 
@@ -475,9 +477,10 @@ const onFormReady = useCallback(
               const uniqueOptionsMap = new Map();
               comp.selectOptions.forEach((opt: any) => {
                 if (!opt?.value) return;
-                const key = (typeof opt.value === 'object') 
-                  ? (opt.value.id || opt.value._id || JSON.stringify(opt.value)) 
-                  : String(opt.value);
+                const key =
+                  typeof opt.value === "object"
+                    ? opt.value.id || opt.value._id || JSON.stringify(opt.value)
+                    : String(opt.value);
                 if (!uniqueOptionsMap.has(key)) uniqueOptionsMap.set(key, opt);
               });
 
@@ -485,28 +488,35 @@ const onFormReady = useCallback(
 
               if (uniqueOptions.length === 1) {
                 const newValue = uniqueOptions[0].value;
-                const isValueEmpty = !comp.dataValue || 
-                  (typeof comp.dataValue === 'object' && Object.keys(comp.dataValue).length === 0);
+                const isValueEmpty =
+                  !comp.dataValue ||
+                  (typeof comp.dataValue === "object" &&
+                    Object.keys(comp.dataValue).length === 0);
 
                 if (isValueEmpty) {
-                  console.log(`🚀 Auto-filling & Refreshing Logic for: ${comp.key}`);
-                  
+                  console.log(
+                    `🚀 Auto-filling & Refreshing Logic for: ${comp.key}`,
+                  );
+
                   // 1. Set the value
                   comp.setValue(newValue, { modified: true });
-                  
+
                   // 2. IMPORTANT: Manually trigger the component change
                   comp.triggerChange();
 
                   // 3. THE MAGIC FIX: Tell the ROOT form to re-run all logic/queries
                   // This ensures dependent fields (like data.selectVal) see the new value.
-                  instance.onChange({
-                    data: instance.data,
-                    changed: {
-                      component: comp.component,
-                      instance: comp,
-                      value: newValue
-                    }
-                  }, { forceUpdate: true });
+                  instance.onChange(
+                    {
+                      data: instance.data,
+                      changed: {
+                        component: comp.component,
+                        instance: comp,
+                        value: newValue,
+                      },
+                    },
+                    { forceUpdate: true },
+                  );
                 }
                 clearInterval(intervalId);
               } else if (uniqueOptions.length > 1) {
@@ -516,17 +526,17 @@ const onFormReady = useCallback(
 
             if (elapsedTime >= maxWait) clearInterval(intervalId);
           }, pollInterval);
-          
+
           activeIntervals.push(intervalId as any);
         }
       });
 
       // Cleanup intervals if user switches tasks before polling finishes
       return () => {
-        activeIntervals.forEach(id => clearInterval(id));
+        activeIntervals.forEach((id) => clearInterval(id));
       };
     },
-    [taskId] // Ensure this re-runs every time the taskId changes
+    [taskId], // Ensure this re-runs every time the taskId changes
   );
 
   const loadTask = useCallback(async () => {
@@ -665,7 +675,13 @@ const onFormReady = useCallback(
           "success",
         );
         refreshTasks();
-        navigate("/", { replace: true });
+        navigate(
+          {
+            pathname: "/",
+            search: location.search,
+          },
+          { replace: true },
+        );
       } catch (err: any) {
         const msg = parseApiError(err);
         if (err.response?.status === 422) {
