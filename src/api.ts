@@ -241,7 +241,9 @@ export const fetchHistoricTasks = async (params = {}) => {
   return res.data;
 };
 export const reassignTask = async (taskId: string, userId: string) => {
-  return await api.put(`/api/workflow/tasks/${taskId}/assign`);
+  return await api.put(`/api/workflow/tasks/${taskId}/assign`, {
+    assignee: userId
+  });
 };
 
 export const updateTaskDueDate = async (taskId: string, dueDate: string) => {
