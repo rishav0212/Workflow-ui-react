@@ -512,7 +512,7 @@ export default function App() {
       new RegExp("(^| )WORKFLOW_TENANT=([^;]+)"),
     );
     return (
-      <Navigate to={`/${cookie ? cookie[2] : "saar_biotech"}/login`} replace />
+      <Navigate to={`/${cookie ? cookie[2] : "saar-biotech"}/login`} replace />
     );
   };
 
