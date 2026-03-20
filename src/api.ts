@@ -242,7 +242,7 @@ export const fetchHistoricTasks = async (params = {}) => {
 };
 export const reassignTask = async (taskId: string, userId: string) => {
   return await api.put(`/api/workflow/tasks/${taskId}/assign`, {
-    assignee: userId
+    assignee: userId,
   });
 };
 
@@ -451,5 +451,11 @@ export const batchStartProcess = async (processKey: string, data: any[]) => {
 };
 export const purgeProcessData = async (processKey: string) => {
   const res = await api.delete(`/api/admin/purge/${processKey}`);
+  return res.data;
+};
+
+// Add this anywhere in src/api.ts
+export const fetchMyToolJetApps = async () => {
+  const res = await api.get("/api/tooljet/my-apps");
   return res.data;
 };

@@ -11,7 +11,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
-import api from "./api";
+import api, { fetchMyToolJetApps } from "./api";
 import TaskList from "./TaskList";
 import TaskViewer from "./TaskViewer";
 import LoginScreen from "./LoginScreen";
@@ -61,6 +61,15 @@ const GlobalNav = ({ user }: any) => {
   const isSuperAdmin = user?.authorities?.some(
     (auth: any) => auth.authority === "ROLE_SUPER_ADMIN",
   );
+
+  const [tooljetApps, setTooljetApps] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch apps when sidebar loads
+    fetchMyToolJetApps()
+      .then((data) => setTooljetApps(data))
+      .catch((err) => console.error("Failed to load apps", err));
+  }, [currentTenant]);
   return (
     <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
       {/* Logo */}
@@ -91,18 +100,17 @@ const GlobalNav = ({ user }: any) => {
           />
         )}
 
-        {/* Replace 'YOUR_APP_ID' with the UUID from your ToolJet URL
-        <NavIcon
-          to={`/${currentTenant}/apps/55f596c7-949c-43c1-a38e-875d450ecd70`}
-          icon="fas fa-rocket"
-          label="Test App"
-        />
+        <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
 
-        <NavIcon
-          to={`/${currentTenant}/apps/b3181e6c-13a8-4129-9216-1972d3683e24`}
-          icon="fas fa-tools"
-          label="ToolJet App 2"
-        /> */}
+        {/* 🟢 DYNAMIC TOOLJET APPS LOOP */}
+        {tooljetApps.map((app) => (
+          <NavIcon
+            key={app.tooljetAppUuid}
+            to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
+            icon="fas fa-rocket" // You can make this dynamic later if you want
+            label={app.displayName}
+          />
+        ))}
       </div>
 
       {/* Settings at Bottom */}
@@ -536,6 +544,10 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
+          <Route
+            path="/login"
+            element={<Navigate to="/saar-biotech/login" replace />}
+          />
 
           {/* 1. Login Screen */}
           <Route path="/:tenantId/login" element={<LoginScreen />} />
