@@ -520,7 +520,7 @@ export default function App() {
       new RegExp("(^| )WORKFLOW_TENANT=([^;]+)"),
     );
     return (
-      <Navigate to={`/${cookie ? cookie[2] : "saar_biotech"}/login`} replace />
+      <Navigate to={`/${cookie ? cookie[2] : "saar-biotech"}/login`} replace />
     );
   };
 
@@ -544,10 +544,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
-          <Route
-            path="/login"
-            element={<Navigate to="/saar-biotech/login" replace />}
-          />
+          <Route path="/login" element={<Navigate to="/saar-biotech/login" replace />} />
 
           {/* 1. Login Screen */}
           <Route path="/:tenantId/login" element={<LoginScreen />} />
