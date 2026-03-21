@@ -674,12 +674,21 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           "success",
         );
         refreshTasks();
-        const searchParamsToKeep = new URLSearchParams(location.search);
-        searchParamsToKeep.delete("tab");
+        // 1. Get the absolute latest search parameters from the hook
+        const finalParams = new URLSearchParams(searchParams);
+
+        // 2. Remove ONLY the tab parameter, keep the filters
+        finalParams.delete("tab");
+
+        // 3. Format into a proper query string (adds '?' only if params exist)
+        const queryString = finalParams.toString();
+        const searchString = queryString ? `?${queryString}` : "";
+
+        // 4. Navigate using the safely formatted string
         navigate(
           {
             pathname: "/",
-            search: searchParamsToKeep.toString(),
+            search: searchString,
           },
           { replace: true },
         );
@@ -705,7 +714,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       refreshTasks,
       navigate,
       getNotificationContext,
-      location.search,
+      searchParams,
     ],
   );
 
