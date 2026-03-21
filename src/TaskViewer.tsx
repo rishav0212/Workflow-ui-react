@@ -383,7 +383,10 @@ const ClaimTaskOverlay = memo(
 // MAIN COMPONENT
 // =============================================================================
 export default function TaskViewer({ currentUser }: { currentUser: string }) {
-  const { taskId } = useParams<{ taskId: string }>();
+  const { taskId, tenantId } = useParams<{
+    taskId: string;
+    tenantId: string;
+  }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -598,7 +601,9 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
 
       if (err.response?.status === 404) {
         addNotification(`Task not found or already completed.${ctx}`, "error");
-        navigate("/", { replace: true });
+        navigate(`/${tenantId}/inbox?${searchParams.toString()}`, {
+          replace: true,
+        });
       } else {
         addNotification(`Failed to load task: ${msg}${ctx}`, "error");
       }
@@ -632,7 +637,9 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           "error",
         );
       }
-      navigate("/", { replace: true });
+      navigate(`/${tenantId}/inbox?${searchParams.toString()}`, {
+        replace: true,
+      });
     } finally {
       setClaiming(false);
     }
@@ -675,23 +682,16 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         );
         refreshTasks();
         // 1. Get the absolute latest search parameters from the hook
+        // 1. Get current params
         const finalParams = new URLSearchParams(searchParams);
 
-        // 2. Remove ONLY the tab parameter, keep the filters
+        // 2. Remove ONLY the tab parameter
         finalParams.delete("tab");
 
-        // 3. Format into a proper query string (adds '?' only if params exist)
-        const queryString = finalParams.toString();
-        const searchString = queryString ? `?${queryString}` : "";
-
-        // 4. Navigate using the safely formatted string
-        navigate(
-          {
-            pathname: "/",
-            search: searchString,
-          },
-          { replace: true },
-        );
+        // 3. Navigate DIRECTLY to the tenant's inbox (bypassing the App.tsx root redirect)
+        navigate(`/${tenantId}/inbox?${finalParams.toString()}`, {
+          replace: true,
+        });
       } catch (err: any) {
         const msg = parseApiError(err);
         if (err.response?.status === 422) {
