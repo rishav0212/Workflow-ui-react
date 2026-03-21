@@ -674,10 +674,12 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
           "success",
         );
         refreshTasks();
+        const searchParamsToKeep = new URLSearchParams(location.search);
+        searchParamsToKeep.delete("tab");
         navigate(
           {
             pathname: "/",
-            search: location.search,
+            search: searchParamsToKeep.toString(),
           },
           { replace: true },
         );
