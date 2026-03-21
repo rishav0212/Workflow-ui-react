@@ -705,6 +705,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       refreshTasks,
       navigate,
       getNotificationContext,
+      location.search,
     ],
   );
 
