@@ -7,6 +7,7 @@ import {
   bulkReassignTasks,
 } from "./api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
+import TenantLink from "./components/common/TenantLink";
 
 /**
  * GLOBAL TASK CACHE
@@ -253,12 +254,12 @@ export default function TaskSupervision() {
           className="flex justify-end gap-1.5 items-center"
           onClick={(e) => e.stopPropagation()}
         >
-          <Link
+          <TenantLink
             to={`/admin/inspect/${task.processInstanceId}`}
             className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
           >
             <i className="fas fa-map-signs mr-1"></i>Path
-          </Link>
+          </TenantLink>
           {viewMode === "active" && (
             <button
               onClick={() => {

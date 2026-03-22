@@ -1,11 +1,10 @@
 import { Link, useParams } from "react-router-dom";
+import TenantLink from "./components/common/TenantLink";
 
 export default function AdminDashboard() {
-  const { tenantId } = useParams<{ tenantId: string }>();
-
   const adminCards = [
     {
-      to: `/${tenantId}/admin/processes`,
+      to: `/admin/processes`,
       icon: "fas fa-project-diagram",
       title: "Workflow Explorer",
       desc: "View BPMN diagrams, XML source, and deploy new process versions.",
@@ -13,7 +12,7 @@ export default function AdminDashboard() {
       bg: "bg-brand-50",
     },
     {
-      to: `/${tenantId}/admin/instances`,
+      to: `/admin/instances`,
       icon: "fas fa-microchip",
       title: "Instance Manager",
       desc: "Monitor running workflows, inspect/edit variables, and terminate stuck processes.",
@@ -21,7 +20,7 @@ export default function AdminDashboard() {
       bg: "bg-status-info/10",
     },
     {
-      to: `/${tenantId}/admin/tasks`,
+      to: `/admin/tasks`,
       icon: "fas fa-tasks",
       title: "Task Supervision",
       desc: "God-mode view of all system tasks. Reassign work and override deadlines.",
@@ -29,7 +28,7 @@ export default function AdminDashboard() {
       bg: "bg-status-warning/10",
     },
     {
-      to: `/${tenantId}/admin/analytics`,
+      to: `/admin/analytics`,
       icon: "fas fa-chart-line",
       title: "Analytics",
       desc: "Return to the standard user dashboard for performance metrics.",
@@ -37,7 +36,7 @@ export default function AdminDashboard() {
       bg: "bg-sage-50",
     },
     {
-      to: `/${tenantId}/admin/process-groups`,
+      to: `/admin/process-groups`,
       icon: "fas fa-layer-group",
       title: "Process Groups",
       desc: "Manage instances and tasks grouped specifically by their workflow definition.",
@@ -45,7 +44,7 @@ export default function AdminDashboard() {
       bg: "bg-purple-50",
     },
     {
-      to: `/${tenantId}/admin/jobs`,
+      to: `/admin/jobs`,
       icon: "fas fa-tools",
       title: "Incident Manager",
       desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
@@ -53,7 +52,7 @@ export default function AdminDashboard() {
       bg: "bg-status-error/10",
     },
     {
-      to: `/${tenantId}/admin/dmn`,
+      to: `/admin/dmn`,
       icon: "fas fa-table",
       title: "Business Rules",
       desc: "Inspect DMN Decision Tables and business logic implementations.",
@@ -76,7 +75,7 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {adminCards.map((card, idx) => (
-            <Link
+            <TenantLink
               key={idx}
               to={card.to}
               className="bg-surface p-8 rounded-3xl border border-canvas-active shadow-soft hover:shadow-floating hover:-translate-y-1 transition-all group"
@@ -95,7 +94,7 @@ export default function AdminDashboard() {
               <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">
                 Open Tool <i className="fas fa-arrow-right text-[10px]"></i>
               </div>
-            </Link>
+            </TenantLink>
           ))}
         </div>
       </div>

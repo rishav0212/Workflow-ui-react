@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchDashboardStats, fetchCompletedTasks, parseApiError } from "./api";
-import { useNavigate } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
+import { useTenantRouting } from "./hooks/useTenantRouting";
 
 export default function Dashboard({
   addNotification,
 }: {
   addNotification: (msg: string, type: "success" | "error" | "info") => void;
 }) {
-  const navigate = useNavigate();
+  const { navigateTo } = useTenantRouting();
 
   // Data State
   const [stats, setStats] = useState<any>({
@@ -125,7 +125,7 @@ export default function Dashboard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/inspect/instance?taskId=${task.id}`);
+            navigateTo(`/inspect/instance?taskId=${task.id}`);
           }}
           className="px-3 py-1.5 bg-accent-50 text-accent-600 hover:bg-accent-100 font-bold text-[10px] uppercase tracking-wide rounded-lg border border-accent-200 shadow-soft transition-all hover:shadow-lifted"
           title="View Task Details"
@@ -199,7 +199,7 @@ export default function Dashboard({
                 <div
                   key={name}
                   onClick={() =>
-                    navigate(`/inbox?category=${encodeURIComponent(name)}`)
+                    navigateTo(`/inbox?category=${encodeURIComponent(name)}`)
                   }
                   className="card-interactive group cursor-pointer"
                 >
