@@ -459,3 +459,37 @@ export const fetchMyToolJetApps = async () => {
   const res = await api.get("/api/tooljet/my-apps");
   return res.data;
 };
+
+// --- USER MANAGEMENT & IAM APIs ---
+
+export const fetchTenantUsers = async () =>
+  (await api.get("/api/tenant/admin/users")).data;
+export const createTenantUser = async (payload: any) =>
+  await api.post("/api/tenant/admin/users", payload);
+export const deactivateTenantUser = async (userId: string) =>
+  await api.put(`/api/tenant/admin/users/${userId}/deactivate`);
+
+export const fetchTenantRoles = async () =>
+  (await api.get("/api/tenant/admin/roles")).data;
+export const createTenantRole = async (payload: any) =>
+  await api.post("/api/tenant/admin/roles", payload);
+export const assignRoleToUser = async (userId: string, roleId: string) =>
+  await api.post(`/api/tenant/admin/users/${userId}/roles/${roleId}`);
+
+export const fetchTenantResources = async () =>
+  (await api.get("/api/tenant/admin/resources")).data;
+export const createTenantResource = async (payload: any) =>
+  await api.post("/api/tenant/admin/resources", payload);
+
+export const fetchRolePermissions = async (roleId: string) =>
+  (await api.get(`/api/tenant/admin/roles/${roleId}/permissions`)).data;
+export const grantPermission = async (payload: {
+  roleId: string;
+  resourceKey: string;
+  action: string;
+}) => await api.post("/api/tenant/admin/permissions/grant", payload);
+export const revokePermission = async (payload: {
+  roleId: string;
+  resourceKey: string;
+  action: string;
+}) => await api.post("/api/tenant/admin/permissions/revoke", payload);

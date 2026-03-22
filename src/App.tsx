@@ -30,6 +30,7 @@ import JobManager from "./JobManager";
 import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
 import ToolJetViewer from "./components/Views/ToolJetViewer";
+import UserManagement from "./UserManagement";
 
 interface User {
   username: string;
@@ -663,6 +664,10 @@ export default function App() {
             />
             <Route path="admin/jobs" element={<JobManager />} />
             <Route path="admin/dmn" element={<DmnViewer />} />
+            <Route
+              path="admin/users"
+              element={<UserManagement addNotification={addNotification} />}
+            />
           </Route>
         </Route>
       </Routes>

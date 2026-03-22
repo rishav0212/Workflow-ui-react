@@ -4,6 +4,14 @@ import TenantLink from "./components/common/TenantLink";
 export default function AdminDashboard() {
   const adminCards = [
     {
+      to: `/admin/users`,
+      icon: "fas fa-users-cog",
+      title: "Identity & Access",
+      desc: "Manage users, define roles, and control granular resource permissions.",
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
       to: `/admin/processes`,
       icon: "fas fa-project-diagram",
       title: "Workflow Explorer",
