@@ -3,8 +3,11 @@ import { useParams } from "react-router-dom";
 import api from "../../api";
 import { API_BASE_URL } from "../../config"; // 🟢 Import the base URL
 
-const ToolJetViewer = () => {
-  const { appId } = useParams();
+// 🟢 ADDED: Accepts optional appId prop for caching, falls back to useParams so nothing breaks!
+const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
+  const params = useParams();
+  const appId = propAppId || params.appId;
+
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

@@ -4,6 +4,8 @@ import {
   Routes,
   Route,
   useNavigate,
+  useLocation, // <-- Add this
+  matchPath,
   useSearchParams,
   Outlet,
   NavLink,
@@ -126,6 +128,41 @@ const GlobalNav = ({ user }: any) => {
   );
 };
 
+// 🟢 NEW: Iframe Cache Manager
+// This keeps opened ToolJet apps in the DOM so they don't reload when switching tabs.
+const ToolJetCacheManager = () => {
+  const location = useLocation();
+
+  // Check if we are currently viewing an app route
+  const match = matchPath("/:tenantId/apps/:appId", location.pathname);
+  const currentAppId = match?.params?.appId;
+
+  // Keep a running list of all apps opened during this browser session
+  const [openedApps, setOpenedApps] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (currentAppId && !openedApps.includes(currentAppId)) {
+      setOpenedApps((prev) => [...prev, currentAppId]);
+    }
+  }, [currentAppId, openedApps]);
+
+  if (openedApps.length === 0) return null;
+
+  return (
+    <>
+      {openedApps.map((appId) => (
+        <div
+          key={appId}
+          className={`absolute inset-0 z-10 bg-canvas ${
+            appId === currentAppId ? "block animate-fadeIn" : "hidden"
+          }`}
+        >
+          <ToolJetViewer appId={appId} />
+        </div>
+      ))}
+    </>
+  );
+};
 // 🎨 ENHANCED: Refined Navigation Icons
 const NavIcon = ({ to, icon, label }: any) => (
   <NavLink
@@ -594,8 +631,12 @@ export default function App() {
                     localStorage.removeItem("app_notifications");
                   }}
                 />
-                <div className="flex-1 overflow-y-auto relative">
-                  <Outlet /> {/* ✅ This renders Dashboard, Inbox, etc. */}
+                {/* 🟢 MODIFIED: Add the CacheManager here! */}
+                <div className="flex-1 relative flex flex-col">
+                  <ToolJetCacheManager />
+                  <div className="flex-1 overflow-y-auto">
+                    <Outlet />
+                  </div>
                 </div>
               </div>
             </div>
@@ -613,8 +654,9 @@ export default function App() {
             element={<Navigate to="../inbox" replace />}
           />
 
-          {/* ToolJet Apps */}
-          <Route path="apps/:appId" element={<ToolJetViewer />} />
+          {/* 🟢 MODIFIED: Make this an empty div. 
+              The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
+          <Route path="apps/:appId" element={<div className="hidden" />} />
 
           {/* Inbox & Tasks */}
           <Route
