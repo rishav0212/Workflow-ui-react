@@ -493,3 +493,9 @@ export const revokePermission = async (payload: {
   resourceKey: string;
   action: string;
 }) => await api.post("/api/tenant/admin/permissions/revoke", payload);
+
+export const fetchUserRoles = async (userId: string): Promise<string[]> =>
+  (await api.get(`/api/tenant/admin/users/${userId}/roles`)).data;
+
+export const removeRoleFromUser = async (userId: string, roleId: string) =>
+  (await api.delete(`/api/tenant/admin/users/${userId}/roles/${roleId}`)).data;
