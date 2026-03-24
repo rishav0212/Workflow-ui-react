@@ -110,7 +110,7 @@ const GlobalNav = ({ user }: any) => {
           <NavIcon
             key={app.tooljetAppUuid}
             to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-            icon="fas fa-rocket" // You can make this dynamic later if you want
+            icon="fas fa-rocket" 
             label={app.displayName}
           />
         ))}
