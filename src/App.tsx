@@ -615,13 +615,14 @@ export default function App() {
         />
 
         {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
+        {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
         <Route
           path="/:tenantId"
           element={
             <div className="flex h-screen bg-canvas overflow-hidden">
               <Toaster position="top-right" reverseOrder={false} gutter={12} />
-              <GlobalNav user={user} />{" "}
-              {/* ✅ Now works because it's inside the Route */}
+              <GlobalNav user={user} />
+
               <div className="flex-1 flex flex-col min-w-0">
                 <TopHeader
                   user={user}
@@ -632,10 +633,13 @@ export default function App() {
                     localStorage.removeItem("app_notifications");
                   }}
                 />
-                {/* 🟢 MODIFIED: Add the CacheManager here! */}
-                <div className="flex-1 relative flex flex-col">
+
+                {/* 🔴 THE BULLETPROOF SCROLL WRAPPER */}
+                <div className="flex-1 relative">
                   <ToolJetCacheManager />
-                  <div className="flex-1 overflow-y-auto">
+
+                  {/* absolute inset-0 forces this div to pin to all 4 corners of the remaining space, guaranteeing a scrollbar */}
+                  <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
                     <Outlet />
                   </div>
                 </div>
