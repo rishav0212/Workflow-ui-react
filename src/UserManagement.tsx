@@ -236,7 +236,6 @@ const ResourceKeyBuilder = ({
     onChange(`${type}:${slug}`);
   };
 
-  // Sync if parent type changes
   useEffect(() => {
     onChange(`${type}:${name}`);
   }, [type]);
@@ -363,16 +362,19 @@ const Modal = ({
   </div>
 );
 
+// ✅ FIX: Added `formId` so this button triggers the `<form>` submission properly
 const ModalFooter = ({
   onCancel,
   onSubmit,
   saving,
   label,
+  formId,
 }: {
   onCancel: () => void;
   onSubmit?: () => void;
   saving: boolean;
   label: string;
+  formId?: string;
 }) => (
   <div className="flex justify-end gap-3">
     <button
@@ -383,8 +385,9 @@ const ModalFooter = ({
       Cancel
     </button>
     <button
-      type={onSubmit ? "button" : "submit"}
-      onClick={onSubmit}
+      type={formId ? "submit" : onSubmit ? "button" : "submit"}
+      form={formId}
+      onClick={formId ? undefined : onSubmit}
       disabled={saving}
       className="px-5 py-2 bg-brand-500 text-white text-sm font-bold rounded-lg hover:bg-brand-600 disabled:opacity-50 transition-colors flex items-center gap-2"
     >
@@ -519,7 +522,6 @@ export default function UserManagement({
     load();
   }, []);
 
-  // Load matrix policies
   useEffect(() => {
     if (!matrixRole) {
       setRolePolicies([]);
@@ -532,7 +534,6 @@ export default function UserManagement({
       .finally(() => setMatrixLoading(false));
   }, [matrixRole]);
 
-  // Load audit data
   useEffect(() => {
     if (!auditUser) {
       setAuditData(null);
@@ -541,7 +542,6 @@ export default function UserManagement({
     setAuditLoading(true);
     fetchUserRoles(auditUser)
       .then(async (userRoles: string[]) => {
-        // fetch policies for all roles
         const policyArrays = await Promise.all(
           userRoles.map((r) => fetchRolePermissions(r)),
         );
@@ -593,7 +593,22 @@ export default function UserManagement({
   // ── Form submit handlers ──────────────────────────────────────────────────
 
   const submitUser = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // ✅ Now this fires correctly!
+
+    // ✅ FIX: Frontend Uniqueness Validation
+    if (
+      users.some(
+        (u) => u.user_id.toLowerCase() === userForm.userId.toLowerCase(),
+      )
+    ) {
+      return addNotification("User ID already exists.", "error");
+    }
+    if (
+      users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())
+    ) {
+      return addNotification("Email already exists.", "error");
+    }
+
     setSaving(true);
     try {
       await createTenantUser({ ...userForm, metadata: {} });
@@ -601,8 +616,11 @@ export default function UserManagement({
       setModal(null);
       setUserForm({ userId: "", email: "", firstName: "", lastName: "" });
       load();
-    } catch {
-      addNotification("Failed to create user", "error");
+    } catch (err: any) {
+      addNotification(
+        err?.response?.data?.message || "Failed to create user",
+        "error",
+      );
     } finally {
       setSaving(false);
     }
@@ -610,6 +628,16 @@ export default function UserManagement({
 
   const submitRole = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ FIX: Frontend Validation
+    if (
+      roles.some(
+        (r) => r.role_id.toLowerCase() === roleForm.roleId.toLowerCase(),
+      )
+    ) {
+      return addNotification("Role ID already exists.", "error");
+    }
+
     setSaving(true);
     try {
       await createTenantRole(roleForm);
@@ -626,6 +654,16 @@ export default function UserManagement({
 
   const submitResource = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ FIX: Frontend Validation
+    if (
+      resources.some(
+        (r) => r.resource_key.toLowerCase() === resKey.toLowerCase(),
+      )
+    ) {
+      return addNotification("Resource key already exists.", "error");
+    }
+
     setSaving(true);
     try {
       await createTenantResource({
@@ -648,7 +686,6 @@ export default function UserManagement({
     }
   };
 
-  // Open manage-roles modal
   const openManageRoles = async (user: any) => {
     setRoleTarget(user);
     setModal("manageRoles");
@@ -667,7 +704,6 @@ export default function UserManagement({
     if (!roleTarget) return;
     setSaving(true);
     try {
-      // Get current roles to diff
       const current: string[] = await fetchUserRoles(roleTarget.user_id);
       const toAdd = selectedRolesForUser.filter((r) => !current.includes(r));
       const toRemove = current.filter((r) => !selectedRolesForUser.includes(r));
@@ -703,11 +739,12 @@ export default function UserManagement({
       .includes(resourceSearch.toLowerCase()),
   );
 
-  // Group resources by type for matrix
+  // ✅ FIX: Ensure Matrix and Audit views don't hide uncategorized test data
   const byType = filteredResources.reduce<Record<string, any[]>>((acc, r) => {
     (acc[r.resource_type] ??= []).push(r);
     return acc;
   }, {});
+
   const ORDERED_TYPES = [
     "page",
     "button",
@@ -718,15 +755,17 @@ export default function UserManagement({
     "workflow",
     "component",
   ];
+  const availableTypes = Object.keys(byType);
+  const typesToRender = Array.from(
+    new Set([...ORDERED_TYPES, ...availableTypes]),
+  ).filter((t) => byType[t]?.length);
 
-  // For audit: group policies by resource key
   const auditByResource =
     auditData?.policies.reduce<Record<string, string[]>>((acc, p) => {
       (acc[p[2]] ??= []).push(p[3]);
       return acc;
     }, {}) ?? {};
 
-  // selected role info
   const selectedRoleInfo = roles.find((r) => r.role_id === matrixRole);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -973,7 +1012,6 @@ export default function UserManagement({
       {/* ── PERMISSION MATRIX ─────────────────────────────────────────────── */}
       {tab === "matrix" && (
         <div className="flex-1 flex gap-4 overflow-hidden m-4">
-          {/* Role sidebar */}
           <div className="w-64 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden flex-shrink-0">
             <div className="px-4 py-3 border-b border-canvas-subtle bg-canvas/40">
               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
@@ -1014,7 +1052,6 @@ export default function UserManagement({
             </div>
           </div>
 
-          {/* Matrix panel */}
           <div className="flex-1 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-canvas-subtle bg-canvas/40 flex items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -1066,10 +1103,14 @@ export default function UserManagement({
               />
             ) : (
               <div className="flex-1 overflow-y-auto">
-                {ORDERED_TYPES.filter((t) => byType[t]?.length).map((type) => {
+                {/* ✅ FIX: Renders custom keys using availableTypes */}
+                {typesToRender.map((type) => {
                   const typeInfo = RESOURCE_TYPES.find(
                     (r) => r.value === type,
-                  )!;
+                  ) || {
+                    icon: "fa-cube",
+                    label: type.charAt(0).toUpperCase() + type.slice(1),
+                  };
                   return (
                     <div key={type}>
                       <div className="px-5 py-2 bg-canvas-subtle/70 border-y border-canvas-subtle sticky top-0 z-10 flex items-center gap-2">
@@ -1077,7 +1118,7 @@ export default function UserManagement({
                           className={`fas ${typeInfo.icon} text-xs text-neutral-500`}
                         />
                         <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-                          {type}
+                          {typeInfo.label}
                         </span>
                         <span className="text-[10px] text-neutral-400">
                           ({byType[type].length})
@@ -1141,7 +1182,6 @@ export default function UserManagement({
       {/* ── AUDIT VIEW ────────────────────────────────────────────────────── */}
       {tab === "audit" && (
         <div className="flex-1 flex gap-4 overflow-hidden m-4">
-          {/* User sidebar */}
           <div className="w-64 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden flex-shrink-0">
             <div className="px-4 py-3 border-b border-canvas-subtle bg-canvas/40">
               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
@@ -1185,7 +1225,6 @@ export default function UserManagement({
             </div>
           </div>
 
-          {/* Audit panel */}
           <div className="flex-1 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-canvas-subtle bg-canvas/40 flex items-center gap-3 flex-shrink-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
@@ -1217,7 +1256,6 @@ export default function UserManagement({
               </div>
             ) : auditData ? (
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                {/* Roles summary */}
                 <div className="bg-canvas-subtle/50 rounded-xl p-4 border border-canvas-subtle">
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
                     Assigned Roles ({auditData.roles.length})
@@ -1244,7 +1282,6 @@ export default function UserManagement({
                   )}
                 </div>
 
-                {/* Effective permissions */}
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
                     Effective Permissions ({Object.keys(auditByResource).length}{" "}
@@ -1257,21 +1294,33 @@ export default function UserManagement({
                     </div>
                   ) : (
                     <div className="space-y-1.5">
+                      {/* ✅ FIX: Handles deduplication and custom keys in Audit view */}
                       {(() => {
-                        // group by resource type prefix
                         const grouped = Object.entries(auditByResource).reduce<
                           Record<string, [string, string[]][]>
                         >((acc, [key, acts]) => {
-                          const type = key.split(":")[0] ?? "other";
-                          (acc[type] ??= []).push([key, acts]);
+                          const prefix = key.split(":")[0];
+                          const type = ORDERED_TYPES.includes(prefix as any)
+                            ? prefix
+                            : "other";
+                          const uniqueActs = Array.from(new Set(acts)); // Deduplicate overlapping role actions
+                          (acc[type] ??= []).push([key, uniqueActs]);
                           return acc;
                         }, {});
-                        return ORDERED_TYPES.filter(
-                          (t) => grouped[t]?.length,
-                        ).map((type) => {
+
+                        const auditTypesToRender = [
+                          ...ORDERED_TYPES,
+                          "other",
+                        ].filter((t) => grouped[t]?.length);
+
+                        return auditTypesToRender.map((type) => {
                           const typeInfo = RESOURCE_TYPES.find(
                             (r) => r.value === type,
-                          );
+                          ) || {
+                            value: "other",
+                            label: "Other / Uncategorized",
+                            icon: "fa-question-circle",
+                          };
                           return (
                             <div
                               key={type}
@@ -1279,10 +1328,10 @@ export default function UserManagement({
                             >
                               <div className="px-4 py-2 bg-canvas-subtle/70 flex items-center gap-2">
                                 <i
-                                  className={`fas ${typeInfo?.icon ?? "fa-dot-circle"} text-xs text-neutral-500`}
+                                  className={`fas ${typeInfo.icon} text-xs text-neutral-500`}
                                 />
                                 <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-                                  {type}
+                                  {typeInfo.label}
                                 </span>
                               </div>
                               {grouped[type].map(([key, acts]) => {
@@ -1325,7 +1374,7 @@ export default function UserManagement({
 
       {/* ════ MODALS ════════════════════════════════════════════════════════ */}
 
-      {/* Create User */}
+      {/* ✅ FIX: Added `formId` mapping to connect footer buttons to the internal forms! */}
       {modal === "user" && (
         <Modal
           title="Create New User"
@@ -1335,6 +1384,7 @@ export default function UserManagement({
               onCancel={() => setModal(null)}
               saving={saving}
               label="Create User"
+              formId="user-form"
             />
           }
         >
@@ -1345,7 +1395,10 @@ export default function UserManagement({
               className="w-full border border-canvas-subtle p-3 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-brand-500"
               value={userForm.userId}
               onChange={(e) =>
-                setUserForm({ ...userForm, userId: e.target.value })
+                setUserForm({
+                  ...userForm,
+                  userId: e.target.value.replace(/\s+/g, "_"),
+                })
               }
             />
             <p className="text-xs text-neutral-400 -mt-2 ml-1">
@@ -1385,7 +1438,6 @@ export default function UserManagement({
         </Modal>
       )}
 
-      {/* Create Role */}
       {modal === "role" && (
         <Modal
           title="Create New Role"
@@ -1396,10 +1448,11 @@ export default function UserManagement({
               onCancel={() => setModal(null)}
               saving={saving}
               label="Create Role"
+              formId="role-form"
             />
           }
         >
-          <form onSubmit={submitRole} className="space-y-3">
+          <form id="role-form" onSubmit={submitRole} className="space-y-3">
             <div>
               <input
                 required
@@ -1407,7 +1460,10 @@ export default function UserManagement({
                 className="w-full border border-canvas-subtle p-3 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-brand-500"
                 value={roleForm.roleId}
                 onChange={(e) =>
-                  setRoleForm({ ...roleForm, roleId: e.target.value })
+                  setRoleForm({
+                    ...roleForm,
+                    roleId: e.target.value.replace(/\s+/g, "_"),
+                  })
                 }
               />
               <p className="text-xs text-neutral-400 mt-1 ml-1">
@@ -1436,7 +1492,6 @@ export default function UserManagement({
         </Modal>
       )}
 
-      {/* Register Resource — guided builder */}
       {modal === "resource" && (
         <Modal
           title="Register a Resource"
@@ -1447,11 +1502,15 @@ export default function UserManagement({
               onCancel={() => setModal(null)}
               saving={saving}
               label="Register"
+              formId="resource-form"
             />
           }
         >
-          <form onSubmit={submitResource} className="space-y-4">
-            {/* Type picker */}
+          <form
+            id="resource-form"
+            onSubmit={submitResource}
+            className="space-y-4"
+          >
             <div>
               <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
                 Resource Type
@@ -1465,11 +1524,7 @@ export default function UserManagement({
                       setResType(rt.value);
                       setResKey(`${rt.value}:`);
                     }}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-bold transition-all text-left ${
-                      resType === rt.value
-                        ? "bg-brand-50 border-brand-300 text-brand-700"
-                        : "border-canvas-subtle text-ink-secondary hover:bg-canvas-subtle"
-                    }`}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-bold transition-all text-left ${resType === rt.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-canvas-subtle text-ink-secondary hover:bg-canvas-subtle"}`}
                   >
                     <i
                       className={`fas ${rt.icon} w-4 text-center ${resType === rt.value ? "text-brand-500" : "text-neutral-400"}`}
@@ -1482,20 +1537,12 @@ export default function UserManagement({
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-neutral-400 mt-2 ml-1">
-                <i className="fas fa-info-circle mr-1" />
-                {RESOURCE_TYPES.find((r) => r.value === resType)?.hint}
-              </p>
             </div>
-
-            {/* Smart key builder */}
             <ResourceKeyBuilder
               value={resKey}
               type={resType}
               onChange={setResKey}
             />
-
-            {/* Display name */}
             <div>
               <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
                 Display Name
@@ -1508,31 +1555,10 @@ export default function UserManagement({
                 onChange={(e) => setResDisplay(e.target.value)}
               />
             </div>
-
-            {/* Actions preview */}
-            <div className="bg-canvas-subtle/60 rounded-xl p-3 border border-canvas-subtle">
-              <p className="text-xs font-bold text-neutral-500 mb-2">
-                This resource will support these actions:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {actionsFor(resType).map((a) => (
-                  <ActionBadge key={a} action={a} />
-                ))}
-              </div>
-            </div>
-
-            <textarea
-              rows={2}
-              placeholder="Where is this used? (optional)"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-              value={resDesc}
-              onChange={(e) => setResDesc(e.target.value)}
-            />
           </form>
         </Modal>
       )}
 
-      {/* Manage User Roles — multi-select */}
       {modal === "manageRoles" && roleTarget && (
         <Modal
           title="Manage Roles"
@@ -1560,26 +1586,6 @@ export default function UserManagement({
               selected={selectedRolesForUser}
               onChange={setSelectedRolesForUser}
             />
-          )}
-          {selectedRolesForUser.length > 0 && (
-            <div className="bg-brand-50 rounded-xl p-3 border border-brand-100">
-              <p className="text-xs font-bold text-brand-700 mb-2">
-                Will be assigned:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedRolesForUser.map((rId) => {
-                  const r = roles.find((ro) => ro.role_id === rId);
-                  return (
-                    <Badge
-                      key={rId}
-                      label={r?.role_name ?? rId}
-                      color="#1d4ed8"
-                      bg="#dbeafe"
-                    />
-                  );
-                })}
-              </div>
-            </div>
           )}
         </Modal>
       )}
