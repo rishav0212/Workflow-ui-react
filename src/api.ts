@@ -189,8 +189,17 @@ export const fetchProcessInstances = async () => {
   return res.data.data;
 };
 
+/**
+ * Terminates a specific process instance using the secured backend API.
+ * The backend enforces both Casbin permissions and Tenant Isolation.
+ */
 export const terminateProcessInstance = async (id: string) => {
-  return await api.delete(`/process-api/runtime/process-instances/${id}`);
+  return await api.delete(`/api/admin/processes/instances/${id}`);
+};
+
+export const fetchResourcePermissions = async (resourceKey: string) => {
+  const res = await api.get(`/api/permissions/resource/${resourceKey}`);
+  return res.data;
 };
 
 export const fetchInstanceVariables = async (id: string) => {

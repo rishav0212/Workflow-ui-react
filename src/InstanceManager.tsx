@@ -13,6 +13,7 @@ import {
 } from "./api";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
+import { Secure } from "./components/common/Secure";
 
 /**
  * GLOBAL CACHE STORAGE
@@ -293,22 +294,23 @@ export default function InstanceManager() {
           >
             <i className="fas fa-microscope mr-1"></i>Inspect
           </button>
-          {viewMode === "active" && (
-            <button
-              onClick={() => handleTerminate(inst.id)}
-              className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
-              title="Terminate Instance"
-            >
-              <i className="fas fa-power-off text-xs"></i>
-            </button>
-          )}
+          <Secure resource="action:delete_instance" action="view">
+            {viewMode === "active" && (
+              <button
+                onClick={() => handleTerminate(inst.id)}
+                className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
+                title="Terminate Instance"
+              >
+                <i className="fas fa-power-off text-xs"></i>
+              </button>
+            )}
+          </Secure>
         </div>
       ),
     },
   ];
 
   return (
-    
     <div className="min-h-screen bg-canvas p-6 flex gap-6 font-sans">
       <div className="flex-1 flex flex-col min-h-0">
         <header className="flex justify-between items-center mb-6">
@@ -363,12 +365,14 @@ export default function InstanceManager() {
               {selectedIds.size} Selected
             </span>
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleBulkTerminate}
-                className="bg-status-error text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest"
-              >
-                Terminate
-              </button>
+              <Secure resource="action:delete_instance" action="view">
+                <button
+                  onClick={handleBulkTerminate}
+                  className="bg-status-error text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest"
+                >
+                  Terminate
+                </button>
+              </Secure>{" "}
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="text-white/40 hover:text-white transition-colors"
