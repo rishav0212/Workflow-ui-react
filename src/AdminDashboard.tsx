@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import TenantLink from "./components/common/TenantLink";
+import { Secure } from "./components/common/Secure";
+import React from "react";
 
 export default function AdminDashboard() {
   const adminCards = [
@@ -26,6 +28,7 @@ export default function AdminDashboard() {
       desc: "Monitor running workflows, inspect/edit variables, and terminate stuck processes.",
       color: "text-status-info",
       bg: "bg-status-info/10",
+      secure: { resource: "page:instance_manager", action: "view" },
     },
     {
       to: `/admin/tasks`,
@@ -51,22 +54,22 @@ export default function AdminDashboard() {
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
-    {
-      to: `/admin/jobs`,
-      icon: "fas fa-tools",
-      title: "Incident Manager",
-      desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
-      color: "text-status-error",
-      bg: "bg-status-error/10",
-    },
-    {
-      to: `/admin/dmn`,
-      icon: "fas fa-table",
-      title: "Business Rules",
-      desc: "Inspect DMN Decision Tables and business logic implementations.",
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-    },
+    // {
+    //   to: `/admin/jobs`,
+    //   icon: "fas fa-tools",
+    //   title: "Incident Manager",
+    //   desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
+    //   color: "text-status-error",
+    //   bg: "bg-status-error/10",
+    // },
+    // {
+    //   to: `/admin/dmn`,
+    //   icon: "fas fa-table",
+    //   title: "Business Rules",
+    //   desc: "Inspect DMN Decision Tables and business logic implementations.",
+    //   color: "text-indigo-600",
+    //   bg: "bg-indigo-50",
+    // },
   ];
 
   return (
@@ -82,28 +85,45 @@ export default function AdminDashboard() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {adminCards.map((card, idx) => (
-            <TenantLink
-              key={idx}
-              to={card.to}
-              className="bg-surface p-8 rounded-3xl border border-canvas-active shadow-soft hover:shadow-floating hover:-translate-y-1 transition-all group"
-            >
-              <div
-                className={`w-14 h-14 ${card.bg} rounded-2xl flex items-center justify-center ${card.color} mb-6 group-hover:scale-110 transition-transform`}
+          {adminCards.map((card, idx) => {
+            const cardComponent = (
+              <TenantLink
+                key={idx}
+                to={card.to}
+                className="bg-surface p-8 rounded-3xl border border-canvas-active shadow-soft hover:shadow-floating hover:-translate-y-1 transition-all group"
               >
-                <i className={`${card.icon} text-2xl`}></i>
-              </div>
-              <h2 className="text-xl font-bold text-ink-primary mb-2">
-                {card.title}
-              </h2>
-              <p className="text-sm text-ink-tertiary leading-relaxed">
-                {card.desc}
-              </p>
-              <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                Open Tool <i className="fas fa-arrow-right text-[10px]"></i>
-              </div>
-            </TenantLink>
-          ))}
+                <div
+                  className={`w-14 h-14 ${card.bg} rounded-2xl flex items-center justify-center ${card.color} mb-6 group-hover:scale-110 transition-transform`}
+                >
+                  <i className={`${card.icon} text-2xl`}></i>
+                </div>
+                <h2 className="text-xl font-bold text-ink-primary mb-2">
+                  {card.title}
+                </h2>
+                <p className="text-sm text-ink-tertiary leading-relaxed">
+                  {card.desc}
+                </p>
+                <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Open Tool <i className="fas fa-arrow-right text-[10px]"></i>
+                </div>
+              </TenantLink>
+            );
+
+            // If the card has a secure property, wrap it in the Secure component
+            if (card.secure) {
+              return (
+                <Secure
+                  key={idx}
+                  resource={card.secure.resource}
+                  action={card.secure.action}
+                >
+                  {cardComponent}
+                </Secure>
+              );
+            }
+
+            return <React.Fragment key={idx}>{cardComponent}</React.Fragment>;
+          })}
         </div>
       </div>
     </div>
