@@ -33,6 +33,8 @@ import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
 import ToolJetViewer from "./components/Views/ToolJetViewer";
 import UserManagement from "./UserManagement";
+import { PermissionProvider } from "./hooks/PermissionContext";
+import { Secure } from "./components/common/Secure";
 
 interface User {
   username: string;
@@ -110,7 +112,7 @@ const GlobalNav = ({ user }: any) => {
           <NavIcon
             key={app.tooljetAppUuid}
             to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-            icon="fas fa-rocket" 
+            icon="fas fa-rocket"
             label={app.displayName}
           />
         ))}
@@ -601,122 +603,139 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* 🟢 2. Root Redirect: If user goes to '/', send them to their default tenant */}
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to={`/${user.tenantId || "saar-biotech"}/inbox`}
-              replace
-            />
-          }
-        />
+    <PermissionProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* 🟢 2. Root Redirect: If user goes to '/', send them to their default tenant */}
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={`/${user.tenantId || "saar-biotech"}/inbox`}
+                replace
+              />
+            }
+          />
 
-        {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
-        {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
-        <Route
-          path="/:tenantId"
-          element={
-            <div className="flex h-screen bg-canvas overflow-hidden">
-              <Toaster position="top-right" reverseOrder={false} gutter={12} />
-              <GlobalNav user={user} />
-
-              <div className="flex-1 flex flex-col min-w-0">
-                <TopHeader
-                  user={user}
-                  onLogout={handleLogout}
-                  notifications={notifications}
-                  clearNotifications={() => {
-                    setNotifications([]);
-                    localStorage.removeItem("app_notifications");
-                  }}
+          {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
+          {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
+          <Route
+            path="/:tenantId"
+            element={
+              <div className="flex h-screen bg-canvas overflow-hidden">
+                <Toaster
+                  position="top-right"
+                  reverseOrder={false}
+                  gutter={12}
                 />
+                <GlobalNav user={user} />
 
-                {/* 🔴 THE BULLETPROOF SCROLL WRAPPER */}
-                <div className="flex-1 relative">
-                  <ToolJetCacheManager />
+                <div className="flex-1 flex flex-col min-w-0">
+                  <TopHeader
+                    user={user}
+                    onLogout={handleLogout}
+                    notifications={notifications}
+                    clearNotifications={() => {
+                      setNotifications([]);
+                      localStorage.removeItem("app_notifications");
+                    }}
+                  />
 
-                  {/* absolute inset-0 forces this div to pin to all 4 corners of the remaining space, guaranteeing a scrollbar */}
-                  <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                    <Outlet />
+                  {/* 🔴 THE BULLETPROOF SCROLL WRAPPER */}
+                  <div className="flex-1 relative">
+                    <ToolJetCacheManager />
+
+                    {/* absolute inset-0 forces this div to pin to all 4 corners of the remaining space, guaranteeing a scrollbar */}
+                    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                      <Outlet />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          }
-        >
-          {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
-
-          {/* Dashboard */}
-          <Route
-            path="dashboard"
-            element={<Dashboard addNotification={addNotification} />}
-          />
-          <Route
-            path="/:tenantId/login"
-            element={<Navigate to="../inbox" replace />}
-          />
-
-          {/* 🟢 MODIFIED: Make this an empty div. 
-              The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
-          <Route path="apps/:appId" element={<div className="hidden" />} />
-
-          {/* Inbox & Tasks */}
-          <Route
-            path="inbox"
-            element={
-              <InboxLayout
-                user={user}
-                refreshTrigger={refreshTrigger}
-                onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
-                addNotification={addNotification}
-              />
             }
           >
-            <Route index element={<NoTaskSelected />} />
+            {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
+
+            {/* Dashboard */}
             <Route
-              path="task/:taskId"
-              element={<TaskViewer currentUser={user.username} />}
+              path="dashboard"
+              element={<Dashboard addNotification={addNotification} />}
             />
-          </Route>
-
-          {/* User Root (e.g. /saar_biotech/) -> Redirect to Inbox */}
-          <Route path="" element={<Navigate to="inbox" replace />} />
-
-          {/* Inspect Routes */}
-          <Route path="inspect/instance" element={<InstanceInspector />} />
-          <Route
-            path="inspect/instance/task/:taskId"
-            element={<InstanceInspector />}
-          />
-
-          {/* 🟢 5. ADMIN ROUTES (Nested inside Tenant + Guard) */}
-          <Route element={<AdminGuard user={user} />}>
-            <Route path="admin" element={<AdminDashboard />} />
-            <Route path="admin/processes" element={<ProcessManager />} />
             <Route
-              path="admin/processes/:processKey"
-              element={<ProcessViewer addNotification={addNotification} />}
+              path="/:tenantId/login"
+              element={<Navigate to="../inbox" replace />}
             />
-            <Route path="admin/instances" element={<InstanceManager />} />
-            <Route path="admin/tasks" element={<TaskSupervision />} />
-            <Route path="admin/process-groups" element={<ProcessGroups />} />
-            <Route path="admin/analytics" element={<AdminAnalytics />} />
+
+            {/* 🟢 MODIFIED: Make this an empty div. 
+              The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
+            <Route path="apps/:appId" element={<div className="hidden" />} />
+
+            {/* Inbox & Tasks */}
             <Route
-              path="admin/inspect/:instanceId"
+              path="inbox"
+              element={
+                <InboxLayout
+                  user={user}
+                  refreshTrigger={refreshTrigger}
+                  onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+                  addNotification={addNotification}
+                />
+              }
+            >
+              <Route index element={<NoTaskSelected />} />
+              <Route
+                path="task/:taskId"
+                element={<TaskViewer currentUser={user.username} />}
+              />
+            </Route>
+
+            {/* User Root (e.g. /saar_biotech/) -> Redirect to Inbox */}
+            <Route path="" element={<Navigate to="inbox" replace />} />
+
+            {/* Inspect Routes */}
+            <Route path="inspect/instance" element={<InstanceInspector />} />
+            <Route
+              path="inspect/instance/task/:taskId"
               element={<InstanceInspector />}
             />
-            <Route path="admin/jobs" element={<JobManager />} />
-            <Route path="admin/dmn" element={<DmnViewer />} />
-            <Route
-              path="admin/users"
-              element={<UserManagement addNotification={addNotification} />}
-            />
+
+            {/* 🟢 5. ADMIN ROUTES (Nested inside Tenant + Guard) */}
+            <Route element={<AdminGuard user={user} />}>
+              <Route path="admin" element={<AdminDashboard />} />
+              <Route path="admin/processes" element={<ProcessManager />} />
+              <Route
+                path="admin/processes/:processKey"
+                element={<ProcessViewer addNotification={addNotification} />}
+              />
+              <Route
+                path="admin/instances"
+                element={
+                  <Secure resource="page:instance_manager" action="view">
+                    <InstanceManager />
+                  </Secure>
+                }
+              />
+              <Route path="admin/tasks" element={<TaskSupervision />} />
+              <Route path="admin/process-groups" element={<ProcessGroups />} />
+              <Route path="admin/analytics" element={<AdminAnalytics />} />
+              <Route
+                path="admin/inspect/:instanceId"
+                element={
+                  <Secure resource="page:instance_manager" action="view">
+                    <InstanceInspector />
+                  </Secure>
+                }
+              />
+              <Route path="admin/jobs" element={<JobManager />} />
+              <Route path="admin/dmn" element={<DmnViewer />} />
+              <Route
+                path="admin/users"
+                element={<UserManagement addNotification={addNotification} />}
+              />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </PermissionProvider>
   );
 }

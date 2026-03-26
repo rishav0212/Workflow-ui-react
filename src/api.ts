@@ -185,9 +185,7 @@ export const deployProcess = async (
 };
 
 export const fetchProcessInstances = async () => {
-  const res = await api.get(
-    "/process-api/runtime/process-instances?size=100000",
-  );
+  const res = await api.get("/api/admin/processes/instances");
   return res.data.data;
 };
 

@@ -308,6 +308,7 @@ export default function InstanceManager() {
   ];
 
   return (
+    
     <div className="min-h-screen bg-canvas p-6 flex gap-6 font-sans">
       <div className="flex-1 flex flex-col min-h-0">
         <header className="flex justify-between items-center mb-6">
