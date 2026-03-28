@@ -14,6 +14,10 @@ import {
   grantPermission,
   revokePermission,
   fetchResourcePermissions,
+  addCustomActionToResource,
+  fetchRoleInheritance,
+  addRoleInheritance,
+  removeRoleInheritance,
 } from "./api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -79,6 +83,7 @@ const RESOURCE_TYPES = [
 
 type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];
 
+// 🟢 DYNAMIC ACTION METADATA GENERATOR
 const ACTION_META: Record<
   string,
   { color: string; bg: string; label: string }
@@ -90,8 +95,43 @@ const ACTION_META: Record<
   delete: { color: "#dc2626", bg: "#fee2e2", label: "Delete" },
 };
 
+const getActionMeta = (action: string) => {
+  if (ACTION_META[action]) return ACTION_META[action];
+
+  const customColors = [
+    { color: "#8b5cf6", bg: "#ede9fe" }, // Purple
+    { color: "#ec4899", bg: "#fce7f3" }, // Pink
+    { color: "#14b8a6", bg: "#ccfbf1" }, // Teal
+    { color: "#f59e0b", bg: "#fef3c7" }, // Amber
+    { color: "#6366f1", bg: "#e0e7ff" }, // Indigo
+    { color: "#059669", bg: "#d1fae5" }, // Emerald
+    { color: "#e11d48", bg: "#ffe4e6" }, // Rose
+  ];
+  const hash = action
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const theme = customColors[hash % customColors.length];
+
+  return {
+    color: theme.color,
+    bg: theme.bg,
+    label: action.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+  };
+};
+
 function actionsFor(type: string) {
   return RESOURCE_TYPES.find((r) => r.value === type)?.actions ?? ["view"];
+}
+
+function getDynamicActions(resource: any): string[] {
+  if (
+    resource.actions &&
+    Array.isArray(resource.actions) &&
+    resource.actions.length > 0
+  ) {
+    return resource.actions.map((a: any) => a.action_name || a.name);
+  }
+  return [...actionsFor(resource.resource_type)];
 }
 
 // ─── Tiny helpers ─────────────────────────────────────────────────────────────
@@ -124,11 +164,7 @@ const Badge = ({
 );
 
 const ActionBadge = ({ action }: { action: string }) => {
-  const m = ACTION_META[action] ?? {
-    color: "#64748b",
-    bg: "#f1f5f9",
-    label: action,
-  };
+  const m = getActionMeta(action);
   return <Badge label={m.label} color={m.color} bg={m.bg} />;
 };
 
@@ -143,11 +179,7 @@ const Pill = ({
 }) => (
   <button
     onClick={onClick}
-    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
-      active
-        ? "bg-brand-500 text-white shadow-md"
-        : "text-neutral-500 hover:text-ink-primary hover:bg-canvas-subtle"
-    }`}
+    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${active ? "bg-brand-500 text-white shadow-md" : "text-neutral-500 hover:text-ink-primary hover:bg-canvas-subtle"}`}
   >
     {children}
   </button>
@@ -162,7 +194,7 @@ const Toggle = ({
   onChange: () => void;
   actionKey: string;
 }) => {
-  const m = ACTION_META[actionKey] ?? { color: "#6366f1", bg: "#eef2ff" };
+  const m = getActionMeta(actionKey);
   return (
     <label className="flex flex-col items-center gap-1 cursor-pointer select-none">
       <div className="relative">
@@ -181,10 +213,10 @@ const Toggle = ({
         />
       </div>
       <span
-        className="text-[9px] font-black uppercase tracking-wider"
+        className="text-[9px] font-black uppercase tracking-wider text-center max-w-[60px] leading-tight"
         style={{ color: checked ? m.color : "#9ca3af" }}
       >
-        {actionKey}
+        {m.label}
       </span>
     </label>
   );
@@ -212,50 +244,50 @@ const EmptyState = ({
   </div>
 );
 
-// ─── Guided Resource Key Builder ──────────────────────────────────────────────
-
 const ResourceKeyBuilder = ({
   value,
   type,
   onChange,
+  disabled,
 }: {
   value: string;
   type: ResourceType;
   onChange: (key: string) => void;
+  disabled?: boolean;
 }) => {
   const [name, setName] = useState(() => value.replace(`${type}:`, ""));
-
   const slugify = (s: string) =>
     s
       .toLowerCase()
       .replace(/\s+/g, "_")
       .replace(/[^a-z0-9_:]/g, "");
-
   const handleChange = (raw: string) => {
+    if (disabled) return;
     const slug = slugify(raw);
     setName(slug);
     onChange(`${type}:${slug}`);
   };
-
   useEffect(() => {
-    onChange(`${type}:${name}`);
-  }, [type]);
-
+    if (!disabled) onChange(`${type}:${name}`);
+  }, [type, disabled]);
   const preview = `${type}:${name || "<name>"}`;
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${disabled ? "opacity-60" : ""}`}>
       <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide">
         Resource Name
       </label>
-      <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-canvas-active focus-within:ring-2 focus-within:ring-brand-500">
+      <div
+        className={`flex items-center gap-0 rounded-xl overflow-hidden border focus-within:ring-2 focus-within:ring-brand-500 ${disabled ? "bg-canvas-subtle border-canvas-subtle" : "border-canvas-active bg-white"}`}
+      >
         <span className="px-3 py-2.5 bg-canvas-subtle text-neutral-500 font-mono text-sm border-r border-canvas-active flex-shrink-0">
           {type}:
         </span>
         <input
           required
+          disabled={disabled}
           placeholder="approve_order"
-          className="flex-1 px-3 py-2.5 outline-none font-mono text-sm bg-white"
+          className="flex-1 px-3 py-2.5 outline-none font-mono text-sm bg-transparent"
           value={name}
           onChange={(e) => handleChange(e.target.value)}
         />
@@ -270,33 +302,35 @@ const ResourceKeyBuilder = ({
   );
 };
 
-// ─── Multi-role checkbox selector ─────────────────────────────────────────────
-
 const MultiRoleSelector = ({
   allRoles,
   selected,
   onChange,
+  disabledRoleId,
 }: {
   allRoles: any[];
   selected: string[];
   onChange: (ids: string[]) => void;
+  disabledRoleId?: string;
 }) => {
-  const toggle = (id: string) => {
+  const toggle = (id: string) =>
     onChange(
       selected.includes(id)
         ? selected.filter((r) => r !== id)
         : [...selected, id],
     );
-  };
+
+  // Filter out the disabled role so it cannot be selected
+  const availableRoles = allRoles.filter((r) => r.role_id !== disabledRoleId);
 
   return (
     <div className="border border-canvas-subtle rounded-xl overflow-hidden max-h-52 overflow-y-auto">
-      {allRoles.length === 0 && (
+      {availableRoles.length === 0 && (
         <p className="p-4 text-sm text-neutral-400 italic">
-          No roles yet — create roles first.
+          No valid roles found.
         </p>
       )}
-      {allRoles.map((r) => {
+      {availableRoles.map((r) => {
         const checked = selected.includes(r.role_id);
         return (
           <label
@@ -323,8 +357,6 @@ const MultiRoleSelector = ({
     </div>
   );
 };
-
-// ─── Modal shell ──────────────────────────────────────────────────────────────
 
 const Modal = ({
   title,
@@ -363,7 +395,6 @@ const Modal = ({
   </div>
 );
 
-// ✅ FIX: Added `formId` so this button triggers the `<form>` submission properly
 const ModalFooter = ({
   onCancel,
   onSubmit,
@@ -392,13 +423,11 @@ const ModalFooter = ({
       disabled={saving}
       className="px-5 py-2 bg-brand-500 text-white text-sm font-bold rounded-lg hover:bg-brand-600 disabled:opacity-50 transition-colors flex items-center gap-2"
     >
-      {saving && <i className="fas fa-circle-notch fa-spin text-xs" />}
+      {saving && <i className="fas fa-circle-notch fa-spin text-xs" />}{" "}
       {saving ? "Saving…" : label}
     </button>
   </div>
 );
-
-// ─── Section header inside a tab panel ───────────────────────────────────────
 
 const PanelHeader = ({
   title,
@@ -412,8 +441,6 @@ const PanelHeader = ({
     {action}
   </div>
 );
-
-// ─── Simple search input ───────────────────────────────────────────────────────
 
 const SearchInput = ({
   value,
@@ -446,20 +473,17 @@ export default function UserManagement({
 }) {
   const [tab, setTab] = useState<Tab>("users");
 
-  // Core data
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Matrix state
   const [matrixRole, setMatrixRole] = useState<string | null>(null);
   const [rolePolicies, setRolePolicies] = useState<any[]>([]);
   const [matrixLoading, setMatrixLoading] = useState(false);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [resourceSearch, setResourceSearch] = useState("");
 
-  // Audit state
   const [auditUser, setAuditUser] = useState<string | null>(null);
   const [auditData, setAuditData] = useState<{
     roles: string[];
@@ -467,15 +491,21 @@ export default function UserManagement({
   } | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
 
-  // Modals
   const [modal, setModal] = useState<
-    "user" | "role" | "resource" | "manageRoles" | null
+    "user" | "role" | "resource" | "manageRoles" | "manageInheritance" | null
   >(null);
   const [roleTarget, setRoleTarget] = useState<any | null>(null);
   const [userRolesLoading, setUserRolesLoading] = useState(false);
   const [selectedRolesForUser, setSelectedRolesForUser] = useState<string[]>(
     [],
   );
+
+  // Inheritance State
+  const [selectedInheritedRoles, setSelectedInheritedRoles] = useState<
+    string[]
+  >([]);
+  const [inheritanceLoading, setInheritanceLoading] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   // Forms
@@ -490,23 +520,28 @@ export default function UserManagement({
     roleName: "",
     description: "",
   });
+
+  // Resource Form State
+  const [isEditingRes, setIsEditingRes] = useState(false);
   const [resType, setResType] = useState<ResourceType>("button");
   const [resKey, setResKey] = useState("button:");
   const [resDisplay, setResDisplay] = useState("");
   const [resDesc, setResDesc] = useState("");
+  const [resActions, setResActions] = useState<
+    { name: string; description: string }[]
+  >(() => actionsFor("button").map((a) => ({ name: a, description: "" })));
 
-  // Search
   const [userSearch, setUserSearch] = useState("");
   const [roleSearch, setRoleSearch] = useState("");
   const [matrixMode, setMatrixMode] = useState<"byRole" | "byResource">(
     "byRole",
   );
   const [matrixResource, setMatrixResource] = useState<string | null>(null);
-  // ── Data loading ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!matrixResource || matrixMode !== "byResource") return;
     setMatrixLoading(true);
-    fetchResourcePermissions(matrixResource) // From api.ts
+    fetchResourcePermissions(matrixResource)
       .then(setRolePolicies)
       .catch(() =>
         addNotification("Failed to load resource permissions", "error"),
@@ -534,7 +569,7 @@ export default function UserManagement({
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     if (!matrixRole) {
@@ -559,14 +594,11 @@ export default function UserManagement({
         const policyArrays = await Promise.all(
           userRoles.map((r) => fetchRolePermissions(r)),
         );
-        const allPolicies = policyArrays.flat();
-        setAuditData({ roles: userRoles, policies: allPolicies });
+        setAuditData({ roles: userRoles, policies: policyArrays.flat() });
       })
       .catch(() => addNotification("Failed to load audit", "error"))
       .finally(() => setAuditLoading(false));
   }, [auditUser]);
-
-  // ── Matrix helpers ────────────────────────────────────────────────────────
 
   const hasPerm = (roleId: string, resourceKey: string, action: string) =>
     rolePolicies.some(
@@ -611,25 +643,18 @@ export default function UserManagement({
     }
   };
 
-  // ── Form submit handlers ──────────────────────────────────────────────────
-
   const submitUser = async (e: React.FormEvent) => {
-    e.preventDefault(); // ✅ Now this fires correctly!
-
-    // ✅ FIX: Frontend Uniqueness Validation
+    e.preventDefault();
     if (
       users.some(
         (u) => u.user_id.toLowerCase() === userForm.userId.toLowerCase(),
       )
-    ) {
+    )
       return addNotification("User ID already exists.", "error");
-    }
     if (
       users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())
-    ) {
+    )
       return addNotification("Email already exists.", "error");
-    }
-
     setSaving(true);
     try {
       await createTenantUser({ ...userForm, metadata: {} });
@@ -649,16 +674,12 @@ export default function UserManagement({
 
   const submitRole = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // ✅ FIX: Frontend Validation
     if (
       roles.some(
         (r) => r.role_id.toLowerCase() === roleForm.roleId.toLowerCase(),
       )
-    ) {
+    )
       return addNotification("Role ID already exists.", "error");
-    }
-
     setSaving(true);
     try {
       await createTenantRole(roleForm);
@@ -675,15 +696,19 @@ export default function UserManagement({
 
   const submitResource = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // ✅ FIX: Frontend Validation
     if (
+      !isEditingRes &&
       resources.some(
         (r) => r.resource_key.toLowerCase() === resKey.toLowerCase(),
       )
-    ) {
+    )
       return addNotification("Resource key already exists.", "error");
-    }
+    const validActions = resActions.filter((a) => a.name.trim() !== "");
+    if (validActions.length === 0)
+      return addNotification(
+        "You must define at least one action (e.g., view).",
+        "error",
+      );
 
     setSaving(true);
     try {
@@ -692,19 +717,51 @@ export default function UserManagement({
         resourceType: resType,
         displayName: resDisplay,
         description: resDesc,
+        actions: validActions,
       });
-      addNotification("Resource registered", "success");
+      for (const act of validActions) {
+        await addCustomActionToResource(resKey, {
+          actionName: act.name,
+          description: act.description,
+        });
+      }
+      addNotification(
+        isEditingRes ? "Resource updated" : "Resource registered",
+        "success",
+      );
       setModal(null);
-      setResType("button");
-      setResKey("button:");
-      setResDisplay("");
-      setResDesc("");
       load();
     } catch {
-      addNotification("Failed to register resource", "error");
+      addNotification("Failed to save resource", "error");
     } finally {
       setSaving(false);
     }
+  };
+
+  const openCreateResource = () => {
+    setIsEditingRes(false);
+    setResType("button");
+    setResKey("button:");
+    setResDisplay("");
+    setResDesc("");
+    setResActions(
+      actionsFor("button").map((a) => ({ name: a, description: "" })),
+    );
+    setModal("resource");
+  };
+
+  const openEditResource = (res: any) => {
+    setIsEditingRes(true);
+    setResType(res.resource_type);
+    setResKey(res.resource_key);
+    setResDisplay(res.display_name || "");
+    setResDesc(res.description || "");
+    const currentActions = getDynamicActions(res).map((a) => ({
+      name: a,
+      description: "",
+    }));
+    setResActions(currentActions);
+    setModal("resource");
   };
 
   const openManageRoles = async (user: any) => {
@@ -728,7 +785,6 @@ export default function UserManagement({
       const current: string[] = await fetchUserRoles(roleTarget.user_id);
       const toAdd = selectedRolesForUser.filter((r) => !current.includes(r));
       const toRemove = current.filter((r) => !selectedRolesForUser.includes(r));
-
       await Promise.all([
         ...toAdd.map((r) => assignRoleToUser(roleTarget.user_id, r)),
         ...toRemove.map((r) => removeRoleFromUser(roleTarget.user_id, r)),
@@ -742,7 +798,42 @@ export default function UserManagement({
     }
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  const openManageInheritance = async (role: any) => {
+    setRoleTarget(role);
+    setModal("manageInheritance");
+    setInheritanceLoading(true);
+    try {
+      const inherited = await fetchRoleInheritance(role.role_id);
+      setSelectedInheritedRoles(inherited);
+    } catch {
+      setSelectedInheritedRoles([]);
+    } finally {
+      setInheritanceLoading(false);
+    }
+  };
+
+  const saveRoleInheritance = async () => {
+    if (!roleTarget) return;
+    setSaving(true);
+    try {
+      const current: string[] = await fetchRoleInheritance(roleTarget.role_id);
+      const toAdd = selectedInheritedRoles.filter((r) => !current.includes(r));
+      const toRemove = current.filter(
+        (r) => !selectedInheritedRoles.includes(r),
+      );
+
+      await Promise.all([
+        ...toAdd.map((r) => addRoleInheritance(roleTarget.role_id, r)),
+        ...toRemove.map((r) => removeRoleInheritance(roleTarget.role_id, r)),
+      ]);
+      addNotification("Role inheritance updated", "success");
+      setModal(null);
+    } catch {
+      addNotification("Failed to update inheritance", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredUsers = users.filter((u) =>
     `${u.first_name} ${u.last_name} ${u.email} ${u.user_id}`
@@ -759,13 +850,10 @@ export default function UserManagement({
       .toLowerCase()
       .includes(resourceSearch.toLowerCase()),
   );
-
-  // ✅ FIX: Ensure Matrix and Audit views don't hide uncategorized test data
   const byType = filteredResources.reduce<Record<string, any[]>>((acc, r) => {
     (acc[r.resource_type] ??= []).push(r);
     return acc;
   }, {});
-
   const ORDERED_TYPES = [
     "page",
     "button",
@@ -787,13 +875,8 @@ export default function UserManagement({
       return acc;
     }, {}) ?? {};
 
-  const selectedRoleInfo = roles.find((r) => r.role_id === matrixRole);
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="h-full flex flex-col bg-canvas overflow-hidden">
-      {/* ── Top bar ── */}
       <div className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between border-b border-canvas-subtle bg-surface">
         <div>
           <h1 className="text-2xl font-bold text-ink-primary">
@@ -814,14 +897,13 @@ export default function UserManagement({
             ] as [Tab, string, string][]
           ).map(([t, label, icon]) => (
             <Pill key={t} active={tab === t} onClick={() => setTab(t)}>
-              <i className={`fas ${icon} mr-1.5`} />
-              {label}
+              <i className={`fas ${icon} mr-1.5`} /> {label}
             </Pill>
           ))}
         </div>
       </div>
 
-      {/* ── USERS ─────────────────────────────────────────────────────────── */}
+      {/* ── USERS TAB ── */}
       {tab === "users" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
@@ -921,8 +1003,7 @@ export default function UserManagement({
                             }}
                             className="text-neutral-500 hover:text-brand-600 text-xs font-bold transition-colors"
                           >
-                            <i className="fas fa-eye mr-1" />
-                            View Perms
+                            <i className="fas fa-eye mr-1" /> View Perms
                           </button>
                           {u.is_active && (
                             <button
@@ -956,7 +1037,7 @@ export default function UserManagement({
         </div>
       )}
 
-      {/* ── ROLES ─────────────────────────────────────────────────────────── */}
+      {/* ── ROLES TAB ── */}
       {tab === "roles" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
@@ -993,7 +1074,7 @@ export default function UserManagement({
                 {filteredRoles.map((r) => (
                   <div
                     key={r.role_id}
-                    className="flex items-center justify-between p-4 rounded-xl border border-canvas-subtle bg-canvas/20 hover:bg-canvas-subtle/30 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-canvas-subtle bg-canvas/20 hover:bg-canvas-subtle/30 transition-colors"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
@@ -1008,22 +1089,30 @@ export default function UserManagement({
                         </code>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                       {r.description && (
-                        <span className="text-sm text-neutral-400 max-w-xs truncate">
+                        <span className="text-sm text-neutral-400 max-w-xs truncate hidden xl:inline-block mr-4">
                           {r.description}
                         </span>
                       )}
+
+                      {/* 🟢 NEW INHERITANCE BUTTON */}
+                      <button
+                        onClick={() => openManageInheritance(r)}
+                        className="text-neutral-500 hover:text-brand-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-canvas-subtle hover:border-brand-300 hover:bg-brand-50 transition-colors flex items-center gap-1.5"
+                      >
+                        <i className="fas fa-project-diagram" /> Inheritance
+                      </button>
+
                       <button
                         onClick={() => {
                           setMatrixRole(r.role_id);
                           setTab("matrix");
                           setMatrixMode("byRole");
                         }}
-                        className="text-brand-600 hover:text-brand-800 text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors"
+                        className="text-brand-600 hover:text-brand-800 text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors flex items-center gap-1.5"
                       >
-                        <i className="fas fa-key mr-1" />
-                        Edit Permissions
+                        <i className="fas fa-key" /> Edit Permissions
                       </button>
                     </div>
                   </div>
@@ -1033,7 +1122,8 @@ export default function UserManagement({
           </div>
         </div>
       )}
-      {/* ── RESOURCES DICTIONARY ───────────────────────────────────────────── */}
+
+      {/* ── RESOURCES TAB ── */}
       {tab === "resources" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
@@ -1046,7 +1136,7 @@ export default function UserManagement({
                   placeholder="Search resources..."
                 />
                 <button
-                  onClick={() => setModal("resource")}
+                  onClick={openCreateResource}
                   className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
                 >
                   <i className="fas fa-plus" /> Register Resource
@@ -1063,10 +1153,11 @@ export default function UserManagement({
                   const typeInfo = RESOURCE_TYPES.find(
                     (rt) => rt.value === res.resource_type,
                   );
+                  const resActions = getDynamicActions(res);
                   return (
                     <div
                       key={res.resource_key}
-                      className="bg-canvas-subtle/30 border border-canvas-subtle p-4 rounded-xl hover:border-brand-200 transition-colors"
+                      className="bg-canvas-subtle/30 border border-canvas-subtle p-4 rounded-xl hover:border-brand-200 transition-colors flex flex-col h-full"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <i
@@ -1075,18 +1166,29 @@ export default function UserManagement({
                         <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                           {typeInfo?.label || res.resource_type}
                         </span>
+                        <button
+                          onClick={() => openEditResource(res)}
+                          className="ml-auto flex items-center gap-1.5 text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-md text-xs font-bold transition-colors"
+                        >
+                          <i className="fas fa-edit"></i> Edit
+                        </button>
                       </div>
                       <h3 className="font-bold text-ink-primary">
                         {res.display_name || res.resource_key}
                       </h3>
-                      <code className="text-xs text-brand-600 font-mono bg-brand-50 px-1.5 py-0.5 rounded mt-1 inline-block">
+                      <code className="text-xs text-brand-600 font-mono bg-brand-50 px-1.5 py-0.5 rounded mt-1 self-start">
                         {res.resource_key}
                       </code>
                       {res.description && (
-                        <p className="text-sm text-neutral-500 mt-3 leading-relaxed border-t border-canvas-subtle pt-2">
+                        <p className="text-sm text-neutral-500 mt-3 mb-4 leading-relaxed flex-1">
                           {res.description}
                         </p>
                       )}
+                      <div className="mt-auto pt-3 border-t border-canvas-subtle flex flex-wrap gap-1.5">
+                        {resActions.map((act) => (
+                          <ActionBadge key={act} action={act} />
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -1096,37 +1198,26 @@ export default function UserManagement({
         </div>
       )}
 
-      {/* ── PERMISSION MATRIX ─────────────────────────────────────────────── */}
+      {/* ── MATRIX TAB ── */}
       {tab === "matrix" && (
         <div className="flex-1 flex flex-col overflow-hidden m-4">
-          {/* 🟢 NEW: View Mode Switcher */}
           <div className="flex items-center justify-center mb-4 flex-shrink-0">
             <div className="bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle flex shadow-inner">
               <button
                 onClick={() => setMatrixMode("byRole")}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${
-                  matrixMode === "byRole"
-                    ? "bg-white text-brand-600 shadow-soft"
-                    : "text-neutral-500 hover:text-ink-primary"
-                }`}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${matrixMode === "byRole" ? "bg-white text-brand-600 shadow-soft" : "text-neutral-500 hover:text-ink-primary"}`}
               >
                 <i className="fas fa-id-badge mr-2"></i> Group by Role
               </button>
               <button
                 onClick={() => setMatrixMode("byResource")}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${
-                  matrixMode === "byResource"
-                    ? "bg-white text-brand-600 shadow-soft"
-                    : "text-neutral-500 hover:text-ink-primary"
-                }`}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${matrixMode === "byResource" ? "bg-white text-brand-600 shadow-soft" : "text-neutral-500 hover:text-ink-primary"}`}
               >
                 <i className="fas fa-layer-group mr-2"></i> Group by Resource
               </button>
             </div>
           </div>
-
           <div className="flex-1 flex gap-4 overflow-hidden">
-            {/* ── LEFT SIDEBAR (Dynamic based on mode) ── */}
             <div className="w-96 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden flex-shrink-0">
               <div className="px-4 py-3 border-b border-canvas-subtle bg-canvas/40 flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
@@ -1140,25 +1231,18 @@ export default function UserManagement({
                   />
                 )}
               </div>
-
               <div className="flex-1 overflow-y-auto p-2">
-                {loading ? (
+                {loading && (
                   <div className="flex justify-center pt-8">
                     <Spinner />
                   </div>
-                ) : null}
-
-                {/* Render Roles List */}
+                )}
                 {matrixMode === "byRole" &&
                   roles.map((r) => (
                     <button
                       key={r.role_id}
                       onClick={() => setMatrixRole(r.role_id)}
-                      className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${
-                        matrixRole === r.role_id
-                          ? "bg-brand-50 border-brand-200"
-                          : "border-transparent hover:bg-canvas-subtle"
-                      }`}
+                      className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${matrixRole === r.role_id ? "bg-brand-50 border-brand-200" : "border-transparent hover:bg-canvas-subtle"}`}
                     >
                       <div
                         className={`font-bold text-sm ${matrixRole === r.role_id ? "text-brand-700" : "text-ink-primary"}`}
@@ -1170,18 +1254,12 @@ export default function UserManagement({
                       </div>
                     </button>
                   ))}
-
-                {/* Render Resources List */}
                 {matrixMode === "byResource" &&
                   filteredResources.map((res) => (
                     <button
                       key={res.resource_key}
                       onClick={() => setMatrixResource(res.resource_key)}
-                      className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${
-                        matrixResource === res.resource_key
-                          ? "bg-brand-50 border-brand-200"
-                          : "border-transparent hover:bg-canvas-subtle"
-                      }`}
+                      className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${matrixResource === res.resource_key ? "bg-brand-50 border-brand-200" : "border-transparent hover:bg-canvas-subtle"}`}
                     >
                       <div
                         className={`font-bold text-sm truncate ${matrixResource === res.resource_key ? "text-brand-700" : "text-ink-primary"}`}
@@ -1195,8 +1273,6 @@ export default function UserManagement({
                   ))}
               </div>
             </div>
-
-            {/* ── RIGHT PANEL (Dynamic based on mode) ── */}
             <div className="flex-1 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden min-w-0">
               <div className="px-5 py-3 border-b border-canvas-subtle bg-canvas/40 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-3">
@@ -1206,8 +1282,6 @@ export default function UserManagement({
                   {matrixLoading && <Spinner />}
                 </div>
               </div>
-
-              {/* EMPTY STATES */}
               {matrixMode === "byRole" && !matrixRole && (
                 <EmptyState
                   icon="fa-hand-pointer"
@@ -1222,8 +1296,6 @@ export default function UserManagement({
                   sub="Then assign it to roles"
                 />
               )}
-
-              {/* VIEW: BY ROLE (Shows resources) */}
               {matrixMode === "byRole" && matrixRole && (
                 <div className="flex-1 overflow-y-auto">
                   {typesToRender.map((type) => {
@@ -1241,11 +1313,11 @@ export default function UserManagement({
                           </span>
                         </div>
                         {byType[type].map((res) => {
-                          const actions = actionsFor(res.resource_type);
+                          const actions = getDynamicActions(res);
                           return (
                             <div
                               key={res.resource_key}
-                              className="flex items-center gap-4 px-5 py-3.5 border-b border-canvas-subtle hover:bg-canvas-subtle/20"
+                              className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-3.5 border-b border-canvas-subtle hover:bg-canvas-subtle/20"
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="font-bold text-sm text-ink-primary truncate">
@@ -1254,13 +1326,8 @@ export default function UserManagement({
                                 <code className="text-xs text-neutral-400 font-mono">
                                   {res.resource_key}
                                 </code>
-                                {res.description && (
-                                  <div className="text-xs text-neutral-500 mt-1">
-                                    {res.description}
-                                  </div>
-                                )}
                               </div>
-                              <div className="flex items-center gap-6 flex-shrink-0">
+                              <div className="flex items-center flex-wrap gap-x-6 gap-y-3 flex-shrink-0 justify-start sm:justify-end">
                                 {actions.map((action) => {
                                   const has = hasPerm(
                                     matrixRole,
@@ -1302,8 +1369,6 @@ export default function UserManagement({
                   })}
                 </div>
               )}
-
-              {/* VIEW: BY RESOURCE (Shows roles) */}
               {matrixMode === "byResource" && matrixResource && (
                 <div className="flex-1 overflow-y-auto">
                   {(() => {
@@ -1311,13 +1376,12 @@ export default function UserManagement({
                       (r) => r.resource_key === matrixResource,
                     );
                     const actions = selectedRes
-                      ? actionsFor(selectedRes.resource_type)
+                      ? getDynamicActions(selectedRes)
                       : [];
-
                     return roles.map((role) => (
                       <div
                         key={role.role_id}
-                        className="flex items-center justify-between gap-4 px-5 py-4 border-b border-canvas-subtle hover:bg-canvas-subtle/20"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 border-b border-canvas-subtle hover:bg-canvas-subtle/20"
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
@@ -1332,7 +1396,7 @@ export default function UserManagement({
                             </code>
                           </div>
                         </div>
-                        <div className="flex items-center gap-6 flex-shrink-0 bg-white p-2 border border-canvas-subtle rounded-xl shadow-sm">
+                        <div className="flex items-center gap-x-6 gap-y-3 flex-wrap justify-start sm:justify-end flex-shrink-0 bg-white p-2 border border-canvas-subtle rounded-xl shadow-sm">
                           {actions.map((action) => {
                             const has = hasPerm(
                               role.role_id,
@@ -1375,7 +1439,8 @@ export default function UserManagement({
           </div>
         </div>
       )}
-      {/* ── AUDIT VIEW ────────────────────────────────────────────────────── */}
+
+      {/* ── AUDIT VIEW (Unchanged) ── */}
       {tab === "audit" && (
         <div className="flex-1 flex gap-4 overflow-hidden m-4">
           <div className="w-64 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden flex-shrink-0">
@@ -1394,11 +1459,7 @@ export default function UserManagement({
                   <button
                     key={u.user_id}
                     onClick={() => setAuditUser(u.user_id)}
-                    className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${
-                      auditUser === u.user_id
-                        ? "bg-brand-50 border-brand-200"
-                        : "border-transparent hover:bg-canvas-subtle"
-                    }`}
+                    className={`w-full text-left px-3 py-3 rounded-xl mb-1 transition-all border ${auditUser === u.user_id ? "bg-brand-50 border-brand-200" : "border-transparent hover:bg-canvas-subtle"}`}
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-black flex-shrink-0">
@@ -1420,26 +1481,12 @@ export default function UserManagement({
               )}
             </div>
           </div>
-
           <div className="flex-1 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-canvas-subtle bg-canvas/40 flex items-center gap-3 flex-shrink-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                 Effective Permissions
-                {auditUser && (
-                  <span className="ml-2 text-brand-600 normal-case tracking-normal font-bold text-sm">
-                    — {users.find((u) => u.user_id === auditUser)?.first_name}
-                  </span>
-                )}
               </p>
-              {auditLoading && <Spinner />}
-              <div className="ml-auto flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-neutral-300" />
-                <span className="text-xs text-neutral-400 italic">
-                  Read-only view
-                </span>
-              </div>
             </div>
-
             {!auditUser ? (
               <EmptyState
                 icon="fa-user-shield"
@@ -1456,65 +1503,46 @@ export default function UserManagement({
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
                     Assigned Roles ({auditData.roles.length})
                   </p>
-                  {auditData.roles.length === 0 ? (
-                    <p className="text-sm text-neutral-400 italic">
-                      No roles assigned to this user.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {auditData.roles.map((rId) => {
-                        const role = roles.find((r) => r.role_id === rId);
-                        return (
-                          <span
-                            key={rId}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 border border-brand-200 text-brand-700 text-sm font-bold rounded-lg"
-                          >
-                            <i className="fas fa-shield-alt text-xs" />
-                            {role?.role_name ?? rId}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {auditData.roles.map((rId) => (
+                      <span
+                        key={rId}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 border border-brand-200 text-brand-700 text-sm font-bold rounded-lg"
+                      >
+                        <i className="fas fa-shield-alt text-xs" />{" "}
+                        {roles.find((r) => r.role_id === rId)?.role_name ?? rId}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
                     Effective Permissions ({Object.keys(auditByResource).length}{" "}
                     resources)
                   </p>
-                  {Object.keys(auditByResource).length === 0 ? (
-                    <div className="text-sm text-neutral-400 italic p-4 bg-canvas-subtle rounded-xl">
-                      No permissions. Assign a role with permissions configured
-                      in the Permissions tab.
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {/* ✅ FIX: Handles deduplication and custom keys in Audit view */}
-                      {(() => {
-                        const grouped = Object.entries(auditByResource).reduce<
-                          Record<string, [string, string[]][]>
-                        >((acc, [key, acts]) => {
-                          const prefix = key.split(":")[0];
-                          const type = ORDERED_TYPES.includes(prefix as any)
-                            ? prefix
-                            : "other";
-                          const uniqueActs = Array.from(new Set(acts)); // Deduplicate overlapping role actions
-                          (acc[type] ??= []).push([key, uniqueActs]);
-                          return acc;
-                        }, {});
-
-                        const auditTypesToRender = [
-                          ...ORDERED_TYPES,
-                          "other",
-                        ].filter((t) => grouped[t]?.length);
-
-                        return auditTypesToRender.map((type) => {
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const grouped = Object.entries(auditByResource).reduce<
+                        Record<string, [string, string[]][]>
+                      >((acc, [key, acts]) => {
+                        const prefix = key.split(":")[0];
+                        const type = ORDERED_TYPES.includes(prefix as any)
+                          ? prefix
+                          : "other";
+                        (acc[type] ??= []).push([
+                          key,
+                          Array.from(new Set(acts)),
+                        ]);
+                        return acc;
+                      }, {});
+                      return [...ORDERED_TYPES, "other"]
+                        .filter((t) => grouped[t]?.length)
+                        .map((type) => {
                           const typeInfo = RESOURCE_TYPES.find(
                             (r) => r.value === type,
                           ) || {
                             value: "other",
-                            label: "Other / Uncategorized",
+                            label: "Other",
                             icon: "fa-question-circle",
                           };
                           return (
@@ -1525,42 +1553,38 @@ export default function UserManagement({
                               <div className="px-4 py-2 bg-canvas-subtle/70 flex items-center gap-2">
                                 <i
                                   className={`fas ${typeInfo.icon} text-xs text-neutral-500`}
-                                />
+                                />{" "}
                                 <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                                   {typeInfo.label}
                                 </span>
                               </div>
-                              {grouped[type].map(([key, acts]) => {
-                                const res = resources.find(
-                                  (r) => r.resource_key === key,
-                                );
-                                return (
-                                  <div
-                                    key={key}
-                                    className="flex items-center justify-between px-4 py-3 border-t border-canvas-subtle hover:bg-canvas-subtle/30"
-                                  >
-                                    <div>
-                                      <div className="font-bold text-sm text-ink-primary">
-                                        {res?.display_name || key}
-                                      </div>
-                                      <code className="text-xs text-neutral-400 font-mono">
-                                        {key}
-                                      </code>
+                              {grouped[type].map(([key, acts]) => (
+                                <div
+                                  key={key}
+                                  className="flex items-center justify-between px-4 py-3 border-t border-canvas-subtle hover:bg-canvas-subtle/30"
+                                >
+                                  <div>
+                                    <div className="font-bold text-sm text-ink-primary">
+                                      {resources.find(
+                                        (r) => r.resource_key === key,
+                                      )?.display_name || key}
                                     </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                      {acts.map((a) => (
-                                        <ActionBadge key={a} action={a} />
-                                      ))}
-                                    </div>
+                                    <code className="text-xs text-neutral-400 font-mono">
+                                      {key}
+                                    </code>
                                   </div>
-                                );
-                              })}
+                                  <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0 justify-end max-w-sm">
+                                    {acts.map((a) => (
+                                      <ActionBadge key={a} action={a} />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           );
                         });
-                      })()}
-                    </div>
-                  )}
+                    })()}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -1570,7 +1594,6 @@ export default function UserManagement({
 
       {/* ════ MODALS ════════════════════════════════════════════════════════ */}
 
-      {/* ✅ FIX: Added `formId` mapping to connect footer buttons to the internal forms! */}
       {modal === "user" && (
         <Modal
           title="Create New User"
@@ -1587,8 +1610,8 @@ export default function UserManagement({
           <form id="user-form" onSubmit={submitUser} className="space-y-3">
             <input
               required
-              placeholder="User ID  (e.g. john_doe)"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="User ID"
+              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
               value={userForm.userId}
               onChange={(e) =>
                 setUserForm({
@@ -1597,14 +1620,11 @@ export default function UserManagement({
                 })
               }
             />
-            <p className="text-xs text-neutral-400 -mt-2 ml-1">
-              Unique identifier used in Casbin policies.
-            </p>
             <input
               required
               type="email"
-              placeholder="Email address"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Email"
+              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
               value={userForm.email}
               onChange={(e) =>
                 setUserForm({ ...userForm, email: e.target.value })
@@ -1613,8 +1633,8 @@ export default function UserManagement({
             <div className="grid grid-cols-2 gap-3">
               <input
                 required
-                placeholder="First name"
-                className="border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="First Name"
+                className="border border-canvas-subtle p-3 rounded-xl text-sm"
                 value={userForm.firstName}
                 onChange={(e) =>
                   setUserForm({ ...userForm, firstName: e.target.value })
@@ -1622,8 +1642,8 @@ export default function UserManagement({
               />
               <input
                 required
-                placeholder="Last name"
-                className="border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="Last Name"
+                className="border border-canvas-subtle p-3 rounded-xl text-sm"
                 value={userForm.lastName}
                 onChange={(e) =>
                   setUserForm({ ...userForm, lastName: e.target.value })
@@ -1637,7 +1657,6 @@ export default function UserManagement({
       {modal === "role" && (
         <Modal
           title="Create New Role"
-          subtitle="Roles group permissions — assign roles to users."
           onClose={() => setModal(null)}
           footer={
             <ModalFooter
@@ -1649,27 +1668,22 @@ export default function UserManagement({
           }
         >
           <form id="role-form" onSubmit={submitRole} className="space-y-3">
-            <div>
-              <input
-                required
-                placeholder="Role ID  (e.g. finance_manager)"
-                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-brand-500"
-                value={roleForm.roleId}
-                onChange={(e) =>
-                  setRoleForm({
-                    ...roleForm,
-                    roleId: e.target.value.replace(/\s+/g, "_"),
-                  })
-                }
-              />
-              <p className="text-xs text-neutral-400 mt-1 ml-1">
-                Use snake_case — this is the Casbin role key.
-              </p>
-            </div>
             <input
               required
-              placeholder="Display name  (e.g. Finance Manager)"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Role ID"
+              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+              value={roleForm.roleId}
+              onChange={(e) =>
+                setRoleForm({
+                  ...roleForm,
+                  roleId: e.target.value.replace(/\s+/g, "_"),
+                })
+              }
+            />
+            <input
+              required
+              placeholder="Display Name"
+              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
               value={roleForm.roleName}
               onChange={(e) =>
                 setRoleForm({ ...roleForm, roleName: e.target.value })
@@ -1677,8 +1691,8 @@ export default function UserManagement({
             />
             <textarea
               rows={2}
-              placeholder="Description (optional)"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              placeholder="Description"
+              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
               value={roleForm.description}
               onChange={(e) =>
                 setRoleForm({ ...roleForm, description: e.target.value })
@@ -1690,14 +1704,18 @@ export default function UserManagement({
 
       {modal === "resource" && (
         <Modal
-          title="Register a Resource"
-          subtitle="Define what needs to be access-controlled."
+          title={isEditingRes ? "Edit Resource" : "Register a Resource"}
+          subtitle={
+            isEditingRes
+              ? "Update description or add new supported actions."
+              : "Define what needs to be access-controlled."
+          }
           onClose={() => setModal(null)}
           footer={
             <ModalFooter
               onCancel={() => setModal(null)}
               saving={saving}
-              label="Register"
+              label={isEditingRes ? "Save Changes" : "Register"}
               formId="resource-form"
             />
           }
@@ -1707,7 +1725,9 @@ export default function UserManagement({
             onSubmit={submitResource}
             className="space-y-4"
           >
-            <div>
+            <div
+              className={isEditingRes ? "opacity-60 pointer-events-none" : ""}
+            >
               <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
                 Resource Type
               </label>
@@ -1719,16 +1739,20 @@ export default function UserManagement({
                     onClick={() => {
                       setResType(rt.value);
                       setResKey(`${rt.value}:`);
+                      setResActions(
+                        actionsFor(rt.value).map((a) => ({
+                          name: a,
+                          description: "",
+                        })),
+                      );
                     }}
                     className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-bold transition-all text-left ${resType === rt.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-canvas-subtle text-ink-secondary hover:bg-canvas-subtle"}`}
                   >
                     <i
                       className={`fas ${rt.icon} w-4 text-center ${resType === rt.value ? "text-brand-500" : "text-neutral-400"}`}
                     />
-                    <div>
-                      <div className="text-xs font-bold leading-tight">
-                        {rt.label}
-                      </div>
+                    <div className="text-xs font-bold leading-tight">
+                      {rt.label}
                     </div>
                   </button>
                 ))}
@@ -1738,6 +1762,7 @@ export default function UserManagement({
               value={resKey}
               type={resType}
               onChange={setResKey}
+              disabled={isEditingRes}
             />
             <div>
               <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
@@ -1753,7 +1778,7 @@ export default function UserManagement({
             </div>
             <div>
               <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
-                Description (Optional)
+                Description
               </label>
               <textarea
                 placeholder="What exactly does this resource control?"
@@ -1763,6 +1788,68 @@ export default function UserManagement({
                 onChange={(e) => setResDesc(e.target.value)}
               />
             </div>
+            <div className="pt-2 border-t border-canvas-subtle">
+              <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide flex items-center justify-between mb-3">
+                <span>Supported Actions</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResActions([
+                      ...resActions,
+                      { name: "", description: "" },
+                    ])
+                  }
+                  className="text-brand-600 hover:text-brand-800 text-[10px] bg-brand-50 px-2 py-1 rounded transition-colors"
+                >
+                  <i className="fas fa-plus mr-1"></i> Add Custom Action
+                </button>
+              </label>
+              <div className="space-y-2 bg-canvas-subtle/30 p-3 rounded-xl border border-canvas-subtle max-h-48 overflow-y-auto">
+                {resActions.length === 0 && (
+                  <p className="text-xs text-neutral-400 italic text-center py-2">
+                    No actions defined.
+                  </p>
+                )}
+                {resActions.map((act, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input
+                      required
+                      placeholder="e.g. export_pdf"
+                      value={act.name}
+                      onChange={(e) => {
+                        const newActs = [...resActions];
+                        newActs[i].name = e.target.value
+                          .toLowerCase()
+                          .replace(/\s+/g, "_");
+                        setResActions(newActs);
+                      }}
+                      className="w-1/3 px-3 py-2 rounded-lg border border-canvas-subtle text-xs font-mono outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <input
+                      placeholder="Optional description..."
+                      value={act.description}
+                      onChange={(e) => {
+                        const newActs = [...resActions];
+                        newActs[i].description = e.target.value;
+                        setResActions(newActs);
+                      }}
+                      className="flex-1 px-3 py-2 rounded-lg border border-canvas-subtle text-xs outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newActs = [...resActions];
+                        newActs.splice(i, 1);
+                        setResActions(newActs);
+                      }}
+                      className="text-neutral-400 hover:text-rose-500 p-1.5 rounded transition-colors"
+                    >
+                      <i className="fas fa-times text-xs"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </form>
         </Modal>
       )}
@@ -1770,7 +1857,7 @@ export default function UserManagement({
       {modal === "manageRoles" && roleTarget && (
         <Modal
           title="Manage Roles"
-          subtitle={`${roleTarget.first_name} ${roleTarget.last_name} · ${roleTarget.user_id}`}
+          subtitle={`${roleTarget.first_name} ${roleTarget.last_name}`}
           onClose={() => setModal(null)}
           footer={
             <ModalFooter
@@ -1781,9 +1868,6 @@ export default function UserManagement({
             />
           }
         >
-          <p className="text-xs text-neutral-400">
-            Check all roles this user should have. Unchecking removes the role.
-          </p>
           {userRolesLoading ? (
             <div className="flex justify-center py-8">
               <Spinner />
@@ -1793,6 +1877,43 @@ export default function UserManagement({
               allRoles={roles}
               selected={selectedRolesForUser}
               onChange={setSelectedRolesForUser}
+            />
+          )}
+        </Modal>
+      )}
+
+      {/* 🟢 NEW MODAL: MANAGE INHERITANCE */}
+      {modal === "manageInheritance" && roleTarget && (
+        <Modal
+          title="Manage Role Inheritance"
+          subtitle={`Define which roles the [${roleTarget.role_name}] role inherits.`}
+          onClose={() => setModal(null)}
+          footer={
+            <ModalFooter
+              onCancel={() => setModal(null)}
+              onSubmit={saveRoleInheritance}
+              saving={saving}
+              label="Save Inheritance"
+            />
+          }
+        >
+          <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-4">
+            <p className="text-sm text-brand-800 leading-relaxed font-medium">
+              Any user with the <strong>{roleTarget.role_name}</strong> role
+              will automatically receive all permissions associated with the
+              roles you select below.
+            </p>
+          </div>
+          {inheritanceLoading ? (
+            <div className="flex justify-center py-8">
+              <Spinner />
+            </div>
+          ) : (
+            <MultiRoleSelector
+              allRoles={roles}
+              selected={selectedInheritedRoles}
+              onChange={setSelectedInheritedRoles}
+              disabledRoleId={roleTarget.role_id} // Prevent a role from inheriting itself
             />
           )}
         </Modal>

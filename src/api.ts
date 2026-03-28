@@ -468,6 +468,7 @@ export const fetchMyToolJetApps = async () => {
 };
 
 // --- USER MANAGEMENT & IAM APIs ---
+// --- USER MANAGEMENT & IAM APIs ---
 
 export const fetchTenantUsers = async () =>
   (await api.get("/api/tenant/admin/users")).data;
@@ -506,3 +507,33 @@ export const fetchUserRoles = async (userId: string): Promise<string[]> =>
 
 export const removeRoleFromUser = async (userId: string, roleId: string) =>
   (await api.delete(`/api/tenant/admin/users/${userId}/roles/${roleId}`)).data;
+
+// 🟢 NEW: Add Custom Action to an existing Resource
+export const addCustomActionToResource = async (
+  resourceKey: string,
+  payload: { actionName: string; description: string },
+) =>
+  (
+    await api.post(
+      `/api/tenant/admin/resources/${resourceKey}/actions`,
+      payload,
+    )
+  ).data;
+
+// 🟢 NEW: Role Inheritance API bindings
+export const fetchRoleInheritance = async (roleId: string): Promise<string[]> =>
+  (await api.get(`/api/tenant/admin/roles/${roleId}/inherits`)).data;
+export const addRoleInheritance = async (
+  roleId: string,
+  inheritsRoleId: string,
+) =>
+  await api.post(
+    `/api/tenant/admin/roles/${roleId}/inherits/${inheritsRoleId}`,
+  );
+export const removeRoleInheritance = async (
+  roleId: string,
+  inheritsRoleId: string,
+) =>
+  await api.delete(
+    `/api/tenant/admin/roles/${roleId}/inherits/${inheritsRoleId}`,
+  );
