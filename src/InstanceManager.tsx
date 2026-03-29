@@ -294,7 +294,7 @@ export default function InstanceManager() {
           >
             <i className="fas fa-microscope mr-1"></i>Inspect
           </button>
-          <Secure resource="action:delete_instance" action="view">
+          <Secure resource="page:instance_manager" action="delete_instance">
             {viewMode === "active" && (
               <button
                 onClick={() => handleTerminate(inst.id)}
@@ -365,7 +365,7 @@ export default function InstanceManager() {
               {selectedIds.size} Selected
             </span>
             <div className="flex items-center gap-3">
-              <Secure resource="action:delete_instance" action="view">
+              <Secure resource="page:instance_manager" action="delete_instance">
                 <button
                   onClick={handleBulkTerminate}
                   className="bg-status-error text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest"
