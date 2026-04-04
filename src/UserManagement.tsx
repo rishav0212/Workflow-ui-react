@@ -1,15 +1,31 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  MarkerType,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
 import {
   fetchTenantUsers,
   createTenantUser,
+  updateTenantUser, // 🟢 Added update API import
   deactivateTenantUser,
+  deleteTenantUser,
   fetchTenantRoles,
   createTenantRole,
+  updateTenantRole, // 🟢 Added update API import
+  deleteTenantRole,
   assignRoleToUser,
   removeRoleFromUser,
   fetchUserRoles,
   fetchTenantResources,
   createTenantResource,
+  deleteTenantResource,
   fetchRolePermissions,
   grantPermission,
   revokePermission,
@@ -18,6 +34,7 @@ import {
   fetchRoleInheritance,
   addRoleInheritance,
   removeRoleInheritance,
+  fetchUserEffectiveAccess,
 } from "./api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -99,13 +116,13 @@ const getActionMeta = (action: string) => {
   if (ACTION_META[action]) return ACTION_META[action];
 
   const customColors = [
-    { color: "#8b5cf6", bg: "#ede9fe" }, // Purple
-    { color: "#ec4899", bg: "#fce7f3" }, // Pink
-    { color: "#14b8a6", bg: "#ccfbf1" }, // Teal
-    { color: "#f59e0b", bg: "#fef3c7" }, // Amber
-    { color: "#6366f1", bg: "#e0e7ff" }, // Indigo
-    { color: "#059669", bg: "#d1fae5" }, // Emerald
-    { color: "#e11d48", bg: "#ffe4e6" }, // Rose
+    { color: "#8b5cf6", bg: "#ede9fe" },
+    { color: "#ec4899", bg: "#fce7f3" },
+    { color: "#14b8a6", bg: "#ccfbf1" },
+    { color: "#f59e0b", bg: "#fef3c7" },
+    { color: "#6366f1", bg: "#e0e7ff" },
+    { color: "#059669", bg: "#d1fae5" },
+    { color: "#e11d48", bg: "#ffe4e6" },
   ];
   const hash = action
     .split("")
@@ -133,6 +150,15 @@ function getDynamicActions(resource: any): string[] {
   }
   return [...actionsFor(resource.resource_type)];
 }
+
+const isSystemResource = (res: any) => {
+  return (
+    res.is_system === true ||
+    res.resource_type?.toLowerCase() === "system" ||
+    res.resource_key?.toLowerCase().startsWith("system:") ||
+    res.resource_key?.toLowerCase().startsWith("system_")
+  );
+};
 
 // ─── Tiny helpers ─────────────────────────────────────────────────────────────
 
@@ -189,14 +215,18 @@ const Toggle = ({
   checked,
   onChange,
   actionKey,
+  isInherited,
 }: {
   checked: boolean;
   onChange: () => void;
   actionKey: string;
+  isInherited?: boolean;
 }) => {
   const m = getActionMeta(actionKey);
+  const visuallyChecked = checked || isInherited;
+
   return (
-    <label className="flex flex-col items-center gap-1 cursor-pointer select-none">
+    <label className="flex flex-col items-center gap-1 cursor-pointer select-none group relative">
       <div className="relative">
         <input
           type="checkbox"
@@ -205,19 +235,31 @@ const Toggle = ({
           onChange={onChange}
         />
         <div
-          className="block w-9 h-5 rounded-full transition-colors duration-200"
-          style={{ background: checked ? m.color : "#d1d5db" }}
+          className={`block w-9 h-5 rounded-full transition-colors duration-200 ${isInherited && !checked ? "opacity-50" : ""}`}
+          style={{ background: visuallyChecked ? m.color : "#d1d5db" }}
         />
         <div
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-4" : ""}`}
-        />
+          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${visuallyChecked ? "translate-x-4" : ""} flex items-center justify-center`}
+        >
+          {isInherited && (
+            <i
+              className="fas fa-shield-alt text-[8px]"
+              style={{ color: m.color }}
+            />
+          )}
+        </div>
       </div>
       <span
         className="text-[9px] font-black uppercase tracking-wider text-center max-w-[60px] leading-tight"
-        style={{ color: checked ? m.color : "#9ca3af" }}
+        style={{ color: visuallyChecked ? m.color : "#9ca3af" }}
       >
         {m.label}
       </span>
+      {isInherited && (
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10 transition-opacity">
+          Inherited access
+        </div>
+      )}
     </label>
   );
 };
@@ -306,51 +348,71 @@ const MultiRoleSelector = ({
   allRoles,
   selected,
   onChange,
-  disabledRoleId,
+  disabledRoleIds = [],
+  inheritedRoles = [],
 }: {
   allRoles: any[];
   selected: string[];
   onChange: (ids: string[]) => void;
-  disabledRoleId?: string;
+  disabledRoleIds?: string[];
+  inheritedRoles?: string[];
 }) => {
-  const toggle = (id: string) =>
+  const toggle = (id: string, isDisabled: boolean) => {
+    if (isDisabled) return;
     onChange(
       selected.includes(id)
         ? selected.filter((r) => r !== id)
         : [...selected, id],
     );
-
-  // Filter out the disabled role so it cannot be selected
-  const availableRoles = allRoles.filter((r) => r.role_id !== disabledRoleId);
+  };
 
   return (
     <div className="border border-canvas-subtle rounded-xl overflow-hidden max-h-52 overflow-y-auto">
-      {availableRoles.length === 0 && (
+      {allRoles.length === 0 && (
         <p className="p-4 text-sm text-neutral-400 italic">
           No valid roles found.
         </p>
       )}
-      {availableRoles.map((r) => {
+      {allRoles.map((r) => {
         const checked = selected.includes(r.role_id);
+        const isInherited = inheritedRoles.includes(r.role_id);
+        const isDisabled = disabledRoleIds.includes(r.role_id);
+
         return (
           <label
             key={r.role_id}
-            onClick={() => toggle(r.role_id)}
-            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-canvas-subtle last:border-0 ${checked ? "bg-brand-50" : "hover:bg-canvas-subtle"}`}
+            onClick={() => toggle(r.role_id, isDisabled)}
+            className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-canvas-subtle last:border-0 
+              ${isDisabled ? "opacity-50 cursor-not-allowed bg-canvas-subtle" : "cursor-pointer"} 
+              ${checked && !isDisabled ? "bg-brand-50" : ""} 
+              ${!isDisabled && !checked ? "hover:bg-canvas-subtle" : ""}`}
           >
             <div
               className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? "bg-brand-500 border-brand-500" : "border-neutral-300"}`}
             >
               {checked && <i className="fas fa-check text-white text-[10px]" />}
             </div>
-            <div>
-              <div className="font-bold text-sm text-ink-primary">
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm text-ink-primary truncate">
                 {r.role_name}
               </div>
-              <div className="text-xs text-neutral-400 font-mono">
+              <div className="text-xs text-neutral-400 font-mono truncate">
                 {r.role_id}
               </div>
             </div>
+            {isDisabled && (
+              <div className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-200">
+                <i className="fas fa-exclamation-triangle"></i> Causes Cycle
+              </div>
+            )}
+            {isInherited && !isDisabled && (
+              <div
+                className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2 py-1 rounded-md border border-brand-200 flex items-center gap-1 cursor-help"
+                title="This user effectively has this role due to inheritance from an explicitly assigned role."
+              >
+                <i className="fas fa-shield-alt"></i> Inherited
+              </div>
+            )}
           </label>
         );
       })}
@@ -364,15 +426,19 @@ const Modal = ({
   onClose,
   children,
   footer,
+  wide = false,
 }: {
   title: string;
   subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
-  footer: React.ReactNode;
+  footer?: React.ReactNode;
+  wide?: boolean;
 }) => (
   <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div
+      className={`bg-white rounded-2xl shadow-2xl w-full ${wide ? "max-w-5xl h-[80vh]" : "max-w-2xl max-h-[90vh]"} flex flex-col`}
+    >
       <div className="flex items-start justify-between p-6 border-b border-canvas-subtle flex-shrink-0">
         <div>
           <h2 className="text-xl font-bold text-ink-primary">{title}</h2>
@@ -388,9 +454,11 @@ const Modal = ({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-6 space-y-4">{children}</div>
-      <div className="p-6 border-t border-canvas-subtle flex-shrink-0">
-        {footer}
-      </div>
+      {footer && (
+        <div className="p-6 border-t border-canvas-subtle flex-shrink-0">
+          {footer}
+        </div>
+      )}
     </div>
   </div>
 );
@@ -401,12 +469,14 @@ const ModalFooter = ({
   saving,
   label,
   formId,
+  isDanger = false,
 }: {
   onCancel: () => void;
   onSubmit?: () => void;
   saving: boolean;
   label: string;
   formId?: string;
+  isDanger?: boolean;
 }) => (
   <div className="flex justify-end gap-3">
     <button
@@ -421,7 +491,7 @@ const ModalFooter = ({
       form={formId}
       onClick={formId ? undefined : onSubmit}
       disabled={saving}
-      className="px-5 py-2 bg-brand-500 text-white text-sm font-bold rounded-lg hover:bg-brand-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+      className={`px-5 py-2 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 ${isDanger ? "bg-rose-500 hover:bg-rose-600" : "bg-brand-500 hover:bg-brand-600"}`}
     >
       {saving && <i className="fas fa-circle-notch fa-spin text-xs" />}{" "}
       {saving ? "Saving…" : label}
@@ -466,16 +536,34 @@ const SearchInput = ({
 
 type Tab = "users" | "roles" | "resources" | "matrix" | "audit";
 
+const getInitialTab = (): Tab => {
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get("tab") as Tab;
+  return ["users", "roles", "resources", "matrix", "audit"].includes(t)
+    ? t
+    : "users";
+};
+
 export default function UserManagement({
   addNotification,
 }: {
   addNotification: (msg: string, type: "success" | "error" | "info") => void;
 }) {
-  const [tab, setTab] = useState<Tab>("users");
+  const [tabState, setTabState] = useState<Tab>(getInitialTab);
+
+  const setTab = useCallback((t: Tab) => {
+    setTabState(t);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", t);
+    window.history.pushState({}, "", url);
+  }, []);
 
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
+  const [roleInheritanceMap, setRoleInheritanceMap] = useState<
+    Record<string, string[]>
+  >({});
   const [loading, setLoading] = useState(true);
 
   const [matrixRole, setMatrixRole] = useState<string | null>(null);
@@ -487,13 +575,28 @@ export default function UserManagement({
   const [auditUser, setAuditUser] = useState<string | null>(null);
   const [auditData, setAuditData] = useState<{
     roles: string[];
+    effectiveRoles: string[];
     policies: any[];
   } | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
 
   const [modal, setModal] = useState<
-    "user" | "role" | "resource" | "manageRoles" | "manageInheritance" | null
+    | "user"
+    | "role"
+    | "resource"
+    | "manageRoles"
+    | "manageInheritance"
+    | "tree"
+    | "delete"
+    | null
   >(null);
+
+  // Deletion State
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "user" | "role" | "resource";
+    item: any;
+  } | null>(null);
+
   const [roleTarget, setRoleTarget] = useState<any | null>(null);
   const [userRolesLoading, setUserRolesLoading] = useState(false);
   const [selectedRolesForUser, setSelectedRolesForUser] = useState<string[]>(
@@ -507,6 +610,10 @@ export default function UserManagement({
   const [inheritanceLoading, setInheritanceLoading] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+  // 🟢 Edit Modes State
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [isEditingRole, setIsEditingRole] = useState(false);
 
   // Forms
   const [userForm, setUserForm] = useState({
@@ -538,6 +645,23 @@ export default function UserManagement({
   );
   const [matrixResource, setMatrixResource] = useState<string | null>(null);
 
+  const getEffectiveRoles = useCallback(
+    (startRoles: string[]) => {
+      const visited = new Set<string>();
+      const stack = [...startRoles];
+      while (stack.length > 0) {
+        const curr = stack.pop()!;
+        if (!visited.has(curr)) {
+          visited.add(curr);
+          const inherits = roleInheritanceMap[curr] || [];
+          stack.push(...inherits);
+        }
+      }
+      return Array.from(visited);
+    },
+    [roleInheritanceMap],
+  );
+
   useEffect(() => {
     if (!matrixResource || matrixMode !== "byResource") return;
     setMatrixLoading(true);
@@ -547,7 +671,7 @@ export default function UserManagement({
         addNotification("Failed to load resource permissions", "error"),
       )
       .finally(() => setMatrixLoading(false));
-  }, [matrixResource, matrixMode]);
+  }, [matrixResource, matrixMode, addNotification]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -560,28 +684,44 @@ export default function UserManagement({
       setUsers(u);
       setRoles(r);
       setResources(res);
+
+      const inhMap: Record<string, string[]> = {};
+      await Promise.all(
+        r.map(async (role: any) => {
+          try {
+            inhMap[role.role_id] = await fetchRoleInheritance(role.role_id);
+          } catch {
+            inhMap[role.role_id] = [];
+          }
+        }),
+      );
+      setRoleInheritanceMap(inhMap);
     } catch {
       addNotification("Failed to load data", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addNotification]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    if (!matrixRole) {
+    if (!matrixRole || matrixMode !== "byRole") {
       setRolePolicies([]);
       return;
     }
     setMatrixLoading(true);
-    fetchRolePermissions(matrixRole)
-      .then(setRolePolicies)
+
+    const effective = getEffectiveRoles([matrixRole]);
+    Promise.all(effective.map((r) => fetchRolePermissions(r)))
+      .then((arrays) => {
+        setRolePolicies(arrays.flat());
+      })
       .catch(() => addNotification("Failed to load permissions", "error"))
       .finally(() => setMatrixLoading(false));
-  }, [matrixRole]);
+  }, [matrixRole, matrixMode, getEffectiveRoles, addNotification]);
 
   useEffect(() => {
     if (!auditUser) {
@@ -589,27 +729,44 @@ export default function UserManagement({
       return;
     }
     setAuditLoading(true);
-    fetchUserRoles(auditUser)
-      .then(async (userRoles: string[]) => {
-        const policyArrays = await Promise.all(
-          userRoles.map((r) => fetchRolePermissions(r)),
-        );
-        setAuditData({ roles: userRoles, policies: policyArrays.flat() });
+    fetchUserEffectiveAccess(auditUser)
+      .then((data: any) => {
+        setAuditData({
+          roles: data.roles || [],
+          effectiveRoles: data.effectiveRoles || [],
+          policies: data.policies || [],
+        });
       })
-      .catch(() => addNotification("Failed to load audit", "error"))
+      .catch(() => {
+        addNotification("Failed to load effective permissions", "error");
+        setAuditData(null);
+      })
       .finally(() => setAuditLoading(false));
-  }, [auditUser]);
+  }, [auditUser, addNotification]);
 
   const hasPerm = (roleId: string, resourceKey: string, action: string) =>
     rolePolicies.some(
       (p) => p[0] === roleId && p[2] === resourceKey && p[3] === action,
     );
 
+  const hasInheritedPerm = (
+    roleId: string,
+    resourceKey: string,
+    action: string,
+  ) => {
+    const effective = getEffectiveRoles([roleId]).filter((r) => r !== roleId);
+    return effective.some((effRoleId) =>
+      rolePolicies.some(
+        (p) => p[0] === effRoleId && p[2] === resourceKey && p[3] === action,
+      ),
+    );
+  };
+
   const togglePerm = async (
     roleId: string,
     resourceKey: string,
     action: string,
-    has: boolean,
+    hasDirect: boolean,
   ) => {
     if (!roleId || !resourceKey) return;
     const k = `${roleId}:${resourceKey}:${action}`;
@@ -617,7 +774,7 @@ export default function UserManagement({
     setToggling((prev) => new Set(prev).add(k));
 
     try {
-      if (has) {
+      if (hasDirect) {
         await revokePermission({ roleId, resourceKey, action });
         setRolePolicies((prev) =>
           prev.filter(
@@ -643,28 +800,75 @@ export default function UserManagement({
     }
   };
 
+  // 🟢 Modal Openers for Edit Functionality
+  const openCreateUser = () => {
+    setIsEditingUser(false);
+    setUserForm({ userId: "", email: "", firstName: "", lastName: "" });
+    setModal("user");
+  };
+
+  const openEditUser = (u: any) => {
+    setIsEditingUser(true);
+    setUserForm({
+      userId: u.user_id,
+      email: u.email,
+      firstName: u.first_name,
+      lastName: u.last_name,
+    });
+    setModal("user");
+  };
+
+  const openCreateRole = () => {
+    setIsEditingRole(false);
+    setRoleForm({ roleId: "", roleName: "", description: "" });
+    setModal("role");
+  };
+
+  const openEditRole = (r: any) => {
+    setIsEditingRole(true);
+    setRoleForm({
+      roleId: r.role_id,
+      roleName: r.role_name,
+      description: r.description || "",
+    });
+    setModal("role");
+  };
+
   const submitUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate IDs only if we are creating a new user
     if (
+      !isEditingUser &&
       users.some(
         (u) => u.user_id.toLowerCase() === userForm.userId.toLowerCase(),
       )
-    )
+    ) {
       return addNotification("User ID already exists.", "error");
-    if (
-      users.some((u) => u.email.toLowerCase() === userForm.email.toLowerCase())
-    )
-      return addNotification("Email already exists.", "error");
+    }
+
+    // Check if email belongs to someone else
+    const emailExists = users.some(
+      (u) =>
+        u.email.toLowerCase() === userForm.email.toLowerCase() &&
+        u.user_id !== userForm.userId,
+    );
+    if (emailExists) return addNotification("Email already exists.", "error");
+
     setSaving(true);
     try {
-      await createTenantUser({ ...userForm, metadata: {} });
-      addNotification("User created", "success");
+      if (isEditingUser) {
+        await updateTenantUser(userForm.userId, { ...userForm, metadata: {} });
+        addNotification("User updated successfully", "success");
+      } else {
+        await createTenantUser({ ...userForm, metadata: {} });
+        addNotification("User created successfully", "success");
+      }
       setModal(null);
-      setUserForm({ userId: "", email: "", firstName: "", lastName: "" });
       load();
     } catch (err: any) {
       addNotification(
-        err?.response?.data?.message || "Failed to create user",
+        err?.response?.data?.message || "Failed to save user",
         "error",
       );
     } finally {
@@ -674,21 +878,30 @@ export default function UserManagement({
 
   const submitRole = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate IDs only if we are creating a new role
     if (
+      !isEditingRole &&
       roles.some(
         (r) => r.role_id.toLowerCase() === roleForm.roleId.toLowerCase(),
       )
-    )
+    ) {
       return addNotification("Role ID already exists.", "error");
+    }
+
     setSaving(true);
     try {
-      await createTenantRole(roleForm);
-      addNotification("Role created", "success");
+      if (isEditingRole) {
+        await updateTenantRole(roleForm.roleId, roleForm);
+        addNotification("Role updated successfully", "success");
+      } else {
+        await createTenantRole(roleForm);
+        addNotification("Role created successfully", "success");
+      }
       setModal(null);
-      setRoleForm({ roleId: "", roleName: "", description: "" });
       load();
     } catch {
-      addNotification("Failed to create role", "error");
+      addNotification("Failed to save role", "error");
     } finally {
       setSaving(false);
     }
@@ -733,6 +946,30 @@ export default function UserManagement({
       load();
     } catch {
       addNotification("Failed to save resource", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      if (deleteTarget.type === "user") {
+        await deleteTenantUser(deleteTarget.item.user_id);
+        addNotification("User deleted", "success");
+      } else if (deleteTarget.type === "role") {
+        await deleteTenantRole(deleteTarget.item.role_id);
+        addNotification("Role deleted", "success");
+      } else if (deleteTarget.type === "resource") {
+        await deleteTenantResource(deleteTarget.item.resource_key);
+        addNotification("Resource deleted", "success");
+      }
+      setModal(null);
+      setDeleteTarget(null);
+      load();
+    } catch (err) {
+      addNotification(`Failed to delete ${deleteTarget.type}`, "error");
     } finally {
       setSaving(false);
     }
@@ -828,6 +1065,7 @@ export default function UserManagement({
       ]);
       addNotification("Role inheritance updated", "success");
       setModal(null);
+      load();
     } catch {
       addNotification("Failed to update inheritance", "error");
     } finally {
@@ -875,6 +1113,115 @@ export default function UserManagement({
       return acc;
     }, {}) ?? {};
 
+  const userInheritedRolesForModal =
+    modal === "manageRoles" && roleTarget
+      ? getEffectiveRoles(selectedRolesForUser).filter(
+          (r) => !selectedRolesForUser.includes(r),
+        )
+      : [];
+
+  const invalidRolesForInheritance =
+    modal === "manageInheritance" && roleTarget
+      ? roles
+          .filter((r) => {
+            if (r.role_id === roleTarget.role_id) return true;
+            const effectiveOfPotentialChild = getEffectiveRoles([r.role_id]);
+            return effectiveOfPotentialChild.includes(roleTarget.role_id);
+          })
+          .map((r) => r.role_id)
+      : [];
+
+  // 🟢 React Flow Setup for the Hierarchical Tree
+  const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
+    if (modal !== "tree") return { reactFlowNodes: [], reactFlowEdges: [] };
+
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    // Simple Auto-Layout based on Depth
+    const nodeDepths: Record<string, number> = {};
+    const getDepth = (roleId: string, visited = new Set<string>()): number => {
+      if (visited.has(roleId)) return 0; // Prevent infinite loop in layout calculation
+      visited.add(roleId);
+
+      const parents = Object.entries(roleInheritanceMap)
+        .filter(([_, children]) => children.includes(roleId))
+        .map(([parent]) => parent);
+
+      if (parents.length === 0) return 0;
+      return Math.max(...parents.map((p) => getDepth(p, new Set(visited)))) + 1;
+    };
+
+    // Calculate depths
+    roles.forEach((r) => {
+      nodeDepths[r.role_id] = getDepth(r.role_id);
+    });
+
+    // Group by depth
+    const levels: Record<number, string[]> = {};
+    Object.entries(nodeDepths).forEach(([roleId, depth]) => {
+      (levels[depth] ??= []).push(roleId);
+    });
+
+    roles.forEach((r) => {
+      const depth = nodeDepths[r.role_id];
+      const indexInLevel = levels[depth].indexOf(r.role_id);
+      const levelWidth = levels[depth].length;
+
+      // Spacing constraints
+      const X_SPACING = 250;
+      const Y_SPACING = 150;
+
+      // Center the row
+      const xOffset = (indexInLevel - (levelWidth - 1) / 2) * X_SPACING;
+
+      nodes.push({
+        id: r.role_id,
+        position: { x: xOffset, y: depth * Y_SPACING },
+        data: {
+          label: (
+            <div className="flex flex-col items-center p-2 min-w-[120px]">
+              <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mb-2 shadow-sm border border-brand-200">
+                <i className="fas fa-shield-alt text-xs" />
+              </div>
+              <strong className="text-xs text-ink-primary font-bold">
+                {r.role_name}
+              </strong>
+              <code className="text-[9px] text-neutral-400 mt-1">
+                {r.role_id}
+              </code>
+            </div>
+          ),
+        },
+        type: "default",
+        style: {
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: "12px",
+          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+        },
+      });
+
+      // Create Edges for Inherited Roles (Children)
+      const inherits = roleInheritanceMap[r.role_id] || [];
+      inherits.forEach((childId) => {
+        edges.push({
+          id: `e-${r.role_id}-${childId}`,
+          source: r.role_id,
+          target: childId,
+          animated: true,
+          style: { stroke: "#94a3b8", strokeWidth: 2 },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: "#94a3b8",
+          },
+        });
+      });
+    });
+
+    return { reactFlowNodes: nodes, reactFlowEdges: edges };
+  }, [modal, roles, roleInheritanceMap]);
+
   return (
     <div className="h-full flex flex-col bg-canvas overflow-hidden">
       <div className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between border-b border-canvas-subtle bg-surface">
@@ -886,25 +1233,34 @@ export default function UserManagement({
             Users, roles, and resource-level permissions
           </p>
         </div>
-        <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle">
-          {(
-            [
-              ["users", "Users", "fa-users"],
-              ["roles", "Roles", "fa-id-badge"],
-              ["resources", "Resources", "fa-layer-group"],
-              ["matrix", "Permissions", "fa-th"],
-              ["audit", "Access View", "fa-eye"],
-            ] as [Tab, string, string][]
-          ).map(([t, label, icon]) => (
-            <Pill key={t} active={tab === t} onClick={() => setTab(t)}>
-              <i className={`fas ${icon} mr-1.5`} /> {label}
-            </Pill>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={load}
+            className="w-9 h-9 rounded-xl border border-canvas-subtle text-neutral-500 hover:text-brand-600 hover:bg-brand-50 hover:border-brand-200 transition-all flex items-center justify-center bg-white shadow-sm"
+            title="Refresh Data"
+          >
+            <i className={`fas fa-sync-alt ${loading ? "fa-spin" : ""}`} />
+          </button>
+          <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle shadow-inner">
+            {(
+              [
+                ["users", "Users", "fa-users"],
+                ["roles", "Roles", "fa-id-badge"],
+                ["resources", "Resources", "fa-layer-group"],
+                ["matrix", "Permissions", "fa-th"],
+                ["audit", "Access View", "fa-eye"],
+              ] as [Tab, string, string][]
+            ).map(([t, label, icon]) => (
+              <Pill key={t} active={tabState === t} onClick={() => setTab(t)}>
+                <i className={`fas ${icon} mr-1.5`} /> {label}
+              </Pill>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* ── USERS TAB ── */}
-      {tab === "users" && (
+      {tabState === "users" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
             title={`Users (${users.length})`}
@@ -916,7 +1272,7 @@ export default function UserManagement({
                   placeholder="Search users…"
                 />
                 <button
-                  onClick={() => setModal("user")}
+                  onClick={openCreateUser} // 🟢 Changed to use openCreateUser
                   className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
                 >
                   <i className="fas fa-plus" /> New User
@@ -937,7 +1293,7 @@ export default function UserManagement({
               />
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-canvas-subtle/60 sticky top-0">
+                <thead className="bg-canvas-subtle/60 sticky top-0 z-10">
                   <tr>
                     {["User", "Email", "Status", "Roles", "Actions"].map(
                       (h) => (
@@ -1002,9 +1358,22 @@ export default function UserManagement({
                               setTab("audit");
                             }}
                             className="text-neutral-500 hover:text-brand-600 text-xs font-bold transition-colors"
+                            title="View Effective Permissions"
                           >
-                            <i className="fas fa-eye mr-1" /> View Perms
+                            <i className="fas fa-eye" />
                           </button>
+
+                          <div className="w-px h-4 bg-canvas-subtle"></div>
+
+                          {/* 🟢 Added Edit User Button */}
+                          <button
+                            onClick={() => openEditUser(u)}
+                            className="text-neutral-500 hover:text-brand-600 text-xs font-bold transition-colors"
+                            title="Edit User"
+                          >
+                            <i className="fas fa-edit" />
+                          </button>
+
                           {u.is_active && (
                             <button
                               onClick={async () => {
@@ -1021,11 +1390,22 @@ export default function UserManagement({
                                   addNotification("Failed", "error");
                                 }
                               }}
-                              className="text-status-error hover:underline text-xs font-bold"
+                              className="text-neutral-500 hover:text-status-warning text-xs font-bold transition-colors"
+                              title="Deactivate Account"
                             >
-                              Deactivate
+                              <i className="fas fa-ban" />
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              setDeleteTarget({ type: "user", item: u });
+                              setModal("delete");
+                            }}
+                            className="text-neutral-500 hover:text-rose-600 text-xs font-bold transition-colors"
+                            title="Permanently Delete User"
+                          >
+                            <i className="fas fa-trash-alt" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1038,19 +1418,25 @@ export default function UserManagement({
       )}
 
       {/* ── ROLES TAB ── */}
-      {tab === "roles" && (
+      {tabState === "roles" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
             title={`Roles (${roles.length})`}
             action={
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setModal("tree")}
+                  className="bg-white border border-canvas-subtle text-ink-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-canvas-subtle transition-colors flex items-center gap-2 mr-2"
+                >
+                  <i className="fas fa-sitemap text-brand-500" /> View Hierarchy
+                </button>
                 <SearchInput
                   value={roleSearch}
                   onChange={setRoleSearch}
                   placeholder="Search roles…"
                 />
                 <button
-                  onClick={() => setModal("role")}
+                  onClick={openCreateRole} // 🟢 Changed to use openCreateRole
                   className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
                 >
                   <i className="fas fa-plus" /> New Role
@@ -1058,7 +1444,7 @@ export default function UserManagement({
               </div>
             }
           />
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
               <div className="flex justify-center py-16">
                 <Spinner />
@@ -1070,53 +1456,83 @@ export default function UserManagement({
                 sub="Create a role to start assigning permissions"
               />
             ) : (
-              <div className="p-4 grid grid-cols-1 gap-3">
-                {filteredRoles.map((r) => (
-                  <div
-                    key={r.role_id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-canvas-subtle bg-canvas/20 hover:bg-canvas-subtle/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
-                        <i className="fas fa-shield-alt" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-ink-primary">
-                          {r.role_name}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                {filteredRoles.map((r) => {
+                  const inheritedCount = (roleInheritanceMap[r.role_id] || [])
+                    .length;
+                  return (
+                    <div
+                      key={r.role_id}
+                      className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-canvas-subtle bg-canvas/20 hover:bg-canvas-subtle/30 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                          <i className="fas fa-shield-alt text-sm" />
                         </div>
-                        <code className="text-xs font-mono text-neutral-400 bg-canvas-subtle px-1.5 py-0.5 rounded">
-                          {r.role_id}
-                        </code>
+                        <div className="min-w-0">
+                          <div className="font-bold text-ink-primary truncate text-sm">
+                            {r.role_name}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <code className="text-[10px] font-mono text-neutral-400 bg-canvas-subtle px-1.5 py-0.5 rounded truncate">
+                              {r.role_id}
+                            </code>
+                            {inheritedCount > 0 && (
+                              <span
+                                className="text-[10px] text-neutral-500 font-bold flex items-center gap-1"
+                                title="Inherits from other roles"
+                              >
+                                <i className="fas fa-link" /> {inheritedCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openManageInheritance(r)}
+                          className="text-neutral-500 hover:text-brand-700 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          title="Manage Inheritance"
+                        >
+                          <i className="fas fa-project-diagram" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMatrixRole(r.role_id);
+                            setTab("matrix");
+                            setMatrixMode("byRole");
+                          }}
+                          className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          title="Edit Permissions"
+                        >
+                          <i className="fas fa-key" />
+                        </button>
+
+                        <div className="w-px h-5 bg-canvas-subtle mx-1"></div>
+
+                        {/* 🟢 Added Edit Role Button */}
+                        <button
+                          onClick={() => openEditRole(r)}
+                          className="text-neutral-500 hover:text-brand-600 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          title="Edit Role"
+                        >
+                          <i className="fas fa-edit" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setDeleteTarget({ type: "role", item: r });
+                            setModal("delete");
+                          }}
+                          className="text-neutral-400 hover:text-rose-600 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                          title="Delete Role"
+                        >
+                          <i className="fas fa-trash-alt" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                      {r.description && (
-                        <span className="text-sm text-neutral-400 max-w-xs truncate hidden xl:inline-block mr-4">
-                          {r.description}
-                        </span>
-                      )}
-
-                      {/* 🟢 NEW INHERITANCE BUTTON */}
-                      <button
-                        onClick={() => openManageInheritance(r)}
-                        className="text-neutral-500 hover:text-brand-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-canvas-subtle hover:border-brand-300 hover:bg-brand-50 transition-colors flex items-center gap-1.5"
-                      >
-                        <i className="fas fa-project-diagram" /> Inheritance
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setMatrixRole(r.role_id);
-                          setTab("matrix");
-                          setMatrixMode("byRole");
-                        }}
-                        className="text-brand-600 hover:text-brand-800 text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors flex items-center gap-1.5"
-                      >
-                        <i className="fas fa-key" /> Edit Permissions
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1124,7 +1540,7 @@ export default function UserManagement({
       )}
 
       {/* ── RESOURCES TAB ── */}
-      {tab === "resources" && (
+      {tabState === "resources" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
           <PanelHeader
             title={`Registered Resources (${resources.length})`}
@@ -1154,10 +1570,11 @@ export default function UserManagement({
                     (rt) => rt.value === res.resource_type,
                   );
                   const resActions = getDynamicActions(res);
+                  const isSystem = isSystemResource(res);
                   return (
                     <div
                       key={res.resource_key}
-                      className="bg-canvas-subtle/30 border border-canvas-subtle p-4 rounded-xl hover:border-brand-200 transition-colors flex flex-col h-full"
+                      className="bg-canvas-subtle/30 border border-canvas-subtle p-4 rounded-xl hover:border-brand-200 transition-colors flex flex-col h-full group"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <i
@@ -1166,17 +1583,40 @@ export default function UserManagement({
                         <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                           {typeInfo?.label || res.resource_type}
                         </span>
-                        <button
-                          onClick={() => openEditResource(res)}
-                          className="ml-auto flex items-center gap-1.5 text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-md text-xs font-bold transition-colors"
-                        >
-                          <i className="fas fa-edit"></i> Edit
-                        </button>
+
+                        {isSystem ? (
+                          <span className="ml-auto flex items-center gap-1.5 text-neutral-400 bg-canvas-subtle border border-canvas-subtle px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold">
+                            <i className="fas fa-lock text-xs"></i> System
+                          </span>
+                        ) : (
+                          <div className="ml-auto flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => openEditResource(res)}
+                              className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors"
+                              title="Edit Resource"
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeleteTarget({
+                                  type: "resource",
+                                  item: res,
+                                });
+                                setModal("delete");
+                              }}
+                              className="text-neutral-500 hover:text-rose-600 hover:bg-rose-50 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors"
+                              title="Delete Resource"
+                            >
+                              <i className="fas fa-trash-alt"></i>
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <h3 className="font-bold text-ink-primary">
                         {res.display_name || res.resource_key}
                       </h3>
-                      <code className="text-xs text-brand-600 font-mono bg-brand-50 px-1.5 py-0.5 rounded mt-1 self-start">
+                      <code className="text-xs text-brand-600 font-mono bg-brand-50 px-1.5 py-0.5 rounded mt-1 self-start truncate max-w-full">
                         {res.resource_key}
                       </code>
                       {res.description && (
@@ -1199,7 +1639,7 @@ export default function UserManagement({
       )}
 
       {/* ── MATRIX TAB ── */}
-      {tab === "matrix" && (
+      {tabState === "matrix" && (
         <div className="flex-1 flex flex-col overflow-hidden m-4">
           <div className="flex items-center justify-center mb-4 flex-shrink-0">
             <div className="bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle flex shadow-inner">
@@ -1329,7 +1769,12 @@ export default function UserManagement({
                               </div>
                               <div className="flex items-center flex-wrap gap-x-6 gap-y-3 flex-shrink-0 justify-start sm:justify-end">
                                 {actions.map((action) => {
-                                  const has = hasPerm(
+                                  const hasDirect = hasPerm(
+                                    matrixRole,
+                                    res.resource_key,
+                                    action,
+                                  );
+                                  const isInherit = hasInheritedPerm(
                                     matrixRole,
                                     res.resource_key,
                                     action,
@@ -1346,13 +1791,14 @@ export default function UserManagement({
                                       }
                                     >
                                       <Toggle
-                                        checked={has}
+                                        checked={hasDirect}
+                                        isInherited={isInherit}
                                         onChange={() =>
                                           togglePerm(
                                             matrixRole,
                                             res.resource_key,
                                             action,
-                                            has,
+                                            hasDirect,
                                           )
                                         }
                                         actionKey={action}
@@ -1398,7 +1844,12 @@ export default function UserManagement({
                         </div>
                         <div className="flex items-center gap-x-6 gap-y-3 flex-wrap justify-start sm:justify-end flex-shrink-0 bg-white p-2 border border-canvas-subtle rounded-xl shadow-sm">
                           {actions.map((action) => {
-                            const has = hasPerm(
+                            const hasDirect = hasPerm(
+                              role.role_id,
+                              matrixResource,
+                              action,
+                            );
+                            const isInherit = hasInheritedPerm(
                               role.role_id,
                               matrixResource,
                               action,
@@ -1415,13 +1866,14 @@ export default function UserManagement({
                                 }
                               >
                                 <Toggle
-                                  checked={has}
+                                  checked={hasDirect}
+                                  isInherited={isInherit}
                                   onChange={() =>
                                     togglePerm(
                                       role.role_id,
                                       matrixResource,
                                       action,
-                                      has,
+                                      hasDirect,
                                     )
                                   }
                                   actionKey={action}
@@ -1440,8 +1892,8 @@ export default function UserManagement({
         </div>
       )}
 
-      {/* ── AUDIT VIEW (Unchanged) ── */}
-      {tab === "audit" && (
+      {/* ── AUDIT VIEW ── */}
+      {tabState === "audit" && (
         <div className="flex-1 flex gap-4 overflow-hidden m-4">
           <div className="w-64 bg-surface border border-canvas-subtle rounded-2xl shadow-soft flex flex-col overflow-hidden flex-shrink-0">
             <div className="px-4 py-3 border-b border-canvas-subtle bg-canvas/40">
@@ -1491,7 +1943,7 @@ export default function UserManagement({
               <EmptyState
                 icon="fa-user-shield"
                 title="Select a user on the left"
-                sub="See all their effective permissions derived from assigned roles"
+                sub="See all their effective permissions derived from assigned and inherited roles"
               />
             ) : auditLoading ? (
               <div className="flex justify-center py-16">
@@ -1503,7 +1955,7 @@ export default function UserManagement({
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
                     Assigned Roles ({auditData.roles.length})
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {auditData.roles.map((rId) => (
                       <span
                         key={rId}
@@ -1514,6 +1966,37 @@ export default function UserManagement({
                       </span>
                     ))}
                   </div>
+
+                  {auditData.effectiveRoles.filter(
+                    (r) => !auditData.roles.includes(r),
+                  ).length > 0 && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3 pt-3 border-t border-canvas-subtle">
+                        Inherited Roles (
+                        {
+                          auditData.effectiveRoles.filter(
+                            (r) => !auditData.roles.includes(r),
+                          ).length
+                        }
+                        )
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {auditData.effectiveRoles
+                          .filter((r) => !auditData.roles.includes(r))
+                          .map((rId) => (
+                            <span
+                              key={rId}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 border border-neutral-200 text-neutral-600 text-sm font-bold rounded-lg"
+                              title="Granted indirectly via inheritance"
+                            >
+                              <i className="fas fa-shield-alt text-xs" />{" "}
+                              {roles.find((r) => r.role_id === rId)
+                                ?.role_name ?? rId}
+                            </span>
+                          ))}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">
@@ -1564,10 +2047,18 @@ export default function UserManagement({
                                   className="flex items-center justify-between px-4 py-3 border-t border-canvas-subtle hover:bg-canvas-subtle/30"
                                 >
                                   <div>
-                                    <div className="font-bold text-sm text-ink-primary">
+                                    <div className="font-bold text-sm text-ink-primary flex items-center gap-2">
                                       {resources.find(
                                         (r) => r.resource_key === key,
                                       )?.display_name || key}
+                                      {isSystemResource({
+                                        resource_key: key,
+                                      }) && (
+                                        <i
+                                          className="fas fa-lock text-neutral-400 text-xs"
+                                          title="System Resource"
+                                        />
+                                      )}
                                     </div>
                                     <code className="text-xs text-neutral-400 font-mono">
                                       {key}
@@ -1594,15 +2085,89 @@ export default function UserManagement({
 
       {/* ════ MODALS ════════════════════════════════════════════════════════ */}
 
+      {modal === "delete" && deleteTarget && (
+        <Modal
+          title={`Delete ${deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1)}`}
+          onClose={() => {
+            setModal(null);
+            setDeleteTarget(null);
+          }}
+          footer={
+            <ModalFooter
+              onCancel={() => {
+                setModal(null);
+                setDeleteTarget(null);
+              }}
+              onSubmit={handleDeleteConfirm}
+              saving={saving}
+              label="Yes, permanently delete"
+              isDanger={true}
+            />
+          }
+        >
+          <div className="space-y-4">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
+              <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
+              <div>
+                <p className="font-bold text-sm mb-1">
+                  Warning: This action cannot be undone.
+                </p>
+                <p className="text-sm">
+                  {deleteTarget.type === "user" && (
+                    <>
+                      You are about to delete the user{" "}
+                      <strong>{deleteTarget.item.user_id}</strong>. They will
+                      permanently lose all system access and their assigned
+                      roles will be unlinked.
+                    </>
+                  )}
+                  {deleteTarget.type === "role" && (
+                    <>
+                      You are about to delete the role{" "}
+                      <strong>{deleteTarget.item.role_name}</strong>. Users
+                      holding this role will instantly lose its associated
+                      permissions. Any role inheriting from this role will also
+                      lose these cascading permissions.
+                    </>
+                  )}
+                  {deleteTarget.type === "resource" && (
+                    <>
+                      You are about to delete the resource{" "}
+                      <strong>{deleteTarget.item.resource_key}</strong>. All
+                      policies governing this resource across all roles will be
+                      permanently deleted. If this resource still exists in the
+                      application code, it will become inaccessible to everyone.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-canvas-subtle p-3 rounded-lg border border-canvas-subtle">
+              <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
+                Target Summary
+              </p>
+              <code className="text-sm font-mono text-ink-primary block break-all">
+                ID:{" "}
+                {deleteTarget.item.user_id ||
+                  deleteTarget.item.role_id ||
+                  deleteTarget.item.resource_key}
+              </code>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 🟢 Updated User Modal to handle Edit mode */}
       {modal === "user" && (
         <Modal
-          title="Create New User"
+          title={isEditingUser ? "Edit User" : "Create New User"}
           onClose={() => setModal(null)}
           footer={
             <ModalFooter
               onCancel={() => setModal(null)}
               saving={saving}
-              label="Create User"
+              label={isEditingUser ? "Save Changes" : "Create User"}
               formId="user-form"
             />
           }
@@ -1611,7 +2176,8 @@ export default function UserManagement({
             <input
               required
               placeholder="User ID"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+              disabled={isEditingUser} // Cannot change ID after creation
+              className={`w-full border p-3 rounded-xl text-sm ${isEditingUser ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
               value={userForm.userId}
               onChange={(e) =>
                 setUserForm({
@@ -1654,15 +2220,16 @@ export default function UserManagement({
         </Modal>
       )}
 
+      {/* 🟢 Updated Role Modal to handle Edit mode */}
       {modal === "role" && (
         <Modal
-          title="Create New Role"
+          title={isEditingRole ? "Edit Role" : "Create New Role"}
           onClose={() => setModal(null)}
           footer={
             <ModalFooter
               onCancel={() => setModal(null)}
               saving={saving}
-              label="Create Role"
+              label={isEditingRole ? "Save Changes" : "Create Role"}
               formId="role-form"
             />
           }
@@ -1671,7 +2238,8 @@ export default function UserManagement({
             <input
               required
               placeholder="Role ID"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+              disabled={isEditingRole} // Cannot change ID after creation
+              className={`w-full border p-3 rounded-xl text-sm ${isEditingRole ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
               value={roleForm.roleId}
               onChange={(e) =>
                 setRoleForm({
@@ -1877,12 +2445,12 @@ export default function UserManagement({
               allRoles={roles}
               selected={selectedRolesForUser}
               onChange={setSelectedRolesForUser}
+              inheritedRoles={userInheritedRolesForModal}
             />
           )}
         </Modal>
       )}
 
-      {/* 🟢 NEW MODAL: MANAGE INHERITANCE */}
       {modal === "manageInheritance" && roleTarget && (
         <Modal
           title="Manage Role Inheritance"
@@ -1913,9 +2481,43 @@ export default function UserManagement({
               allRoles={roles}
               selected={selectedInheritedRoles}
               onChange={setSelectedInheritedRoles}
-              disabledRoleId={roleTarget.role_id} // Prevent a role from inheriting itself
+              disabledRoleIds={invalidRolesForInheritance}
             />
           )}
+        </Modal>
+      )}
+
+      {/* 🟢 REACT FLOW HIERARCHY TREE */}
+      {modal === "tree" && (
+        <Modal
+          title="Role Inheritance Hierarchy"
+          subtitle="A visual map of how roles cascade permissions."
+          onClose={() => setModal(null)}
+          wide={true}
+        >
+          <div className="w-full h-full min-h-[500px] border border-canvas-subtle rounded-xl bg-canvas-subtle/20">
+            {roles.length === 0 ? (
+              <div className="p-8 text-center text-neutral-400">
+                No roles defined.
+              </div>
+            ) : (
+              <ReactFlow
+                nodes={reactFlowNodes}
+                edges={reactFlowEdges}
+                fitView
+                attributionPosition="bottom-right"
+              >
+                <Background color="#ccc" gap={16} />
+                <Controls />
+                <MiniMap
+                  zoomable
+                  pannable
+                  nodeColor="#e2e8f0"
+                  maskColor="rgba(0,0,0,0.1)"
+                />
+              </ReactFlow>
+            )}
+          </div>
         </Modal>
       )}
     </div>

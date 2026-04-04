@@ -398,7 +398,6 @@ export const fetchAllForms = async () => {
   // Normalize response
   return Array.isArray(res.data) ? res.data : res.data.forms || [];
 };
-export default api;
 
 // Add this to your existing api.ts file
 
@@ -476,18 +475,27 @@ export const createTenantUser = async (payload: any) =>
   await api.post("/api/tenant/admin/users", payload);
 export const deactivateTenantUser = async (userId: string) =>
   await api.put(`/api/tenant/admin/users/${userId}/deactivate`);
+export const deleteTenantUser = async (userId: string) =>
+  await api.delete(`/api/tenant/admin/users/${userId}`);
 
 export const fetchTenantRoles = async () =>
   (await api.get("/api/tenant/admin/roles")).data;
 export const createTenantRole = async (payload: any) =>
   await api.post("/api/tenant/admin/roles", payload);
+export const deleteTenantRole = async (roleId: string) =>
+  await api.delete(`/api/tenant/admin/roles/${roleId}`);
+
 export const assignRoleToUser = async (userId: string, roleId: string) =>
   await api.post(`/api/tenant/admin/users/${userId}/roles/${roleId}`);
+export const removeRoleFromUser = async (userId: string, roleId: string) =>
+  (await api.delete(`/api/tenant/admin/users/${userId}/roles/${roleId}`)).data;
 
 export const fetchTenantResources = async () =>
   (await api.get("/api/tenant/admin/resources")).data;
 export const createTenantResource = async (payload: any) =>
   await api.post("/api/tenant/admin/resources", payload);
+export const deleteTenantResource = async (resourceKey: string) =>
+  await api.delete(`/api/tenant/admin/resources/${resourceKey}`);
 
 export const fetchRolePermissions = async (roleId: string) =>
   (await api.get(`/api/tenant/admin/roles/${roleId}/permissions`)).data;
@@ -505,10 +513,6 @@ export const revokePermission = async (payload: {
 export const fetchUserRoles = async (userId: string): Promise<string[]> =>
   (await api.get(`/api/tenant/admin/users/${userId}/roles`)).data;
 
-export const removeRoleFromUser = async (userId: string, roleId: string) =>
-  (await api.delete(`/api/tenant/admin/users/${userId}/roles/${roleId}`)).data;
-
-// 🟢 NEW: Add Custom Action to an existing Resource
 export const addCustomActionToResource = async (
   resourceKey: string,
   payload: { actionName: string; description: string },
@@ -520,7 +524,6 @@ export const addCustomActionToResource = async (
     )
   ).data;
 
-// 🟢 NEW: Role Inheritance API bindings
 export const fetchRoleInheritance = async (roleId: string): Promise<string[]> =>
   (await api.get(`/api/tenant/admin/roles/${roleId}/inherits`)).data;
 export const addRoleInheritance = async (
@@ -537,3 +540,16 @@ export const removeRoleInheritance = async (
   await api.delete(
     `/api/tenant/admin/roles/${roleId}/inherits/${inheritsRoleId}`,
   );
+
+// Handles fetching full effective access directly from the backend to optimize performance.
+export const fetchUserEffectiveAccess = async (userId: string) => 
+  (await api.get(`/api/tenant/admin/users/${userId}/effective-access`)).data;
+
+export default api;
+
+
+export const updateTenantUser = async (userId: string, payload: any) =>
+  await api.put(`/api/tenant/admin/users/${userId}`, payload);
+
+export const updateTenantRole = async (roleId: string, payload: any) =>
+  await api.put(`/api/tenant/admin/roles/${roleId}`, payload);

@@ -19,6 +19,7 @@
     "@rjsf/core": "^6.1.2",
     "@rjsf/utils": "^6.1.2",
     "@rjsf/validator-ajv8": "^6.1.2",
+    "@xyflow/react": "^12.10.2",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "bpmn-js": "^18.10.1",
