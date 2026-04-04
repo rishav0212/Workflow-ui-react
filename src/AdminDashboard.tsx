@@ -22,6 +22,14 @@ export default function AdminDashboard() {
       bg: "bg-brand-50",
     },
     {
+      to: `/admin/forms`,
+      icon: "fas fa-puzzle-piece",
+      title: "Form Manager",
+      desc: "Create and edit Formio forms used in user tasks across your workflows.",
+      color: "text-green-600",
+      bg: "bg-green-50", 
+    },
+    {
       to: `/admin/instances`,
       icon: "fas fa-microchip",
       title: "Instance Manager",

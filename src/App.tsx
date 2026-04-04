@@ -35,6 +35,7 @@ import ToolJetViewer from "./components/Views/ToolJetViewer";
 import UserManagement from "./UserManagement";
 import { PermissionProvider } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
+import FormManager from "./components/formio/FormManager";
 
 interface User {
   username: string;
@@ -669,7 +670,8 @@ export default function App() {
             {/* 🟢 MODIFIED: Make this an empty div. 
               The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
             <Route path="apps/:appId" element={<div className="hidden" />} />
-
+            <Route path="admin/forms" element={<FormManager />} />
+            <Route path="admin/forms/*" element={<FormManager />} />
             {/* Inbox & Tasks */}
             <Route
               path="inbox"
