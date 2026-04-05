@@ -640,7 +640,6 @@ export default function UserManagement({
     { name: string; description: string }[]
   >(() => actionsFor("button").map((a) => ({ name: a, description: "" })));
 
-  const [userSearch, setUserSearch] = useState("");
   const [roleSearch, setRoleSearch] = useState("");
   const [matrixMode, setMatrixMode] = useState<"byRole" | "byResource">(
     "byRole",
@@ -1028,7 +1027,7 @@ export default function UserManagement({
     }
   };
 
-  const saveUserRoles = async () => {
+const saveUserRoles = async () => {
     if (!roleTarget) return;
     setSaving(true);
     try {
@@ -1041,13 +1040,13 @@ export default function UserManagement({
       ]);
       addNotification("Roles updated", "success");
       setModal(null);
+      await load(); // 🟢 ADDED: This will auto-refresh the DataGrid with the new roles!
     } catch {
       addNotification("Failed to update roles", "error");
     } finally {
       setSaving(false);
     }
   };
-
   const openManageInheritance = async (role: any) => {
     setRoleTarget(role);
     setModal("manageInheritance");
@@ -1086,11 +1085,6 @@ export default function UserManagement({
     }
   };
 
-  const filteredUsers = users.filter((u) =>
-    `${u.first_name} ${u.last_name} ${u.email} ${u.user_id}`
-      .toLowerCase()
-      .includes(userSearch.toLowerCase()),
-  );
   const filteredRoles = roles.filter((r) =>
     `${r.role_name} ${r.role_id} ${r.description ?? ""}`
       .toLowerCase()
@@ -1235,27 +1229,39 @@ export default function UserManagement({
     return { reactFlowNodes: nodes, reactFlowEdges: edges };
   }, [modal, roles, roleInheritanceMap]);
 
-  // 🟢 DataGrid Columns for Users Tab
+// 🟢 DataGrid Columns for Users Tab
   const userColumns: Column<any>[] = [
     {
       header: "User",
       key: "first_name",
       sortable: true,
-      render: (u) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-black flex-shrink-0">
-            {(u.first_name?.[0] + u.last_name?.[0] || u.email[0]).toUpperCase()}
-          </div>
-          <div>
-            <div className="font-bold text-ink-primary">
-              {u.first_name} {u.last_name}
+      render: (u) => {
+        const fName = u?.first_name || "";
+        const lName = u?.last_name || "";
+        const email = u?.email || "";
+
+        const fInitial = fName.charAt(0) || "";
+        const lInitial = lName.charAt(0) || "";
+        const eInitial = email.charAt(0) || "?";
+
+        const initials = (fInitial + lInitial) || eInitial;
+
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-black flex-shrink-0">
+              {initials.toUpperCase()}
             </div>
-            <div className="text-xs text-neutral-400 font-mono">
-              {u.user_id}
+            <div>
+              <div className="font-bold text-ink-primary">
+                {fName} {lName}
+              </div>
+              <div className="text-xs text-neutral-400 font-mono">
+                {u?.user_id || "Unknown ID"}
+              </div>
             </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     { header: "Email", key: "email", sortable: true },
     {
@@ -1263,7 +1269,7 @@ export default function UserManagement({
       key: "is_active",
       sortable: true,
       render: (u) =>
-        u.is_active ? (
+        u?.is_active ? (
           <Badge label="Active" color="#16a34a" bg="#dcfce7" />
         ) : (
           <Badge label="Inactive" color="#dc2626" bg="#fee2e2" />
@@ -1271,34 +1277,24 @@ export default function UserManagement({
     },
     {
       header: "Roles",
-      key: "rolesStr", // 🟢 Map the key to our new searchable string
-      sortable: true, // 🟢 Now we can sort by roles!
+      key: "rolesStr",
+      sortable: true,
       render: (u) => (
-        <div className="flex flex-col items-start gap-2">
-          {/* Display the roles as badges */}
-          <div className="flex flex-wrap gap-1">
-            {u.rolesStr ? (
-              u.rolesStr.split(", ").map((roleName: string) => (
-                <span
-                  key={roleName}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-canvas-subtle text-neutral-600 font-bold border border-canvas-active"
-                >
-                  {roleName}
-                </span>
-              ))
-            ) : (
-              <span className="text-[10px] text-neutral-400 italic">
-                No roles
+        <div className="flex flex-wrap gap-1 max-w-[200px]">
+          {u?.rolesStr ? (
+            u.rolesStr.split(", ").map((roleName: string, idx: number) => (
+              <span
+                key={idx}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-canvas-subtle text-neutral-600 font-bold border border-canvas-active truncate"
+              >
+                {roleName}
               </span>
-            )}
-          </div>
-
-          <button
-            onClick={() => openManageRoles(u)}
-            className="text-brand-600 hover:text-brand-800 text-[10px] font-bold flex items-center gap-1 bg-brand-50 px-2 py-1 rounded border border-brand-100 transition-colors hover:border-brand-300"
-          >
-            <i className="fas fa-user-tag" /> Manage Roles
-          </button>
+            ))
+          ) : (
+            <span className="text-[10px] text-neutral-400 italic">
+              No roles
+            </span>
+          )}
         </div>
       ),
     },
@@ -1308,6 +1304,18 @@ export default function UserManagement({
       render: (u) => (
         <div className="flex items-center justify-end">
           <div className="flex items-center bg-canvas-subtle/50 rounded-lg border border-canvas-subtle p-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+            {/* 🟢 MOVED: Manage Roles button is now the first action icon */}
+            <button
+              onClick={() => openManageRoles(u)}
+              disabled={saving}
+              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+              title="Manage Roles"
+            >
+              <i className="fas fa-user-tag" />
+            </button>
+
+            <div className="w-px h-4 bg-neutral-300 mx-1"></div>
+
             <button
               onClick={() => {
                 setAuditUser(u.user_id);
@@ -1331,15 +1339,10 @@ export default function UserManagement({
 
             <div className="w-px h-4 bg-neutral-300 mx-1"></div>
 
-            {u.is_active ? (
+            {u?.is_active ? (
               <button
                 onClick={async () => {
-                  if (
-                    !window.confirm(
-                      "Deactivate this user? They will not be able to log in.",
-                    )
-                  )
-                    return;
+                  if (!window.confirm("Deactivate this user? They will not be able to log in.")) return;
                   try {
                     setSaving(true);
                     await deactivateTenantUser(u.user_id);
@@ -1395,9 +1398,8 @@ export default function UserManagement({
       ),
     },
   ];
-
   return (
-    <div className="h-full flex flex-col bg-canvas overflow-hidden">
+    <div className="h-full flex flex-col bg-canvas ">
       <div className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between border-b border-canvas-subtle bg-surface">
         <div>
           <h1 className="text-2xl font-bold text-ink-primary">
@@ -1434,14 +1436,21 @@ export default function UserManagement({
       </div>
 
       {/* ── USERS TAB ── */}
+{/* ── USERS TAB ── */}
       {tabState === "users" && (
-        <div className="flex-1 flex flex-col p-4">
+        <div className="flex-1 min-h-0 p-4"> {/* 🟢 Changed to min-h-0 */}
           <DataGrid
             data={users}
             columns={userColumns}
             loading={loading}
             getRowId={(u) => u.user_id}
-            searchFields={["first_name", "last_name", "email", "user_id"]}
+            searchFields={[
+              "first_name",
+              "last_name",
+              "email",
+              "user_id",
+              "rolesStr",
+            ]}
             headerActions={
               <button
                 onClick={openCreateUser}
@@ -1453,7 +1462,7 @@ export default function UserManagement({
           />
         </div>
       )}
-
+      
       {/* ── ROLES TAB ── */}
       {tabState === "roles" && (
         <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
