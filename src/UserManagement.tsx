@@ -8,17 +8,18 @@ import {
   type Edge,
   type Node,
 } from "@xyflow/react";
+import DataGrid, { type Column } from "./components/common/DataGrid";
 import "@xyflow/react/dist/style.css";
 
 import {
   fetchTenantUsers,
   createTenantUser,
-  updateTenantUser, // 🟢 Added update API import
+  updateTenantUser,
   deactivateTenantUser,
   deleteTenantUser,
   fetchTenantRoles,
   createTenantRole,
-  updateTenantRole, // 🟢 Added update API import
+  updateTenantRole,
   deleteTenantRole,
   assignRoleToUser,
   removeRoleFromUser,
@@ -35,6 +36,7 @@ import {
   addRoleInheritance,
   removeRoleInheritance,
   fetchUserEffectiveAccess,
+  reactivateTenantUser,
 } from "./api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -681,7 +683,18 @@ export default function UserManagement({
         fetchTenantRoles(),
         fetchTenantResources(),
       ]);
-      setUsers(u);
+
+      // 🟢 O(1) Frontend mapping: Backend now provides the roles array natively
+      const usersWithRoles = u.map((user: any) => {
+        const roleIds = user.roles || []; // Fallback to empty array if no roles
+        const roleNames = roleIds.map((id: string) => {
+          const found = r.find((role: any) => role.role_id === id);
+          return found ? found.role_name : id;
+        });
+        return { ...user, rolesStr: roleNames.join(", ") };
+      });
+
+      setUsers(usersWithRoles);
       setRoles(r);
       setResources(res);
 
@@ -1222,6 +1235,167 @@ export default function UserManagement({
     return { reactFlowNodes: nodes, reactFlowEdges: edges };
   }, [modal, roles, roleInheritanceMap]);
 
+  // 🟢 DataGrid Columns for Users Tab
+  const userColumns: Column<any>[] = [
+    {
+      header: "User",
+      key: "first_name",
+      sortable: true,
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-black flex-shrink-0">
+            {(u.first_name?.[0] + u.last_name?.[0] || u.email[0]).toUpperCase()}
+          </div>
+          <div>
+            <div className="font-bold text-ink-primary">
+              {u.first_name} {u.last_name}
+            </div>
+            <div className="text-xs text-neutral-400 font-mono">
+              {u.user_id}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    { header: "Email", key: "email", sortable: true },
+    {
+      header: "Status",
+      key: "is_active",
+      sortable: true,
+      render: (u) =>
+        u.is_active ? (
+          <Badge label="Active" color="#16a34a" bg="#dcfce7" />
+        ) : (
+          <Badge label="Inactive" color="#dc2626" bg="#fee2e2" />
+        ),
+    },
+    {
+      header: "Roles",
+      key: "rolesStr", // 🟢 Map the key to our new searchable string
+      sortable: true, // 🟢 Now we can sort by roles!
+      render: (u) => (
+        <div className="flex flex-col items-start gap-2">
+          {/* Display the roles as badges */}
+          <div className="flex flex-wrap gap-1">
+            {u.rolesStr ? (
+              u.rolesStr.split(", ").map((roleName: string) => (
+                <span
+                  key={roleName}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-canvas-subtle text-neutral-600 font-bold border border-canvas-active"
+                >
+                  {roleName}
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] text-neutral-400 italic">
+                No roles
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={() => openManageRoles(u)}
+            className="text-brand-600 hover:text-brand-800 text-[10px] font-bold flex items-center gap-1 bg-brand-50 px-2 py-1 rounded border border-brand-100 transition-colors hover:border-brand-300"
+          >
+            <i className="fas fa-user-tag" /> Manage Roles
+          </button>
+        </div>
+      ),
+    },
+    {
+      header: "Actions",
+      key: "actions",
+      render: (u) => (
+        <div className="flex items-center justify-end">
+          <div className="flex items-center bg-canvas-subtle/50 rounded-lg border border-canvas-subtle p-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => {
+                setAuditUser(u.user_id);
+                setTab("audit");
+              }}
+              disabled={saving}
+              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+              title="View Effective Permissions"
+            >
+              <i className="fas fa-eye" />
+            </button>
+
+            <button
+              onClick={() => openEditUser(u)}
+              disabled={saving}
+              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+              title="Edit User"
+            >
+              <i className="fas fa-edit" />
+            </button>
+
+            <div className="w-px h-4 bg-neutral-300 mx-1"></div>
+
+            {u.is_active ? (
+              <button
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      "Deactivate this user? They will not be able to log in.",
+                    )
+                  )
+                    return;
+                  try {
+                    setSaving(true);
+                    await deactivateTenantUser(u.user_id);
+                    addNotification("User deactivated", "success");
+                    await load();
+                  } catch {
+                    addNotification("Failed to deactivate", "error");
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-warning hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
+                title="Deactivate User"
+              >
+                <i className="fas fa-user-slash" />
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    setSaving(true);
+                    await reactivateTenantUser(u.user_id);
+                    addNotification("User reactivated", "success");
+                    await load();
+                  } catch {
+                    addNotification("Failed to reactivate", "error");
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-success hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
+                title="Reactivate User"
+              >
+                <i className="fas fa-user-check" />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setDeleteTarget({ type: "user", item: u });
+                setModal("delete");
+              }}
+              disabled={saving}
+              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-rose-500 hover:text-white hover:shadow-sm transition-all disabled:opacity-50 ml-1"
+              title="Permanently Delete User"
+            >
+              <i className="fas fa-trash-alt" />
+            </button>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="h-full flex flex-col bg-canvas overflow-hidden">
       <div className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between border-b border-canvas-subtle bg-surface">
@@ -1261,159 +1435,22 @@ export default function UserManagement({
 
       {/* ── USERS TAB ── */}
       {tabState === "users" && (
-        <div className="flex-1 flex flex-col overflow-hidden bg-surface m-4 rounded-2xl border border-canvas-subtle shadow-soft">
-          <PanelHeader
-            title={`Users (${users.length})`}
-            action={
-              <div className="flex items-center gap-3">
-                <SearchInput
-                  value={userSearch}
-                  onChange={setUserSearch}
-                  placeholder="Search users…"
-                />
-                <button
-                  onClick={openCreateUser} // 🟢 Changed to use openCreateUser
-                  className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
-                >
-                  <i className="fas fa-plus" /> New User
-                </button>
-              </div>
+        <div className="flex-1 flex flex-col p-4">
+          <DataGrid
+            data={users}
+            columns={userColumns}
+            loading={loading}
+            getRowId={(u) => u.user_id}
+            searchFields={["first_name", "last_name", "email", "user_id"]}
+            headerActions={
+              <button
+                onClick={openCreateUser}
+                className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
+              >
+                <i className="fas fa-plus" /> New User
+              </button>
             }
           />
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex justify-center py-16">
-                <Spinner />
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <EmptyState
-                icon="fa-users"
-                title="No users found"
-                sub="Create your first user to get started"
-              />
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-canvas-subtle/60 sticky top-0 z-10">
-                  <tr>
-                    {["User", "Email", "Status", "Roles", "Actions"].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="text-left px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 border-b border-canvas-subtle"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((u, i) => (
-                    <tr
-                      key={u.user_id}
-                      className={`border-b border-canvas-subtle hover:bg-canvas-subtle/30 transition-colors ${i % 2 === 0 ? "" : "bg-canvas/40"}`}
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-black flex-shrink-0">
-                            {(
-                              u.first_name?.[0] + u.last_name?.[0] || u.email[0]
-                            ).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-ink-primary">
-                              {u.first_name} {u.last_name}
-                            </div>
-                            <div className="text-xs text-neutral-400 font-mono">
-                              {u.user_id}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-neutral-600">{u.email}</td>
-                      <td className="px-5 py-3">
-                        {u.is_active ? (
-                          <Badge label="Active" color="#16a34a" bg="#dcfce7" />
-                        ) : (
-                          <Badge
-                            label="Inactive"
-                            color="#dc2626"
-                            bg="#fee2e2"
-                          />
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <button
-                          onClick={() => openManageRoles(u)}
-                          className="text-brand-600 hover:text-brand-800 text-xs font-bold flex items-center gap-1"
-                        >
-                          <i className="fas fa-user-tag" /> Manage Roles
-                        </button>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3 justify-end">
-                          <button
-                            onClick={() => {
-                              setAuditUser(u.user_id);
-                              setTab("audit");
-                            }}
-                            className="text-neutral-500 hover:text-brand-600 text-xs font-bold transition-colors"
-                            title="View Effective Permissions"
-                          >
-                            <i className="fas fa-eye" />
-                          </button>
-
-                          <div className="w-px h-4 bg-canvas-subtle"></div>
-
-                          {/* 🟢 Added Edit User Button */}
-                          <button
-                            onClick={() => openEditUser(u)}
-                            className="text-neutral-500 hover:text-brand-600 text-xs font-bold transition-colors"
-                            title="Edit User"
-                          >
-                            <i className="fas fa-edit" />
-                          </button>
-
-                          {u.is_active && (
-                            <button
-                              onClick={async () => {
-                                if (!window.confirm("Deactivate this user?"))
-                                  return;
-                                try {
-                                  await deactivateTenantUser(u.user_id);
-                                  addNotification(
-                                    "User deactivated",
-                                    "success",
-                                  );
-                                  load();
-                                } catch {
-                                  addNotification("Failed", "error");
-                                }
-                              }}
-                              className="text-neutral-500 hover:text-status-warning text-xs font-bold transition-colors"
-                              title="Deactivate Account"
-                            >
-                              <i className="fas fa-ban" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setDeleteTarget({ type: "user", item: u });
-                              setModal("delete");
-                            }}
-                            className="text-neutral-500 hover:text-rose-600 text-xs font-bold transition-colors"
-                            title="Permanently Delete User"
-                          >
-                            <i className="fas fa-trash-alt" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
       )}
 
@@ -1436,7 +1473,7 @@ export default function UserManagement({
                   placeholder="Search roles…"
                 />
                 <button
-                  onClick={openCreateRole} // 🟢 Changed to use openCreateRole
+                  onClick={openCreateRole}
                   className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
                 >
                   <i className="fas fa-plus" /> New Role
@@ -1491,7 +1528,8 @@ export default function UserManagement({
                       <div className="flex items-center gap-2 flex-shrink-0 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => openManageInheritance(r)}
-                          className="text-neutral-500 hover:text-brand-700 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          disabled={saving}
+                          className="text-neutral-500 hover:text-brand-700 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Manage Inheritance"
                         >
                           <i className="fas fa-project-diagram" />
@@ -1502,7 +1540,8 @@ export default function UserManagement({
                             setTab("matrix");
                             setMatrixMode("byRole");
                           }}
-                          className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          disabled={saving}
+                          className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Edit Permissions"
                         >
                           <i className="fas fa-key" />
@@ -1510,10 +1549,10 @@ export default function UserManagement({
 
                         <div className="w-px h-5 bg-canvas-subtle mx-1"></div>
 
-                        {/* 🟢 Added Edit Role Button */}
                         <button
                           onClick={() => openEditRole(r)}
-                          className="text-neutral-500 hover:text-brand-600 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                          disabled={saving}
+                          className="text-neutral-500 hover:text-brand-600 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Edit Role"
                         >
                           <i className="fas fa-edit" />
@@ -1524,7 +1563,8 @@ export default function UserManagement({
                             setDeleteTarget({ type: "role", item: r });
                             setModal("delete");
                           }}
-                          className="text-neutral-400 hover:text-rose-600 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                          disabled={saving}
+                          className="text-neutral-400 hover:text-rose-600 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Delete Role"
                         >
                           <i className="fas fa-trash-alt" />
@@ -1592,7 +1632,8 @@ export default function UserManagement({
                           <div className="ml-auto flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => openEditResource(res)}
-                              className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors"
+                              disabled={saving}
+                              className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Edit Resource"
                             >
                               <i className="fas fa-edit"></i>
@@ -1605,7 +1646,8 @@ export default function UserManagement({
                                 });
                                 setModal("delete");
                               }}
-                              className="text-neutral-500 hover:text-rose-600 hover:bg-rose-50 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors"
+                              disabled={saving}
+                              className="text-neutral-500 hover:text-rose-600 hover:bg-rose-50 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Delete Resource"
                             >
                               <i className="fas fa-trash-alt"></i>

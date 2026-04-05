@@ -553,3 +553,9 @@ export const updateTenantUser = async (userId: string, payload: any) =>
 
 export const updateTenantRole = async (roleId: string, payload: any) =>
   await api.put(`/api/tenant/admin/roles/${roleId}`, payload);
+
+
+
+// 🟢 ADD THIS LINE:
+export const reactivateTenantUser = async (userId: string) =>
+  await api.put(`/api/tenant/admin/users/${userId}/reactivate`);
