@@ -279,7 +279,7 @@ export default function UsersTab({
       key: "actions",
       render: (u) => (
         <div className="flex items-center justify-end">
-          <div className="flex items-center bg-canvas-subtle/50 rounded-lg border border-canvas-subtle p-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center bg-canvas-subtle/50 rounded-lg border border-canvas-subtle p-1 opacity-100 ">
             <button
               onClick={() => openManageRoles(u)}
               disabled={saving}
