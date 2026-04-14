@@ -33,6 +33,17 @@ api.interceptors.response.use(
   },
 );
 
+// / ─── Helper: Unwrap ApiResponse envelope ────────────────────────────────────
+// New backend wraps responses in: { success: true, data: [...], timestamp: ... }
+// This helper extracts just the `data` field for IAM endpoints.
+// Falls back to raw response if it's not an ApiResponse (e.g. old Flowable endpoints)
+export const unwrapData = (res: any) => {
+  const d = res.data;
+  if (d && typeof d === "object" && "success" in d && "data" in d) {
+    return d.data;
+  }
+  return d;
+};
 // 🟢 NEW: Error Parsing Helper
 // This extracts the "message" field from your Spring Boot GlobalExceptionHandler
 export const parseApiError = (error: any): string => {
@@ -195,11 +206,6 @@ export const fetchProcessInstances = async () => {
  */
 export const terminateProcessInstance = async (id: string) => {
   return await api.delete(`/api/admin/processes/instances/${id}`);
-};
-
-export const fetchResourcePermissions = async (resourceKey: string) => {
-  const res = await api.get(`/api/permissions/resource/${resourceKey}`);
-  return res.data;
 };
 
 export const fetchInstanceVariables = async (id: string) => {
@@ -466,96 +472,5 @@ export const fetchMyToolJetApps = async () => {
   return res.data;
 };
 
-// --- USER MANAGEMENT & IAM APIs ---
-// --- USER MANAGEMENT & IAM APIs ---
-
-export const fetchTenantUsers = async () =>
-  (await api.get("/api/tenant/admin/users")).data;
-export const createTenantUser = async (payload: any) =>
-  await api.post("/api/tenant/admin/users", payload);
-export const deactivateTenantUser = async (userId: string) =>
-  await api.put(`/api/tenant/admin/users/${userId}/deactivate`);
-export const deleteTenantUser = async (userId: string) =>
-  await api.delete(`/api/tenant/admin/users/${userId}`);
-
-export const fetchTenantRoles = async () =>
-  (await api.get("/api/tenant/admin/roles")).data;
-export const createTenantRole = async (payload: any) =>
-  await api.post("/api/tenant/admin/roles", payload);
-export const deleteTenantRole = async (roleId: string) =>
-  await api.delete(`/api/tenant/admin/roles/${roleId}`);
-
-export const assignRoleToUser = async (userId: string, roleId: string) =>
-  await api.post(`/api/tenant/admin/users/${userId}/roles/${roleId}`);
-export const removeRoleFromUser = async (userId: string, roleId: string) =>
-  (await api.delete(`/api/tenant/admin/users/${userId}/roles/${roleId}`)).data;
-
-export const fetchTenantResources = async () =>
-  (await api.get("/api/tenant/admin/resources")).data;
-export const createTenantResource = async (payload: any) =>
-  await api.post("/api/tenant/admin/resources", payload);
-export const deleteTenantResource = async (resourceKey: string) =>
-  await api.delete(`/api/tenant/admin/resources/${resourceKey}`);
-
-export const fetchRolePermissions = async (roleId: string) =>
-  (await api.get(`/api/tenant/admin/roles/${roleId}/permissions`)).data;
-export const grantPermission = async (payload: {
-  roleId: string;
-  resourceKey: string;
-  action: string;
-}) => await api.post("/api/tenant/admin/permissions/grant", payload);
-export const revokePermission = async (payload: {
-  roleId: string;
-  resourceKey: string;
-  action: string;
-}) => await api.post("/api/tenant/admin/permissions/revoke", payload);
-
-export const fetchUserRoles = async (userId: string): Promise<string[]> =>
-  (await api.get(`/api/tenant/admin/users/${userId}/roles`)).data;
-
-export const addCustomActionToResource = async (
-  resourceKey: string,
-  payload: { actionName: string; description: string },
-) =>
-  (
-    await api.post(
-      `/api/tenant/admin/resources/${resourceKey}/actions`,
-      payload,
-    )
-  ).data;
-
-export const fetchRoleInheritance = async (roleId: string): Promise<string[]> =>
-  (await api.get(`/api/tenant/admin/roles/${roleId}/inherits`)).data;
-export const addRoleInheritance = async (
-  roleId: string,
-  inheritsRoleId: string,
-) =>
-  await api.post(
-    `/api/tenant/admin/roles/${roleId}/inherits/${inheritsRoleId}`,
-  );
-export const removeRoleInheritance = async (
-  roleId: string,
-  inheritsRoleId: string,
-) =>
-  await api.delete(
-    `/api/tenant/admin/roles/${roleId}/inherits/${inheritsRoleId}`,
-  );
-
-// Handles fetching full effective access directly from the backend to optimize performance.
-export const fetchUserEffectiveAccess = async (userId: string) => 
-  (await api.get(`/api/tenant/admin/users/${userId}/effective-access`)).data;
 
 export default api;
-
-
-export const updateTenantUser = async (userId: string, payload: any) =>
-  await api.put(`/api/tenant/admin/users/${userId}`, payload);
-
-export const updateTenantRole = async (roleId: string, payload: any) =>
-  await api.put(`/api/tenant/admin/roles/${roleId}`, payload);
-
-
-
-// 🟢 ADD THIS LINE:
-export const reactivateTenantUser = async (userId: string) =>
-  await api.put(`/api/tenant/admin/users/${userId}/reactivate`);

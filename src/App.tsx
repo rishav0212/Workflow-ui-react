@@ -32,7 +32,7 @@ import JobManager from "./JobManager";
 import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
 import ToolJetViewer from "./components/Views/ToolJetViewer";
-import UserManagement from "./UserManagement";
+import UserManagement from "./features/iam/UserManagement";
 import { PermissionProvider } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";

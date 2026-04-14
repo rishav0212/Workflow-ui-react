@@ -1,48 +1,63 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import api from "../api";
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import api, { unwrapData } from '../api'; // Use our unwrap helper!
 
 interface PermissionContextType {
-  permissions: Record<string, boolean>;
-  hasPermission: (resource: string, action?: string) => boolean;
-  isLoading: boolean;
+    permissions: Record<string, boolean>;
+    hasPermission: (resource: string, action: string) => boolean;
+    loading: boolean;
+    refreshPermissions: () => Promise<void>;
 }
 
-const PermissionContext = createContext<PermissionContextType>({
-  permissions: {},
-  hasPermission: () => false,
-  isLoading: true,
-});
+const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
 
-export const PermissionProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(true);
+export const PermissionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch the flattened permissions map from your Spring Boot API
-    api
-      .get("/api/permissions/my-permissions")
-      .then((res) => setPermissions(res.data.permissions))
-      .catch((err) => console.error("Failed to load permissions", err))
-      .finally(() => setIsLoading(false));
-  }, []);
+    const fetchPermissions = async () => {
+        try {
+            setLoading(true);
+            // 🟢 1. Hit the new modular endpoint and unwrap the ApiResponse envelope
+            const responseData = unwrapData(await api.get('/api/permissions/my-permissions'));
+            
+            // 🟢 2. Safely set the permissions map (fallback to empty object if undefined)
+            setPermissions(responseData?.permissions || {});
+        } catch (error) {
+            console.error('Failed to load user permissions:', error);
+            setPermissions({});
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // The core check logic
-  const hasPermission = (resource: string, action: string = "view") => {
-    // Look for the exact key (e.g., "action:approve_order:execute")
-    return permissions[`${resource}:${action}`] === true;
-  };
+    useEffect(() => {
+        const token = localStorage.getItem('jwt_token');
+        if (token) {
+            fetchPermissions();
+        } else {
+            setLoading(false);
+        }
+    }, []);
 
-  return (
-    <PermissionContext.Provider
-      value={{ permissions, hasPermission, isLoading }}
-    >
-      {children}
-    </PermissionContext.Provider>
-  );
+    const hasPermission = (resource: string, action: string): boolean => {
+        // 🟢 3. DEFENSIVE CHECK: If permissions are not loaded yet, deny access instead of crashing
+        if (!permissions) return false;
+        
+        const key = `${resource}:${action}`;
+        return !!permissions[key];
+    };
+
+    return (
+        <PermissionContext.Provider value={{ permissions, hasPermission, loading, refreshPermissions: fetchPermissions }}>
+            {children}
+        </PermissionContext.Provider>
+    );
 };
 
-export const usePermissions = () => useContext(PermissionContext);
+export const usePermissions = () => {
+    const context = useContext(PermissionContext);
+    if (context === undefined) {
+        throw new Error('usePermissions must be used within a PermissionProvider');
+    }
+    return context;
+};
