@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import api, { unwrapData } from '../api'; // Use our unwrap helper!
+import api, { unwrapData } from '../api'; 
 
 interface PermissionContextType {
     permissions: Record<string, boolean>;
     hasPermission: (resource: string, action: string) => boolean;
-    loading: boolean;
+    isLoading: boolean;
     refreshPermissions: () => Promise<void>;
 }
 
@@ -12,7 +12,7 @@ const PermissionContext = createContext<PermissionContextType | undefined>(undef
 
 export const PermissionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-    const [loading, setLoading] = useState(true);
+    const [isLoading, setLoading] = useState(true);
 
     const fetchPermissions = async () => {
         try {
@@ -48,7 +48,7 @@ export const PermissionProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     return (
-        <PermissionContext.Provider value={{ permissions, hasPermission, loading, refreshPermissions: fetchPermissions }}>
+        <PermissionContext.Provider value={{ permissions, hasPermission, isLoading, refreshPermissions: fetchPermissions }}>
             {children}
         </PermissionContext.Provider>
     );
