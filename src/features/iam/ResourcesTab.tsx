@@ -21,6 +21,7 @@ import {
   RESOURCE_TYPES,
   type ResourceType,
 } from "./iam-constants";
+import { Secure } from "../../components/common/Secure";
 
 interface ResourcesTabProps {
   resources: any[];
@@ -155,12 +156,15 @@ export default function ResourcesTab({
                 onChange={setResourceSearch}
                 placeholder="Search resources..."
               />
-              <button
-                onClick={openCreate}
-                className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
-              >
-                <i className="fas fa-plus" /> Register Resource
-              </button>
+              {/* Register Resource — requires module:access_control manage */}
+              <Secure resource="module:access_control" action="manage">
+                <button
+                  onClick={openCreate}
+                  className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
+                >
+                  <i className="fas fa-plus" /> Register Resource
+                </button>
+              </Secure>
             </div>
           }
         />
@@ -193,25 +197,38 @@ export default function ResourcesTab({
                         </span>
                       ) : (
                         <div className="ml-auto flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEdit(res)}
-                            disabled={saving}
-                            className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50"
-                            title="Edit"
+                          {/* Edit Resource — requires module:access_control manage */}
+                          <Secure
+                            resource="module:access_control"
+                            action="manage"
                           >
-                            <i className="fas fa-edit" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeleteTarget(res);
-                              setModal("delete");
-                            }}
-                            disabled={saving}
-                            className="text-neutral-500 hover:text-rose-600 hover:bg-rose-50 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50"
-                            title="Delete"
+                            <button
+                              onClick={() => openEdit(res)}
+                              disabled={saving}
+                              className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50"
+                              title="Edit"
+                            >
+                              <i className="fas fa-edit" />
+                            </button>
+                          </Secure>
+
+                          {/* Delete Resource — requires module:access_control delete */}
+                          <Secure
+                            resource="module:access_control"
+                            action="delete"
                           >
-                            <i className="fas fa-trash-alt" />
-                          </button>
+                            <button
+                              onClick={() => {
+                                setDeleteTarget(res);
+                                setModal("delete");
+                              }}
+                              disabled={saving}
+                              className="text-neutral-500 hover:text-rose-600 hover:bg-rose-50 w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors disabled:opacity-50"
+                              title="Delete"
+                            >
+                              <i className="fas fa-trash-alt" />
+                            </button>
+                          </Secure>
                         </div>
                       )}
                     </div>
@@ -239,179 +256,187 @@ export default function ResourcesTab({
         </div>
       </div>
 
+      {/* Create / Edit — requires module:access_control manage */}
       {modal === "createEdit" && (
-        <Modal
-          title={isEditing ? "Edit Resource" : "Register a Resource"}
-          subtitle={
-            isEditing
-              ? "Update description or add new supported actions."
-              : "Define what needs to be access-controlled."
-          }
-          onClose={() => setModal(null)}
-          footer={
-            <ModalFooter
-              onCancel={() => setModal(null)}
-              saving={saving}
-              label={isEditing ? "Save Changes" : "Register"}
-              formId="resource-form"
-            />
-          }
-        >
-          <form
-            id="resource-form"
-            onSubmit={handleSubmit}
-            className="space-y-4"
+        <Secure resource="module:access_control" action="manage">
+          <Modal
+            title={isEditing ? "Edit Resource" : "Register a Resource"}
+            subtitle={
+              isEditing
+                ? "Update description or add new supported actions."
+                : "Define what needs to be access-controlled."
+            }
+            onClose={() => setModal(null)}
+            footer={
+              <ModalFooter
+                onCancel={() => setModal(null)}
+                saving={saving}
+                label={isEditing ? "Save Changes" : "Register"}
+                formId="resource-form"
+              />
+            }
           >
-            <div className={isEditing ? "opacity-60 pointer-events-none" : ""}>
-              <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
-                Resource Type
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {RESOURCE_TYPES.map((rt) => (
-                  <button
-                    key={rt.value}
-                    type="button"
-                    onClick={() => {
-                      setResType(rt.value);
-                      setResKey(`${rt.value}:`);
-                      setResActions(
-                        actionsFor(rt.value).map((a) => ({
-                          name: a as string,
-                          description: "",
-                        })),
-                      );
-                    }}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-bold transition-all text-left ${resType === rt.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-canvas-subtle text-ink-secondary hover:bg-canvas-subtle"}`}
-                  >
-                    <i
-                      className={`fas ${rt.icon} w-4 text-center ${resType === rt.value ? "text-brand-500" : "text-neutral-400"}`}
-                    />
-                    <span className="text-xs font-bold leading-tight">
-                      {rt.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <ResourceKeyBuilder
-              value={resKey}
-              type={resType}
-              onChange={setResKey}
-              disabled={isEditing}
-            />
-            <div>
-              <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
-                Display Name
-              </label>
-              <input
-                required
-                placeholder="e.g. Approve Order Button"
-                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
-                value={resDisplay}
-                onChange={(e) => setResDisplay(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
-                Description
-              </label>
-              <textarea
-                placeholder="What exactly does this resource control?"
-                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-                rows={2}
-                value={resDesc}
-                onChange={(e) => setResDesc(e.target.value)}
-              />
-            </div>
-            <div className="pt-2 border-t border-canvas-subtle">
-              <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide flex items-center justify-between mb-3">
-                <span>Supported Actions</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setResActions([
-                      ...resActions,
-                      { name: "", description: "" },
-                    ])
-                  }
-                  className="text-brand-600 hover:text-brand-800 text-[10px] bg-brand-50 px-2 py-1 rounded"
-                >
-                  <i className="fas fa-plus mr-1" /> Add Custom Action
-                </button>
-              </label>
-              <div className="space-y-2 bg-canvas-subtle/30 p-3 rounded-xl border border-canvas-subtle max-h-48 overflow-y-auto">
-                {resActions.length === 0 && (
-                  <p className="text-xs text-neutral-400 italic text-center py-2">
-                    No actions defined.
-                  </p>
-                )}
-                {resActions.map((act, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <input
-                      required
-                      placeholder="e.g. export_pdf"
-                      value={act.name}
-                      onChange={(e) => {
-                        const n = [...resActions];
-                        n[i].name = e.target.value
-                          .toLowerCase()
-                          .replace(/\s+/g, "_");
-                        setResActions(n);
-                      }}
-                      className="w-1/3 px-3 py-2 rounded-lg border border-canvas-subtle text-xs font-mono outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                    <input
-                      placeholder="Optional description..."
-                      value={act.description}
-                      onChange={(e) => {
-                        const n = [...resActions];
-                        n[i].description = e.target.value;
-                        setResActions(n);
-                      }}
-                      className="flex-1 px-3 py-2 rounded-lg border border-canvas-subtle text-xs outline-none focus:ring-2 focus:ring-brand-500"
-                    />
+            <form
+              id="resource-form"
+              onSubmit={handleSubmit}
+              className="space-y-4"
+            >
+              <div
+                className={isEditing ? "opacity-60 pointer-events-none" : ""}
+              >
+                <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
+                  Resource Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {RESOURCE_TYPES.map((rt) => (
                     <button
+                      key={rt.value}
                       type="button"
                       onClick={() => {
-                        const n = [...resActions];
-                        n.splice(i, 1);
-                        setResActions(n);
+                        setResType(rt.value);
+                        setResKey(`${rt.value}:`);
+                        setResActions(
+                          actionsFor(rt.value).map((a) => ({
+                            name: a as string,
+                            description: "",
+                          })),
+                        );
                       }}
-                      className="text-neutral-400 hover:text-rose-500 p-1.5 rounded"
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-bold transition-all text-left ${resType === rt.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-canvas-subtle text-ink-secondary hover:bg-canvas-subtle"}`}
                     >
-                      <i className="fas fa-times text-xs" />
+                      <i
+                        className={`fas ${rt.icon} w-4 text-center ${resType === rt.value ? "text-brand-500" : "text-neutral-400"}`}
+                      />
+                      <span className="text-xs font-bold leading-tight">
+                        {rt.label}
+                      </span>
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </form>
-        </Modal>
+              <ResourceKeyBuilder
+                value={resKey}
+                type={resType}
+                onChange={setResKey}
+                disabled={isEditing}
+              />
+              <div>
+                <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
+                  Display Name
+                </label>
+                <input
+                  required
+                  placeholder="e.g. Approve Order Button"
+                  className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"
+                  value={resDisplay}
+                  onChange={(e) => setResDisplay(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide block mb-2">
+                  Description
+                </label>
+                <textarea
+                  placeholder="What exactly does this resource control?"
+                  className="w-full border border-canvas-subtle p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                  rows={2}
+                  value={resDesc}
+                  onChange={(e) => setResDesc(e.target.value)}
+                />
+              </div>
+              <div className="pt-2 border-t border-canvas-subtle">
+                <label className="text-xs font-bold text-ink-secondary uppercase tracking-wide flex items-center justify-between mb-3">
+                  <span>Supported Actions</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setResActions([
+                        ...resActions,
+                        { name: "", description: "" },
+                      ])
+                    }
+                    className="text-brand-600 hover:text-brand-800 text-[10px] bg-brand-50 px-2 py-1 rounded"
+                  >
+                    <i className="fas fa-plus mr-1" /> Add Custom Action
+                  </button>
+                </label>
+                <div className="space-y-2 bg-canvas-subtle/30 p-3 rounded-xl border border-canvas-subtle max-h-48 overflow-y-auto">
+                  {resActions.length === 0 && (
+                    <p className="text-xs text-neutral-400 italic text-center py-2">
+                      No actions defined.
+                    </p>
+                  )}
+                  {resActions.map((act, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        required
+                        placeholder="e.g. export_pdf"
+                        value={act.name}
+                        onChange={(e) => {
+                          const n = [...resActions];
+                          n[i].name = e.target.value
+                            .toLowerCase()
+                            .replace(/\s+/g, "_");
+                          setResActions(n);
+                        }}
+                        className="w-1/3 px-3 py-2 rounded-lg border border-canvas-subtle text-xs font-mono outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <input
+                        placeholder="Optional description..."
+                        value={act.description}
+                        onChange={(e) => {
+                          const n = [...resActions];
+                          n[i].description = e.target.value;
+                          setResActions(n);
+                        }}
+                        className="flex-1 px-3 py-2 rounded-lg border border-canvas-subtle text-xs outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const n = [...resActions];
+                          n.splice(i, 1);
+                          setResActions(n);
+                        }}
+                        className="text-neutral-400 hover:text-rose-500 p-1.5 rounded"
+                      >
+                        <i className="fas fa-times text-xs" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </form>
+          </Modal>
+        </Secure>
       )}
 
+      {/* Delete — requires module:access_control delete */}
       {modal === "delete" && deleteTarget && (
-        <Modal
-          title="Delete Resource"
-          onClose={() => setModal(null)}
-          footer={
-            <ModalFooter
-              onCancel={() => setModal(null)}
-              onSubmit={handleDelete}
-              saving={saving}
-              label="Yes, permanently delete"
-              isDanger
-            />
-          }
-        >
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
-            <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
-            <p className="text-sm">
-              Deleting <strong>{deleteTarget.resource_key}</strong> will remove
-              all associated Casbin policies across all roles. This cannot be
-              undone.
-            </p>
-          </div>
-        </Modal>
+        <Secure resource="module:access_control" action="delete">
+          <Modal
+            title="Delete Resource"
+            onClose={() => setModal(null)}
+            footer={
+              <ModalFooter
+                onCancel={() => setModal(null)}
+                onSubmit={handleDelete}
+                saving={saving}
+                label="Yes, permanently delete"
+                isDanger
+              />
+            }
+          >
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
+              <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
+              <p className="text-sm">
+                Deleting <strong>{deleteTarget.resource_key}</strong> will
+                remove all associated Casbin policies across all roles. This
+                cannot be undone.
+              </p>
+            </div>
+          </Modal>
+        </Secure>
       )}
     </>
   );

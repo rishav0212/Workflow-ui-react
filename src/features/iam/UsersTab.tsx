@@ -18,6 +18,8 @@ import {
   MultiRoleSelector,
   Spinner,
 } from "./IamShared";
+import { Secure } from "../../components/common/Secure";
+import { usePermissions } from "../../hooks/PermissionContext"; // 🟢 1. Import permissions hook
 
 interface UsersTabProps {
   users: any[];
@@ -50,6 +52,10 @@ export default function UsersTab({
   const [roleTarget, setRoleTarget] = useState<any>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+
+  // 🟢 2. Check if the current user has permission to MANAGE roles
+  const { hasPermission } = usePermissions();
+  const canManageRoles = hasPermission("module:access_control", "manage");
 
   const [form, setForm] = useState({
     userId: "",
@@ -280,59 +286,82 @@ export default function UsersTab({
       render: (u) => (
         <div className="flex items-center justify-end">
           <div className="flex items-center bg-canvas-subtle/50 rounded-lg border border-canvas-subtle p-1 opacity-100 ">
-            <button
-              onClick={() => openManageRoles(u)}
-              disabled={saving}
-              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
-              title="Manage Roles"
-            >
-              <i className="fas fa-user-tag" />
-            </button>
+            {/* 🟢 3. We revert this to 'read' so the button is ALWAYS clickable for users who can view the tab */}
+            <Secure resource="module:users" action="read">
+              <button
+                onClick={() => openManageRoles(u)}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+                title={canManageRoles ? "Manage Roles" : "View Roles"}
+              >
+                <i
+                  className={
+                    canManageRoles ? "fas fa-user-tag" : "fas fa-user-shield"
+                  }
+                />
+              </button>
+            </Secure>
+
             <div className="w-px h-4 bg-neutral-300 mx-1" />
-            <button
-              onClick={() => onViewAudit(u.user_id)}
-              disabled={saving}
-              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
-              title="View Effective Permissions"
-            >
-              <i className="fas fa-eye" />
-            </button>
-            <button
-              onClick={() => openEdit(u)}
-              disabled={saving}
-              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
-              title="Edit User"
-            >
-              <i className="fas fa-edit" />
-            </button>
+
+            <Secure resource="module:access_control" action="read">
+              <button
+                onClick={() => onViewAudit(u.user_id)}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+                title="View Effective Permissions"
+              >
+                <i className="fas fa-eye" />
+              </button>
+            </Secure>
+
+            <Secure resource="module:users" action="manage">
+              <button
+                onClick={() => openEdit(u)}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 hover:shadow-sm transition-all disabled:opacity-50"
+                title="Edit User"
+              >
+                <i className="fas fa-edit" />
+              </button>
+            </Secure>
+
             <div className="w-px h-4 bg-neutral-300 mx-1" />
+
             {u?.is_active ? (
-              <button
-                onClick={() => handleDeactivate(u)}
-                disabled={saving}
-                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-warning hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
-                title="Deactivate"
-              >
-                <i className="fas fa-user-slash" />
-              </button>
+              <Secure resource="module:users" action="manage">
+                <button
+                  onClick={() => handleDeactivate(u)}
+                  disabled={saving}
+                  className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-warning hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
+                  title="Deactivate"
+                >
+                  <i className="fas fa-user-slash" />
+                </button>
+              </Secure>
             ) : (
-              <button
-                onClick={() => handleReactivate(u)}
-                disabled={saving}
-                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-success hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
-                title="Reactivate"
-              >
-                <i className="fas fa-user-check" />
-              </button>
+              <Secure resource="module:users" action="manage">
+                <button
+                  onClick={() => handleReactivate(u)}
+                  disabled={saving}
+                  className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-status-success hover:text-white hover:shadow-sm transition-all disabled:opacity-50"
+                  title="Reactivate"
+                >
+                  <i className="fas fa-user-check" />
+                </button>
+              </Secure>
             )}
-            <button
-              onClick={() => openDelete(u)}
-              disabled={saving}
-              className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-rose-500 hover:text-white hover:shadow-sm transition-all disabled:opacity-50 ml-1"
-              title="Delete"
-            >
-              <i className="fas fa-trash-alt" />
-            </button>
+
+            <Secure resource="module:users" action="delete">
+              <button
+                onClick={() => openDelete(u)}
+                disabled={saving}
+                className="w-8 h-8 rounded flex items-center justify-center text-neutral-500 hover:bg-rose-500 hover:text-white hover:shadow-sm transition-all disabled:opacity-50 ml-1"
+                title="Delete"
+              >
+                <i className="fas fa-trash-alt" />
+              </button>
+            </Secure>
           </div>
         </div>
       ),
@@ -355,131 +384,153 @@ export default function UsersTab({
             "rolesStr",
           ]}
           headerActions={
-            <button
-              onClick={openCreate}
-              className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
-            >
-              <i className="fas fa-plus" /> New User
-            </button>
+            <Secure resource="module:users" action="manage">
+              <button
+                onClick={openCreate}
+                className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
+              >
+                <i className="fas fa-plus" /> New User
+              </button>
+            </Secure>
           }
         />
       </div>
 
-      {/* Create / Edit User */}
       {modal === "createEdit" && (
-        <Modal
-          title={isEditing ? "Edit User" : "Create New User"}
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              saving={saving}
-              label={isEditing ? "Save Changes" : "Create User"}
-              formId="user-form"
-            />
-          }
-        >
-          <form
-            id="user-form"
-            onSubmit={handleSubmitUser}
-            className="space-y-3"
+        <Secure resource="module:users" action="manage">
+          <Modal
+            title={isEditing ? "Edit User" : "Create New User"}
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                saving={saving}
+                label={isEditing ? "Save Changes" : "Create User"}
+                formId="user-form"
+              />
+            }
           >
-            <input
-              required
-              placeholder="User ID"
-              disabled={isEditing}
-              className={`w-full border p-3 rounded-xl text-sm ${isEditing ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
-              value={form.userId}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  userId: e.target.value.replace(/\s+/g, "_"),
-                })
-              }
-            />
-            <input
-              required
-              type="email"
-              placeholder="Email"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-            <div className="grid grid-cols-2 gap-3">
+            <form
+              id="user-form"
+              onSubmit={handleSubmitUser}
+              className="space-y-3"
+            >
               <input
                 required
-                placeholder="First Name"
-                className="border border-canvas-subtle p-3 rounded-xl text-sm"
-                value={form.firstName}
+                placeholder="User ID"
+                disabled={isEditing}
+                className={`w-full border p-3 rounded-xl text-sm ${isEditing ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
+                value={form.userId}
                 onChange={(e) =>
-                  setForm({ ...form, firstName: e.target.value })
+                  setForm({
+                    ...form,
+                    userId: e.target.value.replace(/\s+/g, "_"),
+                  })
                 }
               />
               <input
                 required
-                placeholder="Last Name"
-                className="border border-canvas-subtle p-3 rounded-xl text-sm"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                type="email"
+                placeholder="Email"
+                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
-            </div>
-          </form>
-        </Modal>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  required
+                  placeholder="First Name"
+                  className="border border-canvas-subtle p-3 rounded-xl text-sm"
+                  value={form.firstName}
+                  onChange={(e) =>
+                    setForm({ ...form, firstName: e.target.value })
+                  }
+                />
+                <input
+                  required
+                  placeholder="Last Name"
+                  className="border border-canvas-subtle p-3 rounded-xl text-sm"
+                  value={form.lastName}
+                  onChange={(e) =>
+                    setForm({ ...form, lastName: e.target.value })
+                  }
+                />
+              </div>
+            </form>
+          </Modal>
+        </Secure>
       )}
 
-      {/* Manage Roles */}
+      {/* 🟢 4. The View/Manage Roles Modal */}
       {modal === "manageRoles" && roleTarget && (
-        <Modal
-          title="Manage Roles"
-          subtitle={`${roleTarget.first_name} ${roleTarget.last_name}`}
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              onSubmit={handleSaveRoles}
-              saving={saving}
-              label="Save Roles"
-            />
-          }
-        >
-          {rolesLoading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
-          ) : (
-            <MultiRoleSelector
-              allRoles={roles}
-              selected={selectedRoles}
-              onChange={setSelectedRoles}
-              inheritedRoles={inheritedRolesForModal}
-            />
-          )}
-        </Modal>
+        <Secure resource="module:users" action="read">
+          <Modal
+            title={canManageRoles ? "Manage Roles" : "View Assigned Roles"}
+            subtitle={`${roleTarget.first_name} ${roleTarget.last_name}`}
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                // 🟢 5. Only attach the submit handler and show the Save button if they have permission
+                onSubmit={canManageRoles ? handleSaveRoles : undefined}
+                saving={saving}
+                label={canManageRoles ? "Save Roles" : "Close"}
+              />
+            }
+          >
+            {rolesLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : (
+              // 🟢 6. Wrap the selector in a div that disables clicks and lowers opacity if they are read-only
+              <div
+                className={
+                  !canManageRoles ? "pointer-events-none opacity-80" : ""
+                }
+              >
+                {!canManageRoles && (
+                  <div className="mb-4 p-3 bg-neutral-100 border border-neutral-200 rounded-lg text-xs text-neutral-600 flex items-center gap-2 font-medium">
+                    <i className="fas fa-lock text-neutral-400" />
+                    You only have permission to view roles, not change them.
+                  </div>
+                )}
+                <MultiRoleSelector
+                  allRoles={roles}
+                  selected={selectedRoles}
+                  onChange={setSelectedRoles}
+                  inheritedRoles={inheritedRolesForModal}
+                />
+              </div>
+            )}
+          </Modal>
+        </Secure>
       )}
 
-      {/* Delete */}
       {modal === "delete" && deleteTarget && (
-        <Modal
-          title="Delete User"
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              onSubmit={handleDelete}
-              saving={saving}
-              label="Yes, permanently delete"
-              isDanger
-            />
-          }
-        >
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
-            <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
-            <p className="text-sm">
-              You are about to permanently delete user{" "}
-              <strong>{deleteTarget.user_id}</strong>. This cannot be undone.
-            </p>
-          </div>
-        </Modal>
+        <Secure resource="module:users" action="delete">
+          <Modal
+            title="Delete User"
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                onSubmit={handleDelete}
+                saving={saving}
+                label="Yes, permanently delete"
+                isDanger
+              />
+            }
+          >
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
+              <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
+              <p className="text-sm">
+                You are about to permanently delete user{" "}
+                <strong>{deleteTarget.user_id}</strong>. This cannot be undone.
+              </p>
+            </div>
+          </Modal>
+        </Secure>
       )}
     </>
   );

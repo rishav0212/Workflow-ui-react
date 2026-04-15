@@ -15,6 +15,7 @@ import RolesTab from "./RolesTab";
 import ResourcesTab from "./ResourcesTab";
 import PermissionsMatrix from "./PermissionsMatrix";
 import AuditView from "./AuditView";
+import { Secure } from "../../components/common/Secure";
 
 export type IamTab = "users" | "roles" | "resources" | "matrix" | "audit";
 
@@ -54,30 +55,49 @@ export default function UserManagement({
 
   // ─── Load all data ──────────────────────────────────────────────────────
 
+  // ─── Load all data ──────────────────────────────────────────────────────
+
   const load = useCallback(async () => {
     setLoading(true);
+
+    // 1. Initialize empty arrays
+    let u: any[] = [];
+    let r: any[] = [];
+    let res: any[] = [];
+
+    // 2. Fetch individually so a 403 on one doesn't kill the others
     try {
-      const [u, r, res] = await Promise.all([
-        fetchTenantUsers(),
-        fetchTenantRoles(),
-        fetchTenantResources(),
-      ]);
+      u = await fetchTenantUsers();
+    } catch (e) {
+      /* ignore or log */
+    }
+    try {
+      r = await fetchTenantRoles();
+    } catch (e) {
+      /* ignore or log */
+    }
+    try {
+      res = await fetchTenantResources();
+    } catch (e) {
+      /* ignore or log */
+    }
 
-      // Map role names onto users for the DataGrid "Roles" column
-      const usersWithRoles = u.map((user: any) => {
-        const roleIds: string[] = user.roles || [];
-        const roleNames = roleIds.map((id) => {
-          const found = r.find((role: any) => role.role_id === id);
-          return found ? found.role_name : id;
-        });
-        return { ...user, rolesStr: roleNames.join(", ") };
+    // 3. Map role names onto users for the DataGrid "Roles" column
+    const usersWithRoles = u.map((user: any) => {
+      const roleIds: string[] = user.roles || [];
+      const roleNames = roleIds.map((id) => {
+        const found = r.find((role: any) => role.role_id === id);
+        return found ? found.role_name : id;
       });
+      return { ...user, rolesStr: roleNames.join(", ") };
+    });
 
-      setUsers(usersWithRoles);
-      setRoles(r);
-      setResources(res);
+    setUsers(usersWithRoles);
+    setRoles(r);
+    setResources(res);
 
-      // Fetch inheritance map in parallel
+    // 4. Fetch inheritance map in parallel ONLY for the roles we successfully loaded
+    if (r.length > 0) {
       const inhMap: Record<string, string[]> = {};
       await Promise.all(
         r.map(async (role: any) => {
@@ -89,13 +109,10 @@ export default function UserManagement({
         }),
       );
       setRoleInheritanceMap(inhMap);
-    } catch {
-      addNotification("Failed to load IAM data", "error");
-    } finally {
-      setLoading(false);
     }
-  }, [addNotification]);
 
+    setLoading(false);
+  }, [addNotification]);
   useEffect(() => {
     load();
   }, [load]);
@@ -130,15 +147,23 @@ export default function UserManagement({
     setTab("matrix");
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────────
+  // ─── Shared access-denied fallback ─────────────────────────────────────
 
-  const tabs: [IamTab, string, string][] = [
-    ["users", "Users", "fa-users"],
-    ["roles", "Roles", "fa-id-badge"],
-    ["resources", "Resources", "fa-layer-group"],
-    ["matrix", "Permissions", "fa-th"],
-    ["audit", "Access View", "fa-eye"],
-  ];
+  const AccessDeniedFallback = ({ message }: { message: string }) => (
+    <div className="flex-1 flex items-center justify-center bg-canvas p-10">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i className="fas fa-lock text-status-error text-2xl"></i>
+        </div>
+        <h3 className="text-lg font-bold text-ink-primary mb-2">
+          Access Denied
+        </h3>
+        <p className="text-sm text-ink-secondary">{message}</p>
+      </div>
+    </div>
+  );
+
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="h-full flex flex-col bg-canvas">
@@ -161,75 +186,148 @@ export default function UserManagement({
             <i className={`fas fa-sync-alt ${loading ? "fa-spin" : ""}`} />
           </button>
           <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle shadow-inner">
-            {tabs.map(([t, label, icon]) => (
-              <Pill key={t} active={tab === t} onClick={() => setTab(t)}>
-                <i className={`fas ${icon} mr-1.5`} /> {label}
+            {/* Users tab pill — only shown if user has module:users read */}
+            <Secure resource="module:users" action="read">
+              <Pill active={tab === "users"} onClick={() => setTab("users")}>
+                <i className="fas fa-users mr-1.5" /> Users
               </Pill>
-            ))}
+            </Secure>
+
+            {/* Roles tab pill — only shown if user has module:access_control read */}
+            <Secure resource="module:access_control" action="read">
+              <Pill active={tab === "roles"} onClick={() => setTab("roles")}>
+                <i className="fas fa-id-badge mr-1.5" /> Roles
+              </Pill>
+            </Secure>
+
+            {/* Resources tab pill — only shown if user has module:access_control read */}
+            <Secure resource="module:access_control" action="read">
+              <Pill
+                active={tab === "resources"}
+                onClick={() => setTab("resources")}
+              >
+                <i className="fas fa-layer-group mr-1.5" /> Resources
+              </Pill>
+            </Secure>
+
+            {/* Matrix/Permissions tab pill — only shown if user has module:access_control read */}
+            <Secure resource="module:access_control" action="read">
+              <Pill active={tab === "matrix"} onClick={() => setTab("matrix")}>
+                <i className="fas fa-th mr-1.5" /> Permissions
+              </Pill>
+            </Secure>
+
+            {/* Audit tab pill — only shown if user has module:access_control read */}
+            <Secure resource="module:access_control" action="read">
+              <Pill active={tab === "audit"} onClick={() => setTab("audit")}>
+                <i className="fas fa-eye mr-1.5" /> Access View
+              </Pill>
+            </Secure>
           </div>
         </div>
       </div>
 
-      {/* Tab content */}
+      {/* ── Tab content — each gated behind the same resource:action ── */}
+
       {tab === "users" && (
-        <UsersTab
-          users={users}
-          roles={roles}
-          loading={loading}
-          saving={saving}
-          setSaving={setSaving}
-          onReload={load}
-          onViewAudit={handleViewAudit}
-          onNotify={addNotification}
-          getEffectiveRoles={getEffectiveRoles}
-        />
+        <Secure
+          resource="module:users"
+          action="read"
+          fallback={
+            <AccessDeniedFallback message="You do not have permission to view users." />
+          }
+        >
+          <UsersTab
+            users={users}
+            roles={roles}
+            loading={loading}
+            saving={saving}
+            setSaving={setSaving}
+            onReload={load}
+            onViewAudit={handleViewAudit}
+            onNotify={addNotification}
+            getEffectiveRoles={getEffectiveRoles}
+          />
+        </Secure>
       )}
 
       {tab === "roles" && (
-        <RolesTab
-          roles={roles}
-          loading={loading}
-          saving={saving}
-          setSaving={setSaving}
-          roleInheritanceMap={roleInheritanceMap}
-          onReload={load}
-          onEditPermissions={handleEditPermissions}
-          onNotify={addNotification}
-          getEffectiveRoles={getEffectiveRoles}
-        />
+        <Secure
+          resource="module:access_control"
+          action="read"
+          fallback={
+            <AccessDeniedFallback message="You do not have permission to view roles." />
+          }
+        >
+          <RolesTab
+            roles={roles}
+            loading={loading}
+            saving={saving}
+            setSaving={setSaving}
+            roleInheritanceMap={roleInheritanceMap}
+            onReload={load}
+            onEditPermissions={handleEditPermissions}
+            onNotify={addNotification}
+            getEffectiveRoles={getEffectiveRoles}
+          />
+        </Secure>
       )}
 
       {tab === "resources" && (
-        <ResourcesTab
-          resources={resources}
-          loading={loading}
-          saving={saving}
-          setSaving={setSaving}
-          onReload={load}
-          onNotify={addNotification}
-        />
+        <Secure
+          resource="module:access_control"
+          action="read"
+          fallback={
+            <AccessDeniedFallback message="You do not have permission to view resources." />
+          }
+        >
+          <ResourcesTab
+            resources={resources}
+            loading={loading}
+            saving={saving}
+            setSaving={setSaving}
+            onReload={load}
+            onNotify={addNotification}
+          />
+        </Secure>
       )}
 
       {tab === "matrix" && (
-        <PermissionsMatrix
-          roles={roles}
-          resources={resources}
-          loading={loading}
-          initialRoleId={pendingRoleId}
-          getEffectiveRoles={getEffectiveRoles}
-          onNotify={addNotification}
-        />
+        <Secure
+          resource="module:access_control"
+          action="read"
+          fallback={
+            <AccessDeniedFallback message="You do not have permission to view the permissions matrix." />
+          }
+        >
+          <PermissionsMatrix
+            roles={roles}
+            resources={resources}
+            loading={loading}
+            initialRoleId={pendingRoleId}
+            getEffectiveRoles={getEffectiveRoles}
+            onNotify={addNotification}
+          />
+        </Secure>
       )}
 
       {tab === "audit" && (
-        <AuditView
-          users={users}
-          roles={roles}
-          resources={resources}
-          loading={loading}
-          initialUserId={pendingUserId}
-          onNotify={addNotification}
-        />
+        <Secure
+          resource="module:users"
+          action="read"
+          fallback={
+            <AccessDeniedFallback message="You do not have permission to view access audit data." />
+          }
+        >
+          <AuditView
+            users={users}
+            roles={roles}
+            resources={resources}
+            loading={loading}
+            initialUserId={pendingUserId}
+            onNotify={addNotification}
+          />
+        </Secure>
       )}
     </div>
   );

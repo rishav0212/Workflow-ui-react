@@ -33,7 +33,7 @@ import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
 import ToolJetViewer from "./components/Views/ToolJetViewer";
 import UserManagement from "./features/iam/UserManagement";
-import { PermissionProvider } from "./hooks/PermissionContext";
+import { PermissionProvider, usePermissions } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
 
@@ -64,9 +64,17 @@ const timeAgo = (dateStr: string) => {
 const GlobalNav = ({ user }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
-  const isSuperAdmin = user?.authorities?.some(
-    (auth: any) => auth.authority === "ROLE_SUPER_ADMIN",
-  );
+
+  const { hasPermission } = usePermissions();
+
+  // Evaluate specific permissions instead of relying on a global role name.
+  // This allows the route to open for anyone who has been granted
+  // visibility into any of the administrative modules.
+  const canManageUsers = hasPermission("module:users", "read");
+  const canManageAccess = hasPermission("module:access_control", "read");
+  const canViewInstances = hasPermission("module:instance_manager", "view");
+
+  const hasAdminAccess = canManageUsers || canManageAccess || canViewInstances;
 
   const [tooljetApps, setTooljetApps] = useState<any[]>([]);
 
@@ -98,7 +106,7 @@ const GlobalNav = ({ user }: any) => {
 
         <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
 
-        {isSuperAdmin && (
+        {hasAdminAccess && (
           <NavIcon
             to={`/${currentTenant}/admin`}
             icon="fas fa-shield-alt"
@@ -393,43 +401,46 @@ const InboxLayout = ({
   );
 };
 
-// --- COMPONENT: Admin Guard ---
-// We removed the password state and replaced it with a direct roles validation from the user's JWT data
-const AdminGuard = ({ user }: { user: User }) => {
-  // Check if the authorities array contains the 'ROLE_SUPER_ADMIN' string
-  // Using optional chaining safely in case authorities is undefined
-  const isSuperAdmin = user?.authorities?.some(
-    (auth) => auth.authority === "ROLE_SUPER_ADMIN",
-  );
+// const AdminGuard = ({ user }: { user: User }) => {
+//   const { hasPermission, isLoading } = usePermissions();
 
-  if (isSuperAdmin) {
-    return <Outlet />;
-  }
+//   // Prevent UI flashing by showing a loader while permissions are being resolved
+//   if (isLoading) {
+//     return (
+//       <div className="flex-1 flex items-center justify-center bg-canvas h-full">
+//         <i className="fas fa-circle-notch fa-spin text-brand-500 text-3xl"></i>
+//       </div>
+//     );
+//   }
 
-  // Render an unauthorized access screen for users without the Super Admin role
-  return (
-    <div className="flex-1 flex items-center justify-center bg-canvas h-full">
-      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
-        <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
-          <i className="fas fa-shield-alt text-2xl"></i>
-        </div>
-        <h2 className="text-xl font-bold text-ink-primary">
-          Access Restricted
-        </h2>
-        <p className="text-sm text-neutral-500 mt-2 mb-6">
-          You do not have the required Super Admin privileges to view this area.
-        </p>
-        <button
-          onClick={() => (window.location.href = "/")}
-          className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
-        >
-          Return to Inbox
-        </button>
-      </div>
-    </div>
-  );
-};
+//   if (hasAdminAccess) {
+//     return <Outlet />;
+//   }
 
+//   // Render an unauthorized access screen for users without the necessary permissions
+//   return (
+//     <div className="flex-1 flex items-center justify-center bg-canvas h-full">
+//       <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
+//         <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
+//           <i className="fas fa-shield-alt text-2xl"></i>
+//         </div>
+//         <h2 className="text-xl font-bold text-ink-primary">
+//           Access Restricted
+//         </h2>
+//         <p className="text-sm text-neutral-500 mt-2 mb-6">
+//           You do not have the required permissions to view this administration
+//           area.
+//         </p>
+//         <button
+//           onClick={() => (window.location.href = "/")}
+//           className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
+//         >
+//           Return to Inbox
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
 // --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -619,7 +630,7 @@ export default function App() {
           />
 
           {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
-          {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
+
           <Route
             path="/:tenantId"
             element={
@@ -702,39 +713,38 @@ export default function App() {
             />
 
             {/* 🟢 5. ADMIN ROUTES (Nested inside Tenant + Guard) */}
-            <Route element={<AdminGuard user={user} />}>
-              <Route path="admin" element={<AdminDashboard />} />
-              <Route path="admin/processes" element={<ProcessManager />} />
-              <Route
-                path="admin/processes/:processKey"
-                element={<ProcessViewer addNotification={addNotification} />}
-              />
-              <Route
-                path="admin/instances"
-                element={
-                  <Secure resource="page:instance_manager" action="view">
-                    <InstanceManager />
-                  </Secure>
-                }
-              />
-              <Route path="admin/tasks" element={<TaskSupervision />} />
-              <Route path="admin/process-groups" element={<ProcessGroups />} />
-              <Route path="admin/analytics" element={<AdminAnalytics />} />
-              <Route
-                path="admin/inspect/:instanceId"
-                element={
-                  <Secure resource="page:instance_manager" action="view">
-                    <InstanceInspector />
-                  </Secure>
-                }
-              />
-              <Route path="admin/jobs" element={<JobManager />} />
-              <Route path="admin/dmn" element={<DmnViewer />} />
-              <Route
-                path="admin/users"
-                element={<UserManagement addNotification={addNotification} />}
-              />
-            </Route>
+
+            <Route path="admin" element={<AdminDashboard />} />
+            <Route path="admin/processes" element={<ProcessManager />} />
+            <Route
+              path="admin/processes/:processKey"
+              element={<ProcessViewer addNotification={addNotification} />}
+            />
+            <Route
+              path="admin/instances"
+              element={
+                <Secure resource="page:instance_manager" action="view">
+                  <InstanceManager />
+                </Secure>
+              }
+            />
+            <Route path="admin/tasks" element={<TaskSupervision />} />
+            <Route path="admin/process-groups" element={<ProcessGroups />} />
+            <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route
+              path="admin/inspect/:instanceId"
+              element={
+                <Secure resource="page:instance_manager" action="view">
+                  <InstanceInspector />
+                </Secure>
+              }
+            />
+            <Route path="admin/jobs" element={<JobManager />} />
+            <Route path="admin/dmn" element={<DmnViewer />} />
+            <Route
+              path="admin/users"
+              element={<UserManagement addNotification={addNotification} />}
+            />
           </Route>
         </Routes>
       </BrowserRouter>

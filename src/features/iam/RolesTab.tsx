@@ -27,6 +27,7 @@ import {
   SearchInput,
   Spinner,
 } from "./IamShared";
+import { Secure } from "../../components/common/Secure";
 
 interface RolesTabProps {
   roles: any[];
@@ -256,23 +257,29 @@ export default function RolesTab({
           title={`Roles (${roles.length})`}
           action={
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setModal("tree")}
-                className="bg-white border border-canvas-subtle text-ink-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-canvas-subtle transition-colors flex items-center gap-2 mr-2"
-              >
-                <i className="fas fa-sitemap text-brand-500" /> View Hierarchy
-              </button>
+              {/* View Hierarchy — requires module:access_control read */}
+              <Secure resource="module:access_control" action="read">
+                <button
+                  onClick={() => setModal("tree")}
+                  className="bg-white border border-canvas-subtle text-ink-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-canvas-subtle transition-colors flex items-center gap-2 mr-2"
+                >
+                  <i className="fas fa-sitemap text-brand-500" /> View Hierarchy
+                </button>
+              </Secure>
               <SearchInput
                 value={roleSearch}
                 onChange={setRoleSearch}
                 placeholder="Search roles…"
               />
-              <button
-                onClick={openCreate}
-                className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
-              >
-                <i className="fas fa-plus" /> New Role
-              </button>
+              {/* New Role — requires module:access_control manage */}
+              <Secure resource="module:access_control" action="manage">
+                <button
+                  onClick={openCreate}
+                  className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
+                >
+                  <i className="fas fa-plus" /> New Role
+                </button>
+              </Secure>
             </div>
           }
         />
@@ -321,42 +328,58 @@ export default function RolesTab({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openInheritance(r)}
-                        disabled={saving}
-                        className="text-neutral-500 hover:text-brand-700 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
-                        title="Manage Inheritance"
-                      >
-                        <i className="fas fa-project-diagram" />
-                      </button>
-                      <button
-                        onClick={() => onEditPermissions(r.role_id)}
-                        disabled={saving}
-                        className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
-                        title="Edit Permissions"
-                      >
-                        <i className="fas fa-key" />
-                      </button>
+                      {/* Manage Inheritance — requires module:access_control manage */}
+                      <Secure resource="module:access_control" action="manage">
+                        <button
+                          onClick={() => openInheritance(r)}
+                          disabled={saving}
+                          className="text-neutral-500 hover:text-brand-700 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
+                          title="Manage Inheritance"
+                        >
+                          <i className="fas fa-project-diagram" />
+                        </button>
+                      </Secure>
+
+                      {/* Edit Permissions (navigate to matrix) — requires module:access_control manage */}
+                      <Secure resource="module:access_control" action="manage">
+                        <button
+                          onClick={() => onEditPermissions(r.role_id)}
+                          disabled={saving}
+                          className="text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
+                          title="Edit Permissions"
+                        >
+                          <i className="fas fa-key" />
+                        </button>
+                      </Secure>
+
                       <div className="w-px h-5 bg-canvas-subtle mx-1" />
-                      <button
-                        onClick={() => openEdit(r)}
-                        disabled={saving}
-                        className="text-neutral-500 hover:text-brand-600 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
-                        title="Edit Role"
-                      >
-                        <i className="fas fa-edit" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeleteTarget(r);
-                          setModal("delete");
-                        }}
-                        disabled={saving}
-                        className="text-neutral-400 hover:text-rose-600 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50"
-                        title="Delete Role"
-                      >
-                        <i className="fas fa-trash-alt" />
-                      </button>
+
+                      {/* Edit Role — requires module:access_control manage */}
+                      <Secure resource="module:access_control" action="manage">
+                        <button
+                          onClick={() => openEdit(r)}
+                          disabled={saving}
+                          className="text-neutral-500 hover:text-brand-600 bg-white border border-canvas-subtle hover:border-brand-300 w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
+                          title="Edit Role"
+                        >
+                          <i className="fas fa-edit" />
+                        </button>
+                      </Secure>
+
+                      {/* Delete Role — requires module:access_control delete */}
+                      <Secure resource="module:access_control" action="delete">
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(r);
+                            setModal("delete");
+                          }}
+                          disabled={saving}
+                          className="text-neutral-400 hover:text-rose-600 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50"
+                          title="Delete Role"
+                        >
+                          <i className="fas fa-trash-alt" />
+                        </button>
+                      </Secure>
                     </div>
                   </div>
                 );
@@ -366,149 +389,157 @@ export default function RolesTab({
         </div>
       </div>
 
-      {/* Create / Edit */}
+      {/* Create / Edit — requires module:access_control manage */}
       {modal === "createEdit" && (
-        <Modal
-          title={isEditing ? "Edit Role" : "Create New Role"}
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              saving={saving}
-              label={isEditing ? "Save Changes" : "Create Role"}
-              formId="role-form"
-            />
-          }
-        >
-          <form id="role-form" onSubmit={handleSubmit} className="space-y-3">
-            <input
-              required
-              placeholder="Role ID (lowercase_underscores)"
-              disabled={isEditing}
-              className={`w-full border p-3 rounded-xl text-sm ${isEditing ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
-              value={form.roleId}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  roleId: e.target.value.replace(/\s+/g, "_"),
-                })
-              }
-            />
-            <input
-              required
-              placeholder="Display Name"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
-              value={form.roleName}
-              onChange={(e) => setForm({ ...form, roleName: e.target.value })}
-            />
-            <textarea
-              rows={2}
-              placeholder="Description"
-              className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-          </form>
-        </Modal>
+        <Secure resource="module:access_control" action="manage">
+          <Modal
+            title={isEditing ? "Edit Role" : "Create New Role"}
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                saving={saving}
+                label={isEditing ? "Save Changes" : "Create Role"}
+                formId="role-form"
+              />
+            }
+          >
+            <form id="role-form" onSubmit={handleSubmit} className="space-y-3">
+              <input
+                required
+                placeholder="Role ID (lowercase_underscores)"
+                disabled={isEditing}
+                className={`w-full border p-3 rounded-xl text-sm ${isEditing ? "bg-canvas-subtle border-canvas-subtle text-neutral-500 cursor-not-allowed" : "border-canvas-subtle"}`}
+                value={form.roleId}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    roleId: e.target.value.replace(/\s+/g, "_"),
+                  })
+                }
+              />
+              <input
+                required
+                placeholder="Display Name"
+                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+                value={form.roleName}
+                onChange={(e) => setForm({ ...form, roleName: e.target.value })}
+              />
+              <textarea
+                rows={2}
+                placeholder="Description"
+                className="w-full border border-canvas-subtle p-3 rounded-xl text-sm"
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
+            </form>
+          </Modal>
+        </Secure>
       )}
 
-      {/* Manage Inheritance */}
+      {/* Manage Inheritance — requires module:access_control manage */}
       {modal === "manageInheritance" && roleTarget && (
-        <Modal
-          title="Manage Role Inheritance"
-          subtitle={`Define which roles [${roleTarget.role_name}] inherits.`}
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              onSubmit={handleSaveInheritance}
-              saving={saving}
-              label="Save Inheritance"
-            />
-          }
-        >
-          <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-brand-800 font-medium">
-              Any user with the <strong>{roleTarget.role_name}</strong> role
-              will automatically receive all permissions of the roles selected
-              below.
-            </p>
-          </div>
-          {inheritanceLoading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
+        <Secure resource="module:access_control" action="manage">
+          <Modal
+            title="Manage Role Inheritance"
+            subtitle={`Define which roles [${roleTarget.role_name}] inherits.`}
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                onSubmit={handleSaveInheritance}
+                saving={saving}
+                label="Save Inheritance"
+              />
+            }
+          >
+            <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-4">
+              <p className="text-sm text-brand-800 font-medium">
+                Any user with the <strong>{roleTarget.role_name}</strong> role
+                will automatically receive all permissions of the roles selected
+                below.
+              </p>
             </div>
-          ) : (
-            <MultiRoleSelector
-              allRoles={roles}
-              selected={selectedInherited}
-              onChange={setSelectedInherited}
-              disabledRoleIds={invalidForInheritance}
-            />
-          )}
-        </Modal>
-      )}
-
-      {/* Delete */}
-      {modal === "delete" && deleteTarget && (
-        <Modal
-          title="Delete Role"
-          onClose={closeModal}
-          footer={
-            <ModalFooter
-              onCancel={closeModal}
-              onSubmit={handleDelete}
-              saving={saving}
-              label="Yes, permanently delete"
-              isDanger
-            />
-          }
-        >
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
-            <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
-            <p className="text-sm">
-              Deleting <strong>{deleteTarget.role_name}</strong> will remove all
-              user assignments and Casbin policies for this role. This cannot be
-              undone.
-            </p>
-          </div>
-        </Modal>
-      )}
-
-      {/* Hierarchy Tree */}
-      {modal === "tree" && (
-        <Modal
-          title="Role Inheritance Hierarchy"
-          subtitle="A visual map of how roles cascade permissions."
-          onClose={closeModal}
-          wide
-        >
-          <div className="w-full h-full min-h-[500px] border border-canvas-subtle rounded-xl bg-canvas-subtle/20">
-            {roles.length === 0 ? (
-              <div className="p-8 text-center text-neutral-400">
-                No roles defined.
+            {inheritanceLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
               </div>
             ) : (
-              <ReactFlow
-                nodes={reactFlowNodes}
-                edges={reactFlowEdges}
-                fitView
-                attributionPosition="bottom-right"
-              >
-                <Background color="#ccc" gap={16} />
-                <Controls />
-                <MiniMap
-                  zoomable
-                  pannable
-                  nodeColor="#e2e8f0"
-                  maskColor="rgba(0,0,0,0.1)"
-                />
-              </ReactFlow>
+              <MultiRoleSelector
+                allRoles={roles}
+                selected={selectedInherited}
+                onChange={setSelectedInherited}
+                disabledRoleIds={invalidForInheritance}
+              />
             )}
-          </div>
-        </Modal>
+          </Modal>
+        </Secure>
+      )}
+
+      {/* Delete — requires module:access_control delete */}
+      {modal === "delete" && deleteTarget && (
+        <Secure resource="module:access_control" action="delete">
+          <Modal
+            title="Delete Role"
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                onSubmit={handleDelete}
+                saving={saving}
+                label="Yes, permanently delete"
+                isDanger
+              />
+            }
+          >
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
+              <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
+              <p className="text-sm">
+                Deleting <strong>{deleteTarget.role_name}</strong> will remove
+                all user assignments and Casbin policies for this role. This
+                cannot be undone.
+              </p>
+            </div>
+          </Modal>
+        </Secure>
+      )}
+
+      {/* Hierarchy Tree — requires module:access_control read */}
+      {modal === "tree" && (
+        <Secure resource="module:access_control" action="read">
+          <Modal
+            title="Role Inheritance Hierarchy"
+            subtitle="A visual map of how roles cascade permissions."
+            onClose={closeModal}
+            wide
+          >
+            <div className="w-full h-full min-h-[500px] border border-canvas-subtle rounded-xl bg-canvas-subtle/20">
+              {roles.length === 0 ? (
+                <div className="p-8 text-center text-neutral-400">
+                  No roles defined.
+                </div>
+              ) : (
+                <ReactFlow
+                  nodes={reactFlowNodes}
+                  edges={reactFlowEdges}
+                  fitView
+                  attributionPosition="bottom-right"
+                >
+                  <Background color="#ccc" gap={16} />
+                  <Controls />
+                  <MiniMap
+                    zoomable
+                    pannable
+                    nodeColor="#e2e8f0"
+                    maskColor="rgba(0,0,0,0.1)"
+                  />
+                </ReactFlow>
+              )}
+            </div>
+          </Modal>
+        </Secure>
       )}
     </>
   );

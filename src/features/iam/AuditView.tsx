@@ -28,11 +28,14 @@ export default function AuditView({
   const [auditUser, setAuditUser] = useState<string | null>(
     initialUserId ?? null,
   );
+  
+  // UPDATE 1: Change 'policies: any[]' to 'permissions: Record<string, boolean>'
   const [auditData, setAuditData] = useState<{
     roles: string[];
     effectiveRoles: string[];
-    policies: any[];
+    permissions: Record<string, boolean>; 
   } | null>(null);
+  
   const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
@@ -46,7 +49,8 @@ export default function AuditView({
         setAuditData({
           roles: data.roles || [],
           effectiveRoles: data.effectiveRoles || [],
-          policies: data.policies || [],
+          // UPDATE 2: Read from data.permissions instead of data.policies
+          permissions: data.permissions || {}, 
         }),
       )
       .catch(() => {
@@ -56,11 +60,20 @@ export default function AuditView({
       .finally(() => setAuditLoading(false));
   }, [auditUser]);
 
-  const auditByResource =
-    auditData?.policies.reduce<Record<string, string[]>>((acc, p) => {
-      (acc[p[2]] ??= []).push(p[3]);
-      return acc;
-    }, {}) ?? {};
+  // UPDATE 3: Parse the flat permissions object (e.g., {"module:users:read": true}) 
+  // into the grouped format the UI expects: { "module:users": ["read", "manage"] }
+  const auditByResource = Object.keys(auditData?.permissions || {}).reduce<
+    Record<string, string[]>
+  >((acc, permKey) => {
+    // We split by the LAST colon because resource keys themselves contain colons (e.g., "module:users")
+    const lastColonIdx = permKey.lastIndexOf(":");
+    if (lastColonIdx > 0) {
+      const resource = permKey.substring(0, lastColonIdx);
+      const action = permKey.substring(lastColonIdx + 1);
+      (acc[resource] ??= []).push(action);
+    }
+    return acc;
+  }, {});
 
   return (
     <div className="flex-1 flex gap-4 overflow-hidden m-4">
@@ -194,6 +207,7 @@ export default function AuditView({
                     (acc[type] ??= []).push([key, Array.from(new Set(acts))]);
                     return acc;
                   }, {});
+                  
                   return [...ORDERED_TYPES, "other"]
                     .filter((t) => grouped[t]?.length)
                     .map((type) => {

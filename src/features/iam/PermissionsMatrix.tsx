@@ -12,6 +12,7 @@ import {
   ORDERED_TYPES,
   RESOURCE_TYPES,
 } from "./iam-constants";
+import { Secure } from "../../components/common/Secure";
 
 interface PermissionsMatrixProps {
   roles: any[];
@@ -143,6 +144,7 @@ export default function PermissionsMatrix({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden m-4">
+      {/* Mode switcher — requires module:access_control read to view */}
       <div className="flex items-center justify-center mb-4 flex-shrink-0">
         <div className="bg-canvas-subtle p-1 rounded-xl border border-canvas-subtle flex shadow-inner">
           <button
@@ -298,19 +300,39 @@ export default function PermissionsMatrix({
                                       : ""
                                   }
                                 >
-                                  <Toggle
-                                    checked={hasDirect}
-                                    isInherited={isInherit}
-                                    onChange={() =>
-                                      togglePerm(
-                                        matrixRole,
-                                        res.resource_key,
-                                        action,
-                                        hasDirect,
-                                      )
+                                  {/*
+                                   * Toggle interaction — only allowed with module:access_control manage.
+                                   * If user only has read, the Toggle is rendered read-only (no onChange fires).
+                                   */}
+                                  <Secure
+                                    resource="module:access_control"
+                                    action="manage"
+                                    fallback={
+                                      /* Read-only view of the toggle state for read-only users */
+                                      <Toggle
+                                        checked={hasDirect}
+                                        isInherited={isInherit}
+                                        onChange={() => {
+                                          /* read-only: no-op */
+                                        }}
+                                        actionKey={action}
+                                      />
                                     }
-                                    actionKey={action}
-                                  />
+                                  >
+                                    <Toggle
+                                      checked={hasDirect}
+                                      isInherited={isInherit}
+                                      onChange={() =>
+                                        togglePerm(
+                                          matrixRole,
+                                          res.resource_key,
+                                          action,
+                                          hasDirect,
+                                        )
+                                      }
+                                      actionKey={action}
+                                    />
+                                  </Secure>
                                 </div>
                               );
                             })}
@@ -374,19 +396,38 @@ export default function PermissionsMatrix({
                                 : ""
                             }
                           >
-                            <Toggle
-                              checked={hasDirect}
-                              isInherited={isInherit}
-                              onChange={() =>
-                                togglePerm(
-                                  role.role_id,
-                                  matrixResource,
-                                  action,
-                                  hasDirect,
-                                )
+                            {/*
+                             * Toggle interaction — only allowed with module:access_control manage.
+                             * Fallback shows read-only toggle for users with only read access.
+                             */}
+                            <Secure
+                              resource="module:access_control"
+                              action="manage"
+                              fallback={
+                                <Toggle
+                                  checked={hasDirect}
+                                  isInherited={isInherit}
+                                  onChange={() => {
+                                    /* read-only: no-op */
+                                  }}
+                                  actionKey={action}
+                                />
                               }
-                              actionKey={action}
-                            />
+                            >
+                              <Toggle
+                                checked={hasDirect}
+                                isInherited={isInherit}
+                                onChange={() =>
+                                  togglePerm(
+                                    role.role_id,
+                                    matrixResource,
+                                    action,
+                                    hasDirect,
+                                  )
+                                }
+                                actionKey={action}
+                              />
+                            </Secure>
                           </div>
                         );
                       })}

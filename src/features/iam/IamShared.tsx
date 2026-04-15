@@ -3,14 +3,25 @@
 // Keeping these in one file avoids 8 separate tiny files.
 
 import React, { useEffect, useState } from "react";
-import { getActionMeta, actionsFor,type  ResourceType, RESOURCE_TYPES } from "./iam-constants";
+import {
+  getActionMeta,
+  actionsFor,
+  type ResourceType,
+  RESOURCE_TYPES,
+} from "./iam-constants";
 
 // ─── Badge ───────────────────────────────────────────────────────────────────
 
 export const Badge = ({
-  label, color, bg, onRemove,
+  label,
+  color,
+  bg,
+  onRemove,
 }: {
-  label: string; color: string; bg: string; onRemove?: () => void;
+  label: string;
+  color: string;
+  bg: string;
+  onRemove?: () => void;
 }) => (
   <span
     style={{ color, background: bg, border: `1px solid ${color}33` }}
@@ -18,7 +29,10 @@ export const Badge = ({
   >
     {label}
     {onRemove && (
-      <button onClick={onRemove} className="ml-0.5 hover:opacity-60 transition-opacity">
+      <button
+        onClick={onRemove}
+        className="ml-0.5 hover:opacity-60 transition-opacity"
+      >
         <i className="fas fa-times text-[9px]" />
       </button>
     )}
@@ -33,9 +47,13 @@ export const ActionBadge = ({ action }: { action: string }) => {
 // ─── Pill (tab button) ───────────────────────────────────────────────────────
 
 export const Pill = ({
-  children, active, onClick,
+  children,
+  active,
+  onClick,
 }: {
-  children: React.ReactNode; active: boolean; onClick: () => void;
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
 }) => (
   <button
     onClick={onClick}
@@ -52,16 +70,27 @@ export const Pill = ({
 // ─── Toggle (permission checkbox) ────────────────────────────────────────────
 
 export const Toggle = ({
-  checked, onChange, actionKey, isInherited,
+  checked,
+  onChange,
+  actionKey,
+  isInherited,
 }: {
-  checked: boolean; onChange: () => void; actionKey: string; isInherited?: boolean;
+  checked: boolean;
+  onChange: () => void;
+  actionKey: string;
+  isInherited?: boolean;
 }) => {
   const m = getActionMeta(actionKey);
   const visuallyChecked = checked || isInherited;
   return (
     <label className="flex flex-col items-center gap-1 cursor-pointer select-none group relative">
       <div className="relative">
-        <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
+        <input
+          type="checkbox"
+          className="sr-only"
+          checked={checked}
+          onChange={onChange}
+        />
         <div
           className={`block w-9 h-5 rounded-full transition-colors duration-200 ${
             isInherited && !checked ? "opacity-50" : ""
@@ -73,7 +102,12 @@ export const Toggle = ({
             visuallyChecked ? "translate-x-4" : ""
           } flex items-center justify-center`}
         >
-          {isInherited && <i className="fas fa-shield-alt text-[8px]" style={{ color: m.color }} />}
+          {isInherited && (
+            <i
+              className="fas fa-shield-alt text-[8px]"
+              style={{ color: m.color }}
+            />
+          )}
         </div>
       </div>
       <span
@@ -93,14 +127,20 @@ export const Toggle = ({
 
 // ─── Spinner ─────────────────────────────────────────────────────────────────
 
-export const Spinner = () => <i className="fas fa-circle-notch fa-spin text-brand-500" />;
+export const Spinner = () => (
+  <i className="fas fa-circle-notch fa-spin text-brand-500" />
+);
 
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
 export const EmptyState = ({
-  icon, title, sub,
+  icon,
+  title,
+  sub,
 }: {
-  icon: string; title: string; sub?: string;
+  icon: string;
+  title: string;
+  sub?: string;
 }) => (
   <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
     <div className="w-14 h-14 rounded-full bg-canvas-subtle flex items-center justify-center mb-4">
@@ -114,9 +154,11 @@ export const EmptyState = ({
 // ─── PanelHeader ─────────────────────────────────────────────────────────────
 
 export const PanelHeader = ({
-  title, action,
+  title,
+  action,
 }: {
-  title: string; action?: React.ReactNode;
+  title: string;
+  action?: React.ReactNode;
 }) => (
   <div className="px-6 py-4 border-b border-canvas-subtle flex items-center justify-between bg-canvas/40 flex-shrink-0">
     <h2 className="text-base font-bold text-ink-primary">{title}</h2>
@@ -127,9 +169,13 @@ export const PanelHeader = ({
 // ─── SearchInput ─────────────────────────────────────────────────────────────
 
 export const SearchInput = ({
-  value, onChange, placeholder,
+  value,
+  onChange,
+  placeholder,
 }: {
-  value: string; onChange: (v: string) => void; placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
 }) => (
   <div className="relative">
     <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs" />
@@ -145,10 +191,19 @@ export const SearchInput = ({
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
 export const Modal = ({
-  title, subtitle, onClose, children, footer, wide = false,
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+  wide = false,
 }: {
-  title: string; subtitle?: string; onClose: () => void;
-  children: React.ReactNode; footer?: React.ReactNode; wide?: boolean;
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  wide?: boolean;
 }) => (
   <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div
@@ -159,15 +214,22 @@ export const Modal = ({
       <div className="flex items-start justify-between p-6 border-b border-canvas-subtle flex-shrink-0">
         <div>
           <h2 className="text-xl font-bold text-ink-primary">{title}</h2>
-          {subtitle && <p className="text-sm text-neutral-400 mt-0.5">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-sm text-neutral-400 mt-0.5">{subtitle}</p>
+          )}
         </div>
-        <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700 mt-0.5 ml-4">
+        <button
+          onClick={onClose}
+          className="text-neutral-400 hover:text-neutral-700 mt-0.5 ml-4"
+        >
           <i className="fas fa-times text-lg" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-6 space-y-4">{children}</div>
       {footer && (
-        <div className="p-6 border-t border-canvas-subtle flex-shrink-0">{footer}</div>
+        <div className="p-6 border-t border-canvas-subtle flex-shrink-0">
+          {footer}
+        </div>
       )}
     </div>
   </div>
@@ -176,10 +238,19 @@ export const Modal = ({
 // ─── ModalFooter ─────────────────────────────────────────────────────────────
 
 export const ModalFooter = ({
-  onCancel, onSubmit, saving, label, formId, isDanger = false,
+  onCancel,
+  onSubmit,
+  saving,
+  label,
+  formId,
+  isDanger = false,
 }: {
-  onCancel: () => void; onSubmit?: () => void;
-  saving: boolean; label: string; formId?: string; isDanger?: boolean;
+  onCancel: () => void;
+  onSubmit?: () => void;
+  saving: boolean;
+  label: string;
+  formId?: string;
+  isDanger?: boolean;
 }) => (
   <div className="flex justify-end gap-3">
     <button
@@ -195,7 +266,9 @@ export const ModalFooter = ({
       onClick={formId ? undefined : onSubmit}
       disabled={saving}
       className={`px-5 py-2 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 ${
-        isDanger ? "bg-rose-500 hover:bg-rose-600" : "bg-brand-500 hover:bg-brand-600"
+        isDanger
+          ? "bg-rose-500 hover:bg-rose-600"
+          : "bg-brand-500 hover:bg-brand-600"
       }`}
     >
       {saving && <i className="fas fa-circle-notch fa-spin text-xs" />}
@@ -207,22 +280,32 @@ export const ModalFooter = ({
 // ─── MultiRoleSelector ───────────────────────────────────────────────────────
 
 export const MultiRoleSelector = ({
-  allRoles, selected, onChange, disabledRoleIds = [], inheritedRoles = [],
+  allRoles,
+  selected,
+  onChange,
+  disabledRoleIds = [],
+  inheritedRoles = [],
 }: {
-  allRoles: any[]; selected: string[];
+  allRoles: any[];
+  selected: string[];
   onChange: (ids: string[]) => void;
-  disabledRoleIds?: string[]; inheritedRoles?: string[];
+  disabledRoleIds?: string[];
+  inheritedRoles?: string[];
 }) => {
   const toggle = (id: string, isDisabled: boolean) => {
     if (isDisabled) return;
     onChange(
-      selected.includes(id) ? selected.filter((r) => r !== id) : [...selected, id],
+      selected.includes(id)
+        ? selected.filter((r) => r !== id)
+        : [...selected, id],
     );
   };
   return (
     <div className="border border-canvas-subtle rounded-xl overflow-hidden max-h-52 overflow-y-auto">
       {allRoles.length === 0 && (
-        <p className="p-4 text-sm text-neutral-400 italic">No valid roles found.</p>
+        <p className="p-4 text-sm text-neutral-400 italic">
+          No valid roles found.
+        </p>
       )}
       {allRoles.map((r) => {
         const checked = selected.includes(r.role_id);
@@ -245,8 +328,12 @@ export const MultiRoleSelector = ({
               {checked && <i className="fas fa-check text-white text-[10px]" />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm text-ink-primary truncate">{r.role_name}</div>
-              <div className="text-xs text-neutral-400 font-mono truncate">{r.role_id}</div>
+              <div className="font-bold text-sm text-ink-primary truncate">
+                {r.role_name}
+              </div>
+              <div className="text-xs text-neutral-400 font-mono truncate">
+                {r.role_id}
+              </div>
             </div>
             {isDisabled && (
               <div className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-200">
@@ -271,13 +358,22 @@ export const MultiRoleSelector = ({
 // ─── ResourceKeyBuilder ──────────────────────────────────────────────────────
 
 export const ResourceKeyBuilder = ({
-  value, type, onChange, disabled,
+  value,
+  type,
+  onChange,
+  disabled,
 }: {
-  value: string; type: ResourceType; onChange: (key: string) => void; disabled?: boolean;
+  value: string;
+  type: ResourceType;
+  onChange: (key: string) => void;
+  disabled?: boolean;
 }) => {
   const [name, setName] = useState(() => value.replace(`${type}:`, ""));
   const slugify = (s: string) =>
-    s.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_:]/g, "");
+    s
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_:]/g, "");
 
   const handleChange = (raw: string) => {
     if (disabled) return;
@@ -299,7 +395,9 @@ export const ResourceKeyBuilder = ({
       </label>
       <div
         className={`flex items-center gap-0 rounded-xl overflow-hidden border focus-within:ring-2 focus-within:ring-brand-500 ${
-          disabled ? "bg-canvas-subtle border-canvas-subtle" : "border-canvas-active bg-white"
+          disabled
+            ? "bg-canvas-subtle border-canvas-subtle"
+            : "border-canvas-active bg-white"
         }`}
       >
         <span className="px-3 py-2.5 bg-canvas-subtle text-neutral-500 font-mono text-sm border-r border-canvas-active flex-shrink-0">
@@ -327,16 +425,22 @@ export const ResourceKeyBuilder = ({
 // ─── DeleteConfirmModal ───────────────────────────────────────────────────────
 
 export const DeleteConfirmModal = ({
-  deleteTarget, onClose, onConfirm, saving,
+  deleteTarget,
+  onClose,
+  onConfirm,
+  saving,
 }: {
   deleteTarget: { type: "user" | "role" | "resource"; item: any };
   onClose: () => void;
   onConfirm: () => void;
   saving: boolean;
 }) => {
-  const typeName = deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1);
+  const typeName =
+    deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1);
   const identifier =
-    deleteTarget.item.user_id ?? deleteTarget.item.role_id ?? deleteTarget.item.resource_key;
+    deleteTarget.item.user_id ??
+    deleteTarget.item.role_id ??
+    deleteTarget.item.resource_key;
 
   return (
     <Modal
@@ -356,24 +460,30 @@ export const DeleteConfirmModal = ({
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex gap-3 text-rose-800">
           <i className="fas fa-exclamation-triangle mt-0.5 text-rose-500" />
           <div>
-            <p className="font-bold text-sm mb-1">Warning: This action cannot be undone.</p>
+            <p className="font-bold text-sm mb-1">
+              Warning: This action cannot be undone.
+            </p>
             <p className="text-sm">
               {deleteTarget.type === "user" && (
                 <>
-                  You are about to delete user <strong>{identifier}</strong>. They will permanently
-                  lose all system access and their assigned roles will be unlinked.
+                  You are about to delete user <strong>{identifier}</strong>.
+                  They will permanently lose all system access and their
+                  assigned roles will be unlinked.
                 </>
               )}
               {deleteTarget.type === "role" && (
                 <>
-                  You are about to delete role <strong>{deleteTarget.item.role_name}</strong>.
-                  Users holding this role will instantly lose its permissions, including inherited ones.
+                  You are about to delete role{" "}
+                  <strong>{deleteTarget.item.role_name}</strong>. Users holding
+                  this role will instantly lose its permissions, including
+                  inherited ones.
                 </>
               )}
               {deleteTarget.type === "resource" && (
                 <>
-                  You are about to delete resource <strong>{identifier}</strong>. All policies
-                  governing this resource across all roles will be permanently deleted.
+                  You are about to delete resource <strong>{identifier}</strong>
+                  . All policies governing this resource across all roles will
+                  be permanently deleted.
                 </>
               )}
             </p>

@@ -12,6 +12,7 @@ export default function AdminDashboard() {
       desc: "Manage users, define roles, and control granular resource permissions.",
       color: "text-blue-600",
       bg: "bg-blue-50",
+      secure: { resource: "module:users", action: "read" },
     },
     {
       to: `/admin/processes`,
