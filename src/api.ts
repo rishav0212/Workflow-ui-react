@@ -472,5 +472,34 @@ export const fetchMyToolJetApps = async () => {
   return res.data;
 };
 
+// Add this at the bottom of src/api.ts, just above `export default api;`
+
+/**
+ * Resolves an active task based on the process definition and business key.
+ */
+export const fetchTasksByBusinessKey = async (
+  processDefinitionKey: string,
+  processInstanceBusinessKey: string,
+  assignee?: string,
+) => {
+  // Flowable standard query parameters for active runtime tasks
+  const params: any = {
+    processDefinitionKey,
+    processInstanceBusinessKey,
+  };
+
+  // Optional: If you only want to resolve tasks assigned to the current user.
+  // If you want them to be able to view UNASSIGNED tasks too (so they can claim it),
+  // you might omit this or use 'candidateUser'.
+  if (assignee) {
+    params.assignee = assignee;
+  }
+
+  // 🟢 FIXED: Use 'api' instance and the native Flowable runtime task endpoint
+  const response = await api.get("/process-api/runtime/tasks", { params });
+
+  // Flowable paginated responses store the array inside the `data` property
+  return response.data.data || response.data;
+};
 
 export default api;

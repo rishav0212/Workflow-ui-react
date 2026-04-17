@@ -36,6 +36,7 @@ import UserManagement from "./features/iam/UserManagement";
 import { PermissionProvider, usePermissions } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
+import TaskResolver from "./TaskResolver";
 
 interface User {
   username: string;
@@ -672,6 +673,11 @@ export default function App() {
             <Route
               path="dashboard"
               element={<Dashboard addNotification={addNotification} />}
+            />
+            {/* 👉 ADD THIS NEW ROUTE HERE: The Task Resolver Route */}
+            <Route
+              path="resolve/:processKey/:businessKey"
+              element={<TaskResolver currentUser={user.username} />}
             />
             <Route
               path="/:tenantId/login"
