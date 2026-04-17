@@ -676,7 +676,7 @@ export default function App() {
             />
             {/* 👉 ADD THIS NEW ROUTE HERE: The Task Resolver Route */}
             <Route
-              path="resolve/:processKey/:businessKey"
+              path="task/:processKey/:businessKey"
               element={<TaskResolver currentUser={user.username} />}
             />
             <Route
