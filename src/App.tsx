@@ -62,82 +62,194 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = ({ user }: any) => {
+const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
-
   const { hasPermission } = usePermissions();
 
-  // Evaluate specific permissions instead of relying on a global role name.
-  // This allows the route to open for anyone who has been granted
-  // visibility into any of the administrative modules.
   const canManageUsers = hasPermission("module:users", "read");
   const canManageAccess = hasPermission("module:access_control", "read");
   const canViewInstances = hasPermission("module:instance_manager", "view");
-
   const hasAdminAccess = canManageUsers || canManageAccess || canViewInstances;
 
   const [tooljetApps, setTooljetApps] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch apps when sidebar loads
     fetchMyToolJetApps()
       .then((data) => setTooljetApps(data))
       .catch((err) => console.error("Failed to load apps", err));
   }, [currentTenant]);
+
   return (
-    <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
-      {/* Logo */}
-      <div className="w-12 h-12 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 rounded-xl flex items-center justify-center text-white text-xl shadow-brand-lg mb-8 ring-2 ring-brand-400/20 hover:scale-105 transition-transform cursor-pointer">
-        <i className="fas fa-layer-group"></i>
-      </div>
+    <>
+      {/* ═══════════════════════════════════════════════════════════════
+          DESKTOP SIDEBAR — hidden on mobile, shown md+
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:flex w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex-col items-center py-6 z-40 shadow-premium">
+        {/* Logo */}
+        <div className="w-12 h-12 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 rounded-xl flex items-center justify-center text-white text-xl shadow-brand-lg mb-8 ring-2 ring-brand-400/20 hover:scale-105 transition-transform cursor-pointer">
+          <i className="fas fa-layer-group"></i>
+        </div>
 
-      {/* Navigation Icons */}
-      <div className="flex-1 flex flex-col gap-3 w-full px-3 items-center">
-        <NavIcon
-          to={`/${currentTenant}/dashboard`}
-          icon="fas fa-chart-pie"
-          label="Dashboard"
-        />
-        <NavIcon
-          to={`/${currentTenant}/inbox`}
-          icon="fas fa-inbox"
-          label="Inbox"
-        />
-
-        <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
-
-        {hasAdminAccess && (
+        {/* Navigation Icons */}
+        <div className="flex-1 flex flex-col gap-3 w-full px-3 items-center">
           <NavIcon
-            to={`/${currentTenant}/admin`}
-            icon="fas fa-shield-alt"
-            label="Admin Portal"
+            to={`/${currentTenant}/dashboard`}
+            icon="fas fa-chart-pie"
+            label="Dashboard"
           />
-        )}
-
-        <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
-
-        {/* 🟢 DYNAMIC TOOLJET APPS LOOP */}
-        {tooljetApps.map((app) => (
           <NavIcon
-            key={app.tooljetAppUuid}
-            to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-            icon="fas fa-rocket"
-            label={app.displayName}
+            to={`/${currentTenant}/inbox`}
+            icon="fas fa-inbox"
+            label="Inbox"
           />
-        ))}
+          <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
+          {hasAdminAccess && (
+            <NavIcon
+              to={`/${currentTenant}/admin`}
+              icon="fas fa-shield-alt"
+              label="Admin Portal"
+            />
+          )}
+          <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
+          {tooljetApps.map((app) => (
+            <NavIcon
+              key={app.tooljetAppUuid}
+              to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
+              icon="fas fa-rocket"
+              label={app.displayName}
+            />
+          ))}
+        </div>
+
+        {/* Settings at Bottom */}
+        <div className="pb-4">
+          <button className="nav-item group">
+            <i className="fas fa-cog"></i>
+            <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
+              Settings
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* Settings at Bottom */}
-      <div className="pb-4">
-        <button className="nav-item group">
-          <i className="fas fa-cog"></i>
-          <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
-            Settings
-          </span>
-        </button>
+      {/* ═══════════════════════════════════════════════════════════════
+          MOBILE DRAWER — only visible on mobile
+      ════════════════════════════════════════════════════════════════ */}
+      <div
+        className={`md:hidden fixed inset-0 z-50 transition-all duration-300 ${
+          mobileMenuOpen ? "visible" : "invisible pointer-events-none"
+        }`}
+      >
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-neutral-900/65 backdrop-blur-sm transition-opacity duration-300 ${
+            mobileMenuOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={onCloseMobileMenu}
+        />
+
+        {/* Drawer Panel */}
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-72 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+            mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-700/40 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-brand-400 to-brand-600 rounded-xl flex items-center justify-center text-white shadow-brand-sm">
+                <i className="fas fa-layer-group text-base"></i>
+              </div>
+              <span className="text-lg font-bold text-white font-serif tracking-tight">
+                Infinity<span className="text-brand-400">Plus</span>
+              </span>
+            </div>
+            <button
+              onClick={onCloseMobileMenu}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700/50 transition-all"
+            >
+              <i className="fas fa-times text-sm"></i>
+            </button>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="flex-1 overflow-y-auto py-3 px-3 custom-scrollbar">
+            <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 px-3 py-2 mt-1">
+              Main
+            </p>
+            <MobileNavItem
+              to={`/${currentTenant}/dashboard`}
+              icon="fas fa-chart-pie"
+              label="Dashboard"
+              onClick={onCloseMobileMenu}
+            />
+            <MobileNavItem
+              to={`/${currentTenant}/inbox`}
+              icon="fas fa-inbox"
+              label="Inbox"
+              onClick={onCloseMobileMenu}
+            />
+
+            {hasAdminAccess && (
+              <>
+                <div className="h-px bg-neutral-700/40 my-3 mx-1" />
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 px-3 py-2">
+                  Administration
+                </p>
+                <MobileNavItem
+                  to={`/${currentTenant}/admin`}
+                  icon="fas fa-shield-alt"
+                  label="Admin Portal"
+                  onClick={onCloseMobileMenu}
+                />
+              </>
+            )}
+
+            {tooljetApps.length > 0 && (
+              <>
+                <div className="h-px bg-neutral-700/40 my-3 mx-1" />
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 px-3 py-2">
+                  Applications
+                </p>
+                {tooljetApps.map((app) => (
+                  <MobileNavItem
+                    key={app.tooljetAppUuid}
+                    to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
+                    icon="fas fa-rocket"
+                    label={app.displayName}
+                    onClick={onCloseMobileMenu}
+                  />
+                ))}
+              </>
+            )}
+          </nav>
+
+          {/* User Footer */}
+          <div className="px-4 py-4 border-t border-neutral-700/40 bg-neutral-900/50 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-300 flex-shrink-0">
+                <i className="fas fa-user text-xs"></i>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-200 truncate">
+                  {user?.username}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 bg-status-success rounded-full animate-pulse"></span>
+                  <span className="text-[10px] text-status-success font-bold uppercase tracking-wider">
+                    Online
+                  </span>
+                </div>
+              </div>
+              <button className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-700/50 transition-all">
+                <i className="fas fa-cog text-sm"></i>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -176,6 +288,36 @@ const ToolJetCacheManager = () => {
     </>
   );
 };
+
+const MobileNavItem = ({
+  to,
+  icon,
+  label,
+  onClick,
+}: {
+  to: string;
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) => (
+  <NavLink
+    to={to}
+    onClick={onClick}
+    className={({ isActive }) =>
+      `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
+        isActive
+          ? "bg-brand-500/15 text-brand-300 border border-brand-500/25"
+          : "text-neutral-400 hover:bg-neutral-700/40 hover:text-neutral-100"
+      }`
+    }
+  >
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+      <i className={`${icon} text-[15px]`}></i>
+    </div>
+    <span className="text-[13px] font-semibold tracking-tight">{label}</span>
+  </NavLink>
+);
+
 // 🎨 ENHANCED: Refined Navigation Icons
 const NavIcon = ({ to, icon, label }: any) => (
   <NavLink
@@ -201,6 +343,7 @@ const TopHeader = ({
   onLogout,
   notifications,
   clearNotifications,
+  onMenuToggle,
 }: any) => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -215,21 +358,31 @@ const TopHeader = ({
   }, []);
 
   return (
-    <header className="h-16 bg-white border-b border-canvas-subtle flex items-center justify-between px-6 shadow-soft z-30 flex-shrink-0">
-      {/* Logo/Brand */}
-      <div className="flex items-center gap-3">
+    <header className="h-16 bg-white border-b border-canvas-subtle flex items-center justify-between px-4 md:px-6 shadow-soft z-30 flex-shrink-0">
+      {/* LEFT: Hamburger (mobile only) + Logo */}
+      <div className="flex items-center gap-2 md:gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuToggle}
+          className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl text-neutral-600 hover:bg-canvas-subtle hover:text-brand-600 transition-all active:scale-95"
+          aria-label="Open navigation"
+        >
+          <i className="fas fa-bars text-lg"></i>
+        </button>
+
+        {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-brand-400 to-brand-600 rounded-lg flex items-center justify-center text-white text-sm shadow-brand-sm">
             <i className="fas fa-layer-group"></i>
           </div>
-          <h1 className="text-xl font-bold text-ink-primary tracking-tight font-serif">
+          <h1 className="text-lg md:text-xl font-bold text-ink-primary tracking-tight font-serif">
             Infinity<span className="text-brand-500">Plus</span>
           </h1>
         </div>
       </div>
 
-      {/* Right Section */}
-      <div className="flex items-center gap-3">
+      {/* RIGHT: Notifications + User */}
+      <div className="flex items-center gap-1.5 md:gap-3">
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button
@@ -242,9 +395,9 @@ const TopHeader = ({
             )}
           </button>
 
-          {/* Notification Dropdown */}
+          {/* Notification Dropdown — responsive width on mobile */}
           {showNotifMenu && (
-            <div className="absolute top-full right-0 mt-3 min-w-96 bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
+            <div className="absolute top-full right-0 mt-3 w-[calc(100vw-2rem)] max-w-[24rem] bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
               <div className="px-4 py-3 border-b border-canvas-subtle flex justify-between items-center bg-canvas-subtle">
                 <span className="font-bold text-[10px] uppercase text-neutral-600 tracking-widest">
                   Notifications
@@ -308,8 +461,9 @@ const TopHeader = ({
         </div>
 
         {/* User Section */}
-        <div className="flex items-center gap-3 pl-3 border-l border-canvas-subtle">
-          <div className="text-right hidden md:block">
+        <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 border-l border-canvas-subtle">
+          {/* Username — hidden on small screens */}
+          <div className="text-right hidden lg:block">
             <div className="text-sm font-bold text-ink-primary">
               {user.username}
             </div>
@@ -320,7 +474,7 @@ const TopHeader = ({
           </div>
           <button
             onClick={onLogout}
-            className="w-10 h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105"
             title="Logout"
           >
             <i className="fas fa-power-off text-sm"></i>
@@ -402,46 +556,46 @@ const InboxLayout = ({
   );
 };
 
-// const AdminGuard = ({ user }: { user: User }) => {
-//   const { hasPermission, isLoading } = usePermissions();
+const TenantLayout = ({
+  user,
+  onLogout,
+  notifications,
+  onClearNotifications,
+}: {
+  user: User;
+  onLogout: () => void;
+  notifications: NotificationItem[];
+  onClearNotifications: () => void;
+}) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-//   // Prevent UI flashing by showing a loader while permissions are being resolved
-//   if (isLoading) {
-//     return (
-//       <div className="flex-1 flex items-center justify-center bg-canvas h-full">
-//         <i className="fas fa-circle-notch fa-spin text-brand-500 text-3xl"></i>
-//       </div>
-//     );
-//   }
-
-//   if (hasAdminAccess) {
-//     return <Outlet />;
-//   }
-
-//   // Render an unauthorized access screen for users without the necessary permissions
-//   return (
-//     <div className="flex-1 flex items-center justify-center bg-canvas h-full">
-//       <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
-//         <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
-//           <i className="fas fa-shield-alt text-2xl"></i>
-//         </div>
-//         <h2 className="text-xl font-bold text-ink-primary">
-//           Access Restricted
-//         </h2>
-//         <p className="text-sm text-neutral-500 mt-2 mb-6">
-//           You do not have the required permissions to view this administration
-//           area.
-//         </p>
-//         <button
-//           onClick={() => (window.location.href = "/")}
-//           className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
-//         >
-//           Return to Inbox
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
+  return (
+    <div className="flex h-screen bg-canvas overflow-hidden">
+      <Toaster position="top-right" reverseOrder={false} gutter={12} />
+      <GlobalNav
+        user={user}
+        mobileMenuOpen={mobileMenuOpen}
+        onCloseMobileMenu={() => setMobileMenuOpen(false)}
+      />
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopHeader
+          user={user}
+          onLogout={onLogout}
+          notifications={notifications}
+          clearNotifications={onClearNotifications}
+          onMenuToggle={() => setMobileMenuOpen((v) => !v)}
+        />
+        {/* Content area — ToolJet fills this on mobile automatically */}
+        <div className="flex-1 relative">
+          <ToolJetCacheManager />
+          <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            <Outlet />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 // --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -635,36 +789,15 @@ export default function App() {
           <Route
             path="/:tenantId"
             element={
-              <div className="flex h-screen bg-canvas overflow-hidden">
-                <Toaster
-                  position="top-right"
-                  reverseOrder={false}
-                  gutter={12}
-                />
-                <GlobalNav user={user} />
-
-                <div className="flex-1 flex flex-col min-w-0">
-                  <TopHeader
-                    user={user}
-                    onLogout={handleLogout}
-                    notifications={notifications}
-                    clearNotifications={() => {
-                      setNotifications([]);
-                      localStorage.removeItem("app_notifications");
-                    }}
-                  />
-
-                  {/* 🔴 THE BULLETPROOF SCROLL WRAPPER */}
-                  <div className="flex-1 relative">
-                    <ToolJetCacheManager />
-
-                    {/* absolute inset-0 forces this div to pin to all 4 corners of the remaining space, guaranteeing a scrollbar */}
-                    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                      <Outlet />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TenantLayout
+                user={user}
+                onLogout={handleLogout}
+                notifications={notifications}
+                onClearNotifications={() => {
+                  setNotifications([]);
+                  localStorage.removeItem("app_notifications");
+                }}
+              />
             }
           >
             {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
