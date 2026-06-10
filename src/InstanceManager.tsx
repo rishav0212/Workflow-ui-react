@@ -389,6 +389,7 @@ export default function InstanceManager() {
           loading={loading}
           getRowId={(inst) => inst.id}
           searchFields={["id", "businessKey", "processDefinitionName"]}
+          dateFilterField={viewMode === "active" ? "startTime" : "endTime"}
           onSelectionChange={setSelectedIds}
           activeRowId={selectedInstance?.id}
           onRowClick={handleInspect}

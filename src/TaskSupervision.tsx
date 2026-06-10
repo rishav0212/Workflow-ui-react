@@ -328,6 +328,7 @@ export default function TaskSupervision() {
           "description",
           "processDefinitionName",
         ]}
+        dateFilterField={viewMode === "active" ? "createTime" : "endTime"}
         onSelectionChange={setSelectedIds}
         headerActions={
           <div className="flex items-center gap-3">

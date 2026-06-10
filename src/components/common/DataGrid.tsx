@@ -19,6 +19,7 @@ interface DataGridProps<T> {
   onRowClick?: (item: T) => void;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   headerActions?: React.ReactNode;
+  dateFilterField?: keyof T;
 }
 
 export default function DataGrid<T>({
@@ -32,6 +33,7 @@ export default function DataGrid<T>({
   onRowClick,
   onSelectionChange,
   headerActions,
+  dateFilterField,
 }: DataGridProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
@@ -40,6 +42,9 @@ export default function DataGrid<T>({
   } | null>({ key: "startTime", direction: "desc" });
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showDateFilter, setShowDateFilter] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -52,12 +57,56 @@ export default function DataGrid<T>({
     let filtered = [...data];
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter((i) =>
-        searchFields.some((field) => {
+      filtered = filtered.filter((i) => {
+        // Match against regular text fields
+        const matchesFields = searchFields.some((field) => {
           const val = i[field];
           return val && String(val).toLowerCase().includes(lowerTerm);
-        }),
-      );
+        });
+        if (matchesFields) return true;
+
+        // Also match against the formatted date string (e.g. "Jul 10, 2026")
+        if (dateFilterField) {
+          const dateVal = i[dateFilterField];
+          if (dateVal) {
+            const dateStr = new Date(String(dateVal)).toLocaleDateString([], {
+              month: "long",  // "July"
+              day: "numeric",
+              year: "numeric",
+            });
+            const dateStrShort = new Date(String(dateVal)).toLocaleDateString([], {
+              month: "short",  // "Jul"
+              day: "numeric",
+              year: "numeric",
+            });
+            if (
+              dateStr.toLowerCase().includes(lowerTerm) ||
+              dateStrShort.toLowerCase().includes(lowerTerm)
+            ) return true;
+          }
+        }
+
+        return false;
+      });
+    }
+
+    if (startDate && dateFilterField) {
+      const start = new Date(startDate).getTime();
+      filtered = filtered.filter((i) => {
+        const val = i[dateFilterField];
+        if (!val) return false;
+        return new Date(String(val)).getTime() >= start;
+      });
+    }
+    if (endDate && dateFilterField) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const endTs = end.getTime();
+      filtered = filtered.filter((i) => {
+        const val = i[dateFilterField];
+        if (!val) return false;
+        return new Date(String(val)).getTime() <= endTs;
+      });
     }
     if (sortConfig) {
       filtered.sort((a, b) => {
@@ -74,7 +123,7 @@ export default function DataGrid<T>({
       });
     }
     return filtered;
-  }, [data, searchTerm, sortConfig, searchFields]);
+  }, [data, searchTerm, sortConfig, searchFields, startDate, endDate, dateFilterField]);
 
   const totalItems = processedData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -144,6 +193,60 @@ export default function DataGrid<T>({
             className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm transition-all"
           />
         </div>
+
+        {/* Date Filter Toggle + Inputs */}
+        {dateFilterField && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowDateFilter((v) => !v)}
+              title={showDateFilter ? "Hide date filter" : "Filter by date"}
+              className={`relative w-9 h-9 flex items-center justify-center rounded-lg border transition-all ${
+                showDateFilter || startDate || endDate
+                  ? "bg-brand-50 border-brand-300 text-brand-600 shadow-sm"
+                  : "bg-white border-neutral-200 text-neutral-500 hover:border-brand-300 hover:text-brand-600"
+              }`}
+            >
+              <i className="fas fa-calendar-alt text-xs" />
+              {(startDate || endDate) && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-500 rounded-full border border-white" />
+              )}
+            </button>
+            {showDateFilter && (
+              <>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm transition-all"
+                  title="Start Date"
+                />
+                <span className="text-neutral-400 text-sm">–</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm transition-all"
+                  title="End Date"
+                />
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => { setStartDate(""); setEndDate(""); setCurrentPage(1); }}
+                    title="Clear date filter"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-status-error hover:bg-status-error/10 transition-all"
+                  >
+                    <i className="fas fa-times text-xs" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Header Actions - Right Side */}
         {headerActions && (
