@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 
 export interface Column<T> {
   header: string;
@@ -35,7 +35,18 @@ export default function DataGrid<T>({
   headerActions,
   dateFilterField,
 }: DataGridProps<T>) {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setInputValue(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 300);
+  }, []);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -148,6 +159,8 @@ export default function DataGrid<T>({
   };
 
   const clearSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setInputValue("");
     setSearchTerm("");
     setCurrentPage(1);
   };
@@ -185,11 +198,8 @@ export default function DataGrid<T>({
           <input
             type="text"
             placeholder="Search records..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
+            value={inputValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm transition-all"
           />
         </div>
