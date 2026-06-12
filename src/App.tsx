@@ -47,8 +47,11 @@ interface User {
 export interface NotificationItem {
   id: number;
   message: string;
-  type: "success" | "error" | "info";
+  type: "success" | "error" | "info" | "loading";
   timestamp: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  taskId?: string;
 }
 
 const timeAgo = (dateStr: string) => {
@@ -290,6 +293,11 @@ const TopHeader = ({
                               <i className="fas fa-info text-status-info text-[10px]"></i>
                             </div>
                           )}
+                          {n.type === "loading" && (
+                            <div className="w-6 h-6 bg-brand-50 rounded-full flex items-center justify-center">
+                              <i className="fas fa-circle-notch fa-spin text-brand-500 text-[10px]"></i>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-ink-primary leading-snug font-light">
@@ -298,6 +306,14 @@ const TopHeader = ({
                           <p className="text-[10px] text-neutral-500 mt-1 font-medium">
                             {timeAgo(n.timestamp)}
                           </p>
+                          {n.actionUrl && n.actionLabel && (
+                            <NavLink
+                              to={n.actionUrl}
+                              className="inline-block mt-2 text-[10px] font-bold bg-white border border-canvas-active px-2.5 py-1 rounded-md text-ink-primary hover:bg-neutral-50 shadow-soft transition-colors"
+                            >
+                              {n.actionLabel}
+                            </NavLink>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -382,8 +398,18 @@ const InboxLayout = ({
   user: User;
   refreshTrigger: number;
   onRefresh: () => void;
-  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+  addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number;
 }) => {
+  const [optimisticHiddenTasks, setOptimisticHiddenTasks] = useState<string[]>([]);
+  
+  const hideTask = useCallback((taskId: string) => {
+    setOptimisticHiddenTasks((prev) => [...prev, taskId]);
+  }, []);
+
+  const unhideTask = useCallback((taskId: string) => {
+    setOptimisticHiddenTasks((prev) => prev.filter((id) => id !== taskId));
+  }, []);
+
   return (
     <div className="flex h-full overflow-hidden bg-canvas">
       {/* LEFT PANE (Task List) */}
@@ -392,12 +418,13 @@ const InboxLayout = ({
           currentUser={user.username}
           refreshTrigger={refreshTrigger}
           addNotification={addNotification}
+          optimisticHiddenTasks={optimisticHiddenTasks}
         />
       </div>
 
       {/* RIGHT PANE (Task Viewer) */}
       <div className="flex-1 min-w-0 bg-canvas relative overflow-y-auto flex flex-col">
-        <Outlet context={{ refreshTasks: onRefresh, addNotification }} />
+        <Outlet context={{ refreshTasks: onRefresh, addNotification, hideTask, unhideTask }} />
       </div>
     </div>
   );
@@ -460,16 +487,27 @@ export default function App() {
   });
 
   const addNotification = useCallback(
-    (message: string, type: "success" | "error" | "info") => {
+    (message: string, type: "success" | "error" | "info" | "loading", existingId?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => {
+      const id = existingId || Date.now();
       const newItem: NotificationItem = {
-        id: Date.now(),
+        id,
         message,
         type,
         timestamp: new Date().toISOString(),
+        actionUrl,
+        actionLabel,
+        taskId
       };
 
       setNotifications((prev) => {
-        const updated = [newItem, ...prev].slice(0, 15);
+        const existingIdx = prev.findIndex((n) => n.id === id);
+        let updated;
+        if (existingIdx >= 0) {
+           updated = [...prev];
+           updated[existingIdx] = newItem;
+        } else {
+           updated = [newItem, ...prev].slice(0, 15);
+        }
         localStorage.setItem("app_notifications", JSON.stringify(updated));
         return updated;
       });
@@ -480,53 +518,75 @@ export default function App() {
           <div
             className={`${
               t.visible ? "animate-slideDown" : "opacity-0"
-            } max-w-md w-full bg-white shadow-floating rounded-xl pointer-events-auto flex border border-canvas-subtle overflow-hidden`}
+            } max-w-md w-full bg-white shadow-floating rounded-xl pointer-events-auto flex flex-col border border-canvas-subtle overflow-hidden`}
           >
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 pt-0.5">
-                  {type === "success" && (
-                    <div className="w-8 h-8 bg-status-success/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-check-circle text-status-success text-lg"></i>
-                    </div>
-                  )}
-                  {type === "error" && (
-                    <div className="w-8 h-8 bg-status-error/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-times-circle text-status-error text-lg"></i>
-                    </div>
-                  )}
-                  {type === "info" && (
-                    <div className="w-8 h-8 bg-status-info/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-info-circle text-status-info text-lg"></i>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-ink-primary">
-                    {type === "success"
-                      ? "Success"
-                      : type === "error"
-                        ? "Error"
-                        : "Notification"}
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600 leading-relaxed">
-                    {message}
-                  </p>
+            <div className="flex w-full">
+              <div className="flex-1 w-0 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 pt-0.5">
+                    {type === "success" && (
+                      <div className="w-8 h-8 bg-status-success/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-check-circle text-status-success text-lg"></i>
+                      </div>
+                    )}
+                    {type === "error" && (
+                      <div className="w-8 h-8 bg-status-error/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-times-circle text-status-error text-lg"></i>
+                      </div>
+                    )}
+                    {type === "info" && (
+                      <div className="w-8 h-8 bg-status-info/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-info-circle text-status-info text-lg"></i>
+                      </div>
+                    )}
+                    {type === "loading" && (
+                      <div className="w-8 h-8 bg-brand-50 rounded-full flex items-center justify-center shadow-brand-sm ring-1 ring-brand-100">
+                        <i className="fas fa-circle-notch fa-spin text-brand-500 text-lg"></i>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-ink-primary">
+                      {type === "success"
+                        ? "Success"
+                        : type === "error"
+                          ? "Error"
+                          : type === "loading"
+                            ? "Processing"
+                            : "Notification"}
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-600 leading-relaxed">
+                      {message}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <div className="flex border-l border-canvas-subtle bg-canvas-subtle/30">
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-neutral-400 hover:text-ink-primary hover:bg-canvas-subtle focus:outline-none transition-colors"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
             </div>
-            <div className="flex border-l border-canvas-subtle bg-canvas-subtle/30">
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-neutral-400 hover:text-ink-primary hover:bg-canvas-subtle focus:outline-none transition-colors"
-              >
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
+            {actionUrl && actionLabel && (
+              <div className="border-t border-canvas-subtle bg-canvas-subtle/50 p-2.5 flex justify-end">
+                <NavLink
+                  to={actionUrl}
+                  onClick={() => toast.dismiss(t.id)}
+                  className="text-xs font-bold bg-white border border-canvas-active px-4 py-1.5 rounded-lg text-ink-primary hover:bg-neutral-50 shadow-soft transition-colors"
+                >
+                  {actionLabel}
+                </NavLink>
+              </div>
+            )}
           </div>
         ),
-        { duration: 5000 },
+        { id: String(id), duration: type === "loading" ? Infinity : 5000 },
       );
+
+      return id;
     },
     [],
   );

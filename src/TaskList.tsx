@@ -22,7 +22,8 @@ interface ExtendedTask extends Task {
 interface TaskListProps {
   currentUser: string;
   refreshTrigger?: number;
-  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+  addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number | void;
+  optimisticHiddenTasks?: string[];
 }
 
 // ... (keep timeAgo and TaskListSkeleton same as before) ...
@@ -204,6 +205,7 @@ export default function TaskList({
   currentUser,
   refreshTrigger = 0,
   addNotification,
+  optimisticHiddenTasks = [],
 }: TaskListProps) {
   const navigate = useNavigate();
   const { taskId: activeTaskId } = useParams();
@@ -322,6 +324,7 @@ export default function TaskList({
   // 🚀 FILTERING (Uses Deferred Query)
   const filteredTasks = useMemo(() => {
     const filtered = tasks.filter((task) => {
+      if (optimisticHiddenTasks.includes(task.id)) return false;
       if (deferredSearchQuery) {
         const lowerQ = deferredSearchQuery.toLowerCase();
         const matchesName = task.name?.toLowerCase().includes(lowerQ);
