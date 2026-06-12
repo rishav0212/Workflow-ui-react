@@ -19,8 +19,10 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
       try {
         setError(null);
         
-        // Extract the subPath (if the user refreshed on a deep link like /app/123/orders)
-        // Ensure we handle trailing slashes properly
+        // --- 2-WAY ROUTER SYNC (Browser -> Iframe) ---
+        // If the user refreshed the browser on a deep link (e.g. /app/123/orders),
+        // we extract the "/orders" part (subPath) via the wildcard route match.
+        // We pass this to embed-ticket so the iframe boots up directly on that page.
         let subPath = "";
         const match = matchPath("/:tenantId/apps/:appId/*", location.pathname);
         if (match && match.params["*"]) {
@@ -48,7 +50,10 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
     if (appId && !iframeUrl) initSecureSession();
   }, [appId]); // Deliberately omitting location.pathname so it only runs once per app
 
-  // 🟢 NEW: Listen for URL changes coming FROM inside the iframe via postMessage
+  // --- 2-WAY ROUTER SYNC (Iframe -> Browser) ---
+  // Listen for custom postMessage events coming from the monkey-patched ToolJet iframe.
+  // When a user navigates inside ToolJet, we silently update the parent React Router URL
+  // so that if they refresh, they stay on the exact same page.
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'TOOLJET_PATH_CHANGE') {

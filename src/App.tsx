@@ -680,9 +680,11 @@ export default function App() {
               element={<Navigate to="../inbox" replace />}
             />
 
-            {/* 🟢 MODIFIED: Make this an empty div. 
-              The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
+            {/* 🟢 TOOLJET APP ROUTES */}
             <Route path="apps/:appId" element={<div className="hidden" />} />
+            {/* The wildcard route below ensures that if a user refreshes on a deep link 
+                (like /apps/123/orders), React Router doesn't crash. The ToolJetCacheManager 
+                reads this route and creates the iframe overlay. */}
             <Route path="apps/:appId/*" element={<div className="hidden" />} />
             <Route path="admin/forms" element={<FormManager />} />
             <Route path="admin/forms/*" element={<FormManager />} />
