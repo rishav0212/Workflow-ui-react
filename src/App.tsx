@@ -147,7 +147,8 @@ const ToolJetCacheManager = () => {
   const location = useLocation();
 
   // Check if we are currently viewing an app route
-  const match = matchPath("/:tenantId/apps/:appId", location.pathname);
+  // 🟢 ENHANCED: Allow wildcard matching so sub-pages don't break the layout
+  const match = matchPath("/:tenantId/apps/:appId/*", location.pathname);
   const currentAppId = match?.params?.appId;
 
   // Keep a running list of all apps opened during this browser session
@@ -682,6 +683,7 @@ export default function App() {
             {/* 🟢 MODIFIED: Make this an empty div. 
               The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
             <Route path="apps/:appId" element={<div className="hidden" />} />
+            <Route path="apps/:appId/*" element={<div className="hidden" />} />
             <Route path="admin/forms" element={<FormManager />} />
             <Route path="admin/forms/*" element={<FormManager />} />
             {/* Inbox & Tasks */}

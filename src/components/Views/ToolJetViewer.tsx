@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, matchPath, useNavigate } from "react-router-dom";
 import api from "../../api";
 import { API_BASE_URL } from "../../config"; // 🟢 Import the base URL
 
 // 🟢 ADDED: Accepts optional appId prop for caching, falls back to useParams so nothing breaks!
 const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
   const params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const appId = propAppId || params.appId;
 
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
@@ -15,9 +18,18 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
     const initSecureSession = async () => {
       try {
         setError(null);
+        
+        // Extract the subPath (if the user refreshed on a deep link like /app/123/orders)
+        // Ensure we handle trailing slashes properly
+        let subPath = "";
+        const match = matchPath("/:tenantId/apps/:appId/*", location.pathname);
+        if (match && match.params["*"]) {
+            subPath = match.params["*"];
+        }
+
         // Step 1: Exchange JWT for a short-lived ticket
         const response = await api.post(
-          `/api/tooljet/embed-ticket?appId=${appId}`,
+          `/api/tooljet/embed-ticket?appId=${appId}${subPath ? `&subPath=${subPath}` : ''}`,
         );
 
         // Step 2: Use the ticket URL for the iframe
@@ -33,8 +45,39 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
       }
     };
 
-    if (appId) initSecureSession();
-  }, [appId]);
+    if (appId && !iframeUrl) initSecureSession();
+  }, [appId]); // Deliberately omitting location.pathname so it only runs once per app
+
+  // 🟢 NEW: Listen for URL changes coming FROM inside the iframe via postMessage
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'TOOLJET_PATH_CHANGE') {
+            const tooljetPath = event.data.path; // e.g. /applications/UUID/orders
+            // We want to extract the "orders" part and append it to our React route
+            const parts = tooljetPath.split(`/applications/${appId}`);
+            
+            if (parts.length > 1) {
+                const subPath = parts[1]; // will be "/orders" or ""
+                
+                // Construct the parent URL
+                // The current location in React might be /my-tenant/apps/UUID
+                const match = matchPath("/:tenantId/apps/:appId/*", location.pathname);
+                if (match) {
+                    const tenantId = match.params.tenantId;
+                    const newParentPath = `/${tenantId}/apps/${appId}${subPath}`;
+                    
+                    // Only push if it's actually different to avoid infinite loops
+                    if (location.pathname !== newParentPath) {
+                        navigate(newParentPath, { replace: true });
+                    }
+                }
+            }
+        }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [appId, location.pathname, navigate]);
 
   // 🔴 Polished Error State
   if (error) {
