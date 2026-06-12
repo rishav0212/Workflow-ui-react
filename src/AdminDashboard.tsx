@@ -63,6 +63,15 @@ export default function AdminDashboard() {
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
+    {
+      to: `/admin/tooljet-apps`,
+      icon: "fas fa-window-maximize",
+      title: "App Manager",
+      desc: "Register ToolJet applications, set icons, and control sidebar order for your tenant.",
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      secure: { resource: "module:tooljet_apps", action: "manage" },
+    },
     // {
     //   to: `/admin/jobs`,
     //   icon: "fas fa-tools",

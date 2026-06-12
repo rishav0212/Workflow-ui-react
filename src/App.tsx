@@ -36,6 +36,7 @@ import UserManagement from "./features/iam/UserManagement";
 import { PermissionProvider, usePermissions } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
+import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 
 interface User {
   username: string;
@@ -731,6 +732,14 @@ export default function App() {
             <Route path="admin/tasks" element={<TaskSupervision />} />
             <Route path="admin/process-groups" element={<ProcessGroups />} />
             <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route
+              path="admin/tooljet-apps"
+              element={
+                <Secure resource="module:tooljet_apps" action="manage">
+                  <ToolJetAppManager />
+                </Secure>
+              }
+            />
             <Route
               path="admin/inspect/:instanceId"
               element={
