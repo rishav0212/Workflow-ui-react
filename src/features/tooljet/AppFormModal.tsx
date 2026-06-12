@@ -95,6 +95,22 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
                                 />
                                 {app && <p className="text-xs text-neutral-400 mt-2"><i className="fas fa-lock mr-1"></i>App UUID cannot be changed after registration.</p>}
                             </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-ink-secondary mb-2 uppercase tracking-wider">
+                                    Visibility Condition
+                                </label>
+                                <textarea
+                                    value={formData.visibilityCondition || ''}
+                                    onChange={(e) => setFormData({ ...formData, visibilityCondition: e.target.value })}
+                                    className="w-full bg-canvas-subtle border border-canvas-active rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all font-mono text-sm"
+                                    placeholder="e.g. permissions['table:order:issue_batch_no']"
+                                    rows={2}
+                                />
+                                <p className="mt-2 text-xs text-ink-secondary">
+                                    Return true to make the app visible. Use the `permissions` map to check resource action evaluations. Leave blank to make visible to everyone.
+                                </p>
+                            </div>
                         </div>
 
                         {/* RIGHT COLUMN: Icon Picker */}
@@ -116,23 +132,6 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
                                     onChange={(icon) => setFormData({...formData, icon})}
                                 />
                             </div>
-                        </div>
-                        
-                        {/* BOTTOM ROW: Visibility Condition */}
-                        <div className="md:col-span-2 pt-6 border-t border-canvas-subtle">
-                            <label className="block text-xs font-semibold text-ink-secondary mb-2 uppercase tracking-wider">
-                                Visibility Condition
-                            </label>
-                            <textarea
-                                value={formData.visibilityCondition || ''}
-                                onChange={(e) => setFormData({ ...formData, visibilityCondition: e.target.value })}
-                                className="w-full bg-canvas-subtle border border-canvas-active rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all font-mono text-sm"
-                                placeholder="e.g. permissions['table:order:issue_batch_no']"
-                                rows={2}
-                            />
-                            <p className="mt-2 text-xs text-ink-secondary">
-                                Return true to make the app visible. Use the `permissions` map to check resource action evaluations. Leave blank to make visible to everyone.
-                            </p>
                         </div>
                     </div>
                 </form>
