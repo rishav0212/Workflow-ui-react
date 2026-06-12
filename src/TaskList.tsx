@@ -109,6 +109,7 @@ const TaskItem = memo(
     onLeave: () => void;
     isFailed?: boolean;
   }) => {
+    // 🚀 Force IDE Sync: isFailed is defined here!
     const { tenantId } = useParams<{ tenantId: string }>();
     const isHighPriority = (task.priority || 0) > 50;
 
