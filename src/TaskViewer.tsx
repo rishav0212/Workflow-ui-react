@@ -29,6 +29,8 @@ interface GlobalContext {
   addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number;
   hideTask: (taskId: string) => void;
   unhideTask: (taskId: string) => void;
+  markTaskAsFailed: (taskId: string) => void;
+  clearTaskFailure: (taskId: string) => void;
 }
 
 const TABS = [
@@ -394,7 +396,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const isSubmitted = useRef(false);
 
-  const { refreshTasks, addNotification, hideTask, unhideTask } = useOutletContext<GlobalContext>();
+  const { refreshTasks, addNotification, hideTask, unhideTask, markTaskAsFailed, clearTaskFailure } = useOutletContext<GlobalContext>();
 
   // State
   const [taskData, setTaskData] = useState<any>(null);
@@ -677,6 +679,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       
       const notifId = addNotification(`Submitting task: ${taskData?.taskName || taskId}...`, "loading");
       
+      clearTaskFailure(taskId);
       hideTask(taskId);
       setShowModal(false);
       isSubmitted.current = true;
@@ -696,6 +699,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         })
         .catch((err: any) => {
           unhideTask(taskId);
+          markTaskAsFailed(taskId);
           const msg = parseApiError(err);
           const errorMsg = err.response?.status === 422 ? msg : `Submission failed: ${msg}`;
           addNotification(
@@ -715,6 +719,8 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
       addNotification,
       hideTask,
       unhideTask,
+      markTaskAsFailed,
+      clearTaskFailure,
       refreshTasks,
       navigate,
       tenantId,

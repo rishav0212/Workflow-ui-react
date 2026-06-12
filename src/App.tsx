@@ -401,6 +401,30 @@ const InboxLayout = ({
   addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number;
 }) => {
   const [optimisticHiddenTasks, setOptimisticHiddenTasks] = useState<string[]>([]);
+  const [failedSubmissionTasks, setFailedSubmissionTasks] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("failed_tasks");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const markTaskAsFailed = useCallback((taskId: string) => {
+    setFailedSubmissionTasks((prev) => {
+      const next = [...new Set([taskId, ...prev])];
+      localStorage.setItem("failed_tasks", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearTaskFailure = useCallback((taskId: string) => {
+    setFailedSubmissionTasks((prev) => {
+      const next = prev.filter((id) => id !== taskId);
+      localStorage.setItem("failed_tasks", JSON.stringify(next));
+      return next;
+    });
+  }, []);
   
   const hideTask = useCallback((taskId: string) => {
     setOptimisticHiddenTasks((prev) => [...prev, taskId]);
@@ -419,12 +443,13 @@ const InboxLayout = ({
           refreshTrigger={refreshTrigger}
           addNotification={addNotification}
           optimisticHiddenTasks={optimisticHiddenTasks}
+          failedSubmissionTasks={failedSubmissionTasks}
         />
       </div>
 
       {/* RIGHT PANE (Task Viewer) */}
       <div className="flex-1 min-w-0 bg-canvas relative overflow-y-auto flex flex-col">
-        <Outlet context={{ refreshTasks: onRefresh, addNotification, hideTask, unhideTask }} />
+        <Outlet context={{ refreshTasks: onRefresh, addNotification, hideTask, unhideTask, markTaskAsFailed, clearTaskFailure }} />
       </div>
     </div>
   );
