@@ -121,7 +121,7 @@ const GlobalNav = ({ user }: any) => {
           <NavIcon
             key={app.tooljetAppUuid}
             to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-            icon="fas fa-rocket"
+            icon={app.icon || "fas fa-window-maximize"}
             label={app.displayName}
           />
         ))}
