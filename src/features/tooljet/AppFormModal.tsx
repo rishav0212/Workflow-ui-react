@@ -118,7 +118,8 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
                             </div>
                         </div>
                         
-                        <div>
+                        {/* BOTTOM ROW: Visibility Condition */}
+                        <div className="md:col-span-2 pt-6 border-t border-canvas-subtle">
                             <label className="block text-xs font-semibold text-ink-secondary mb-2 uppercase tracking-wider">
                                 Visibility Condition
                             </label>
