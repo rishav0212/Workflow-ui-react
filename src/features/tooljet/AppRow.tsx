@@ -1,5 +1,5 @@
 import React from 'react';
-import { ToolJetAppResponse } from '../../api/tooljetAdmin';
+import type { ToolJetAppResponse } from '../../api/tooljetAdmin';
 
 interface AppRowProps {
     app: ToolJetAppResponse;

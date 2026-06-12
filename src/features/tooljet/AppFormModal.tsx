@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ToolJetAppResponse, ToolJetAppRequest } from '../../api/tooljetAdmin';
+import type { ToolJetAppResponse, ToolJetAppRequest } from '../../api/tooljetAdmin';
 import IconPickerGrid from './IconPickerGrid';
 
 interface AppFormModalProps {
