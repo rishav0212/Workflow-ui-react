@@ -6,12 +6,14 @@ export interface ToolJetAppResponse {
     displayName: string;
     icon: string;
     sortOrder: number;
+    visibilityCondition?: string;
 }
 
 export interface ToolJetAppRequest {
     tooljetAppUuid: string;
     displayName: string;
     icon?: string;
+    visibilityCondition?: string;
 }
 
 export const fetchAdminToolJetApps = async (): Promise<ToolJetAppResponse[]> => {

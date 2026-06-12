@@ -58,6 +58,12 @@ export default function AppRow({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-bold text-ink-primary truncate">{app.displayName}</h3>
+                    {app.visibilityCondition && (
+                        <div className="flex items-center justify-center bg-brand-50 text-brand-600 rounded px-1.5 py-0.5 text-[10px] font-bold border border-brand-200" title="Custom Visibility Condition Applied">
+                            <i className="fas fa-code mr-1"></i>
+                            Secured
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-ink-tertiary font-mono truncate">
                     <i className="fas fa-fingerprint opacity-50"></i>
