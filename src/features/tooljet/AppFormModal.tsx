@@ -47,7 +47,7 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
             <div className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm" onClick={onClose}></div>
             
             {/* Modal */}
-            <div className="relative bg-surface w-full max-w-md rounded-3xl shadow-floating overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="relative bg-surface w-full max-w-4xl rounded-3xl shadow-floating overflow-hidden flex flex-col max-h-[90vh] animate-slideUp">
                 <div className="px-6 py-5 border-b border-canvas-subtle flex items-center justify-between bg-white">
                     <h3 className="text-xl font-bold text-ink-primary">
                         {app ? 'Edit Application' : 'Register New App'}
@@ -60,53 +60,61 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
                     </button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5 bg-white">
-                    <div>
-                        <label className="block text-sm font-semibold text-ink-primary mb-1">
-                            Display Name <span className="text-status-error">*</span>
-                        </label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.displayName}
-                            onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-                            placeholder="e.g. Sales Dashboard"
-                            className="w-full px-4 py-2.5 bg-canvas-subtle border border-canvas-subtle rounded-xl text-sm focus:outline-none focus:border-brand-500/30 focus:ring-2 focus:ring-brand-500/20 transition-all"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-semibold text-ink-primary mb-1">
-                            ToolJet App UUID <span className="text-status-error">*</span>
-                        </label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.tooljetAppUuid}
-                            onChange={(e) => setFormData({...formData, tooljetAppUuid: e.target.value})}
-                            placeholder="123e4567-e89b-12d3-a456-426614174000"
-                            className="w-full px-4 py-2.5 bg-canvas-subtle border border-canvas-subtle rounded-xl text-sm font-mono focus:outline-none focus:border-brand-500/30 focus:ring-2 focus:ring-brand-500/20 transition-all"
-                            disabled={!!app} // Usually don't want to change UUID after creation to avoid breaking links
-                        />
-                        {app && <p className="text-xs text-neutral-400 mt-1">App UUID cannot be changed after registration.</p>}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-semibold text-ink-primary mb-2">
-                            Sidebar Icon
-                        </label>
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 text-2xl border border-brand-100 shadow-sm shrink-0">
-                                <i className={formData.icon || 'fas fa-window-maximize'}></i>
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        {/* LEFT COLUMN: Text Inputs */}
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-ink-primary mb-2">
+                                    Display Name <span className="text-status-error">*</span>
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.displayName}
+                                    onChange={(e) => setFormData({...formData, displayName: e.target.value})}
+                                    placeholder="e.g. Sales Dashboard"
+                                    className="w-full px-4 py-3 bg-canvas-subtle border border-canvas-subtle rounded-xl text-sm focus:outline-none focus:border-brand-500/30 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                />
                             </div>
-                            <div className="text-sm text-neutral-500">
-                                This icon will be displayed in the left navigation sidebar for all users in this tenant.
+
+                            <div>
+                                <label className="block text-sm font-semibold text-ink-primary mb-2">
+                                    ToolJet App UUID <span className="text-status-error">*</span>
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.tooljetAppUuid}
+                                    onChange={(e) => setFormData({...formData, tooljetAppUuid: e.target.value})}
+                                    placeholder="123e4567-e89b-12d3-a456-426614174000"
+                                    className="w-full px-4 py-3 bg-canvas-subtle border border-canvas-subtle rounded-xl text-sm font-mono focus:outline-none focus:border-brand-500/30 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                                    disabled={!!app} // Usually don't want to change UUID after creation to avoid breaking links
+                                />
+                                {app && <p className="text-xs text-neutral-400 mt-2"><i className="fas fa-lock mr-1"></i>App UUID cannot be changed after registration.</p>}
                             </div>
                         </div>
-                        <IconPickerGrid 
-                            value={formData.icon || ''}
-                            onChange={(icon) => setFormData({...formData, icon})}
-                        />
+
+                        {/* RIGHT COLUMN: Icon Picker */}
+                        <div className="bg-canvas-subtle/30 p-6 rounded-2xl border border-canvas-subtle">
+                            <label className="block text-sm font-semibold text-ink-primary mb-3">
+                                Sidebar Icon
+                            </label>
+                            <div className="flex items-center gap-4 mb-5">
+                                <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-brand-600 text-2xl border border-canvas-active shadow-sm shrink-0">
+                                    <i className={formData.icon || 'fas fa-window-maximize'}></i>
+                                </div>
+                                <div className="text-sm text-neutral-500 leading-relaxed">
+                                    This icon will visually represent your app in the left navigation sidebar for all users in this tenant.
+                                </div>
+                            </div>
+                            <div className="bg-white p-2 rounded-xl shadow-sm border border-canvas-subtle">
+                                <IconPickerGrid 
+                                    value={formData.icon || ''}
+                                    onChange={(icon) => setFormData({...formData, icon})}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </form>
 
@@ -123,12 +131,12 @@ export default function AppFormModal({ app, isOpen, onClose, onSave }: AppFormMo
                         type="button"
                         onClick={handleSubmit}
                         disabled={isSaving || !formData.displayName || !formData.tooljetAppUuid}
-                        className="btn-primary"
+                        className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md hover:shadow-brand-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
                         {isSaving ? (
-                            <><i className="fas fa-circle-notch fa-spin mr-2"></i> Saving...</>
+                            <><i className="fas fa-circle-notch fa-spin"></i> Saving...</>
                         ) : (
-                            'Save Application'
+                            <><i className="fas fa-save"></i> Save Application</>
                         )}
                     </button>
                 </div>

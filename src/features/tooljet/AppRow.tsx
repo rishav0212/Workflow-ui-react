@@ -25,26 +25,26 @@ export default function AppRow({
     return (
         <div className="flex items-center gap-4 p-4 hover:bg-canvas-subtle/50 transition-colors group border-b border-canvas-subtle last:border-0">
             {/* Reorder Controls */}
-            <div className="flex flex-col gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
+            <div className="flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity pr-2">
                 <button
                     onClick={onMoveUp}
                     disabled={isFirst || isReordering}
-                    className={`p-1 rounded text-xs flex items-center justify-center transition-colors ${
-                        isFirst ? 'text-neutral-300 cursor-not-allowed' : 'text-neutral-500 hover:bg-white hover:text-ink-primary hover:shadow-sm'
+                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
+                        isFirst ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
                     }`}
                     title="Move Up"
                 >
-                    <i className="fas fa-chevron-up"></i>
+                    <i className="fas fa-chevron-up text-[10px]"></i>
                 </button>
                 <button
                     onClick={onMoveDown}
                     disabled={isLast || isReordering}
-                    className={`p-1 rounded text-xs flex items-center justify-center transition-colors ${
-                        isLast ? 'text-neutral-300 cursor-not-allowed' : 'text-neutral-500 hover:bg-white hover:text-ink-primary hover:shadow-sm'
+                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
+                        isLast ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
                     }`}
                     title="Move Down"
                 >
-                    <i className="fas fa-chevron-down"></i>
+                    <i className="fas fa-chevron-down text-[10px]"></i>
                 </button>
             </div>
 

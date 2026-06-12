@@ -125,7 +125,7 @@ export default function ToolJetAppManager() {
                     
                     <button 
                         onClick={handleAddClick}
-                        className="btn-primary flex items-center gap-2"
+                        className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={isLoading}
                     >
                         <i className="fas fa-plus"></i>
@@ -147,7 +147,7 @@ export default function ToolJetAppManager() {
                             <p className="text-ink-tertiary mb-8 max-w-sm mx-auto leading-relaxed">
                                 You haven't added any ToolJet applications to your workspace yet. Apps registered here will appear in the main navigation sidebar.
                             </p>
-                            <button onClick={handleAddClick} className="btn-primary inline-flex items-center gap-2">
+                            <button onClick={handleAddClick} className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all inline-flex items-center gap-2">
                                 <i className="fas fa-plus"></i> Add Your First App
                             </button>
                         </div>
