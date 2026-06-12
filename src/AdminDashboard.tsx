@@ -31,6 +31,15 @@ export default function AdminDashboard() {
       bg: "bg-green-50", 
     },
     {
+      to: `/admin/tooljet-apps`,
+      icon: "fas fa-window-maximize",
+      title: "App Manager",
+      desc: "Register ToolJet applications, set icons, and control sidebar order for your tenant.",
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      secure: { resource: "module:tooljet_apps", action: "manage" },
+    },
+    {
       to: `/admin/instances`,
       icon: "fas fa-microchip",
       title: "Instance Manager",
@@ -62,15 +71,6 @@ export default function AdminDashboard() {
       desc: "Manage instances and tasks grouped specifically by their workflow definition.",
       color: "text-purple-600",
       bg: "bg-purple-50",
-    },
-    {
-      to: `/admin/tooljet-apps`,
-      icon: "fas fa-window-maximize",
-      title: "App Manager",
-      desc: "Register ToolJet applications, set icons, and control sidebar order for your tenant.",
-      color: "text-violet-600",
-      bg: "bg-violet-50",
-      secure: { resource: "module:tooljet_apps", action: "manage" },
     },
     // {
     //   to: `/admin/jobs`,
