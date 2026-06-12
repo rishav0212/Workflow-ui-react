@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { 
-    ToolJetAppResponse, 
+    type ToolJetAppResponse, 
     fetchAdminToolJetApps, 
     createToolJetApp, 
     updateToolJetApp, 
