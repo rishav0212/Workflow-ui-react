@@ -13,6 +13,8 @@ import {
   forceCompleteProcessInstance,
   fetchAllSystemTasks,
   bulkForceCompleteInstances,
+  deleteHistoricProcessInstance,
+  bulkDeleteHistoricInstances,
 } from "./api";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
@@ -218,6 +220,21 @@ export default function InstanceManager() {
     }
   };
 
+  const handlePermanentDelete = async (id: string) => {
+    if (window.confirm("Permanently delete this instance history from the database? This cannot be undone.")) {
+      setLoading(true);
+      try {
+        await deleteHistoricProcessInstance(id);
+        loadInstances(true);
+        setSelectedInstance(null);
+      } catch (e) {
+        console.error("Permanent delete failed", e);
+        alert("Failed to permanently delete the instance.");
+        setLoading(false);
+      }
+    }
+  };
+
   const handleBulkTerminate = async () => {
     if (window.confirm(`Terminate ${selectedIds.size} instances?`)) {
       setLoading(true);
@@ -238,6 +255,21 @@ export default function InstanceManager() {
       } catch (e) {
         console.error("Bulk force complete failed", e);
         alert("Failed to force complete some instances.");
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (window.confirm(`Permanently delete ${selectedIds.size} history instances from the database? This cannot be undone.`)) {
+      setLoading(true);
+      try {
+        await bulkDeleteHistoricInstances(Array.from(selectedIds));
+        setSelectedIds(new Set());
+        loadInstances(true);
+      } catch (e) {
+        console.error("Bulk permanent delete failed", e);
+        alert("Failed to permanently delete some instances.");
         setLoading(false);
       }
     }
@@ -384,7 +416,7 @@ export default function InstanceManager() {
             <i className="fas fa-microscope mr-1"></i>Inspect
           </button>
           <Secure resource="page:instance_manager" action="delete_instance">
-            {viewMode === "active" && (
+            {viewMode === "active" ? (
               <>
                 <button
                   onClick={() => handleForceComplete(inst.id)}
@@ -401,6 +433,14 @@ export default function InstanceManager() {
                   <i className="fas fa-power-off text-xs"></i>
                 </button>
               </>
+            ) : (
+              <button
+                onClick={() => handlePermanentDelete(inst.id)}
+                className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
+                title="Permanent Delete History"
+              >
+                <i className="fas fa-trash-alt text-xs"></i>
+              </button>
             )}
           </Secure>
         </div>
@@ -463,7 +503,7 @@ export default function InstanceManager() {
               {selectedIds.size} Selected
             </span>
             <div className="flex items-center gap-3">
-              {viewMode === "active" && (
+              {viewMode === "active" ? (
                 <Secure resource="page:instance_manager" action="delete_instance">
                   <button
                     onClick={handleBulkForceComplete}
@@ -476,6 +516,15 @@ export default function InstanceManager() {
                     className="bg-status-error hover:bg-red-500 text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest transition-colors"
                   >
                     Terminate
+                  </button>
+                </Secure>
+              ) : (
+                <Secure resource="page:instance_manager" action="delete_instance">
+                  <button
+                    onClick={handleBulkPermanentDelete}
+                    className="bg-status-error hover:bg-red-500 text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    Permanent Delete
                   </button>
                 </Secure>
               )}
