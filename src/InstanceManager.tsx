@@ -12,6 +12,7 @@ import {
   fetchAdminProcesses,
   forceCompleteProcessInstance,
   fetchAllSystemTasks,
+  bulkForceCompleteInstances,
 } from "./api";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
@@ -224,6 +225,21 @@ export default function InstanceManager() {
       setSelectedIds(new Set());
       // Force refresh to update list and cache after bulk termination
       loadInstances(true);
+    }
+  };
+
+  const handleBulkForceComplete = async () => {
+    if (window.confirm(`Force complete ${selectedIds.size} instances? They will skip all remaining tasks.`)) {
+      setLoading(true);
+      try {
+        await bulkForceCompleteInstances(Array.from(selectedIds));
+        setSelectedIds(new Set());
+        loadInstances(true);
+      } catch (e) {
+        console.error("Bulk force complete failed", e);
+        alert("Failed to force complete some instances.");
+        setLoading(false);
+      }
     }
   };
 
@@ -447,14 +463,22 @@ export default function InstanceManager() {
               {selectedIds.size} Selected
             </span>
             <div className="flex items-center gap-3">
-              <Secure resource="page:instance_manager" action="delete_instance">
-                <button
-                  onClick={handleBulkTerminate}
-                  className="bg-status-error text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest"
-                >
-                  Terminate
-                </button>
-              </Secure>{" "}
+              {viewMode === "active" && (
+                <Secure resource="page:instance_manager" action="delete_instance">
+                  <button
+                    onClick={handleBulkForceComplete}
+                    className="bg-sage-600 hover:bg-sage-500 text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    Force Complete
+                  </button>
+                  <button
+                    onClick={handleBulkTerminate}
+                    className="bg-status-error hover:bg-red-500 text-white px-4 py-1.5 rounded-card text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    Terminate
+                  </button>
+                </Secure>
+              )}
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="text-white/40 hover:text-white transition-colors"

@@ -321,7 +321,11 @@ export const bulkReassignTasks = async (taskIds: string[], userId: string) => {
 };
 
 export const bulkTerminateInstances = async (instanceIds: string[]) => {
-  return Promise.all(instanceIds.map((id) => terminateProcessInstance(id)));
+  return await api.delete(`/api/admin/processes/instances/bulk`, { data: instanceIds });
+};
+
+export const bulkForceCompleteInstances = async (instanceIds: string[]) => {
+  return await api.post(`/api/admin/processes/instances/bulk/force-complete`, instanceIds);
 };
 
 export const fetchVariableHistory = async (processInstanceId: string) => {
