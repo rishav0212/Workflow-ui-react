@@ -67,7 +67,7 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = ({ user }: any) => {
+const GlobalNav = ({ user, apps = [] }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
 
@@ -81,15 +81,6 @@ const GlobalNav = ({ user }: any) => {
   const canViewInstances = hasPermission("module:instance_manager", "view");
 
   const hasAdminAccess = canManageUsers || canManageAccess || canViewInstances;
-
-  const [tooljetApps, setTooljetApps] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Fetch apps when sidebar loads
-    fetchMyToolJetApps()
-      .then((data) => setTooljetApps(data))
-      .catch((err) => console.error("Failed to load apps", err));
-  }, [currentTenant]);
   return (
     <div className="w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex flex-col items-center py-6 z-40 shadow-premium">
       {/* Logo */}
@@ -123,7 +114,7 @@ const GlobalNav = ({ user }: any) => {
         <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
 
         {/* 🟢 DYNAMIC TOOLJET APPS LOOP */}
-        {tooljetApps.map((app) => (
+        {apps.map((app: any) => (
           <NavIcon
             key={app.tooljetAppUuid}
             to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
@@ -504,6 +495,39 @@ const InboxLayout = ({
 //     </div>
 //   );
 // };
+const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any) => {
+  const [tooljetApps, setTooljetApps] = useState<any[]>([]);
+  const { tenantId } = useParams<{ tenantId: string }>();
+
+  useEffect(() => {
+    fetchMyToolJetApps()
+      .then(setTooljetApps)
+      .catch((err) => console.error("Failed to load apps", err));
+  }, [tenantId]);
+
+  return (
+    <div className="flex h-screen bg-canvas overflow-hidden">
+      <Toaster position="top-right" reverseOrder={false} gutter={12} />
+      <GlobalNav user={user} apps={tooljetApps} />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopHeader
+          user={user}
+          onLogout={onLogout}
+          notifications={notifications}
+          clearNotifications={clearNotifications}
+        />
+        <div className="flex-1 relative">
+          <ToolJetCacheManager />
+          <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            <Outlet context={{ apps: tooljetApps }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -730,36 +754,15 @@ export default function App() {
           <Route
             path="/:tenantId"
             element={
-              <div className="flex h-screen bg-canvas overflow-hidden">
-                <Toaster
-                  position="top-right"
-                  reverseOrder={false}
-                  gutter={12}
-                />
-                <GlobalNav user={user} />
-
-                <div className="flex-1 flex flex-col min-w-0">
-                  <TopHeader
-                    user={user}
-                    onLogout={handleLogout}
-                    notifications={notifications}
-                    clearNotifications={() => {
-                      setNotifications([]);
-                      localStorage.removeItem("app_notifications");
-                    }}
-                  />
-
-                  {/* 🔴 THE BULLETPROOF SCROLL WRAPPER */}
-                  <div className="flex-1 relative">
-                    <ToolJetCacheManager />
-
-                    {/* absolute inset-0 forces this div to pin to all 4 corners of the remaining space, guaranteeing a scrollbar */}
-                    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                      <Outlet />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TenantLayout
+                user={user}
+                notifications={notifications}
+                onLogout={handleLogout}
+                clearNotifications={() => {
+                  setNotifications([]);
+                  localStorage.removeItem("app_notifications");
+                }}
+              />
             }
           >
             {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
