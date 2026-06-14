@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import TenantLink from "./components/common/TenantLink";
 import { fetchAdminProcesses } from "./api";
 
 export default function ProcessGroups() {
@@ -17,9 +17,9 @@ export default function ProcessGroups() {
             <h1 className="text-3xl font-serif font-bold text-ink-primary">Process-Wise Operations</h1>
             <p className="text-ink-tertiary mt-2">Manage instances and tasks grouped by their workflow definition.</p>
           </div>
-          <Link to="/admin" className="text-xs font-black uppercase tracking-widest text-brand-600 hover:underline">
+          <TenantLink to="/admin" className="text-xs font-black uppercase tracking-widest text-brand-600 hover:underline">
             <i className="fas fa-arrow-left mr-2"></i> Admin Hub
-          </Link>
+          </TenantLink>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -36,18 +36,18 @@ export default function ProcessGroups() {
               <p className="text-xs text-ink-tertiary font-mono mt-1">Key: {proc.key}</p>
 
               <div className="mt-8 grid grid-cols-2 gap-3">
-                <Link 
+                <TenantLink 
                   to={`/admin/processes/${proc.key}`}
                   className="bg-canvas-subtle text-center py-2.5 rounded-xl text-[11px] font-black uppercase text-ink-secondary hover:bg-canvas-active transition-colors"
                 >
                   Blueprint
-                </Link>
-                <Link 
+                </TenantLink>
+                <TenantLink 
                   to={`/admin/instances?key=${proc.key}`} // Update InstanceManager to filter by key
                   className="bg-brand-500 text-center py-2.5 rounded-xl text-[11px] font-black uppercase text-white hover:bg-brand-600 shadow-lg shadow-brand-500/20 transition-all"
                 >
                   Instances
-                </Link>
+                </TenantLink>
               </div>
             </div>
           ))}
