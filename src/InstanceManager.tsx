@@ -54,6 +54,7 @@ export default function InstanceManager() {
   const [targetVersions, setTargetVersions] = useState<any[]>([]);
   const [filterKey, setFilterKey] = useState(urlFilterKey || "ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [taskFilter, setTaskFilter] = useState("ALL");
   const { tenantId } = useParams<{ tenantId: string }>();
 
   useEffect(() => {
@@ -137,6 +138,18 @@ export default function InstanceManager() {
     return Array.from(keys).filter(Boolean).sort();
   }, [definitions]);
 
+  const uniqueTasks = useMemo(() => {
+    const tasks = new Set<string>();
+    instances.forEach((inst) => {
+      if (inst.activeTasks) {
+        inst.activeTasks.forEach((t: any) => {
+          if (t.name) tasks.add(t.name);
+        });
+      }
+    });
+    return Array.from(tasks).sort();
+  }, [instances]);
+
   const filteredInstances = useMemo(() => {
     let result = instances;
     
@@ -158,8 +171,15 @@ export default function InstanceManager() {
       });
     }
 
+    if (taskFilter !== "ALL") {
+      result = result.filter((i) => {
+        if (!i.activeTasks) return false;
+        return i.activeTasks.some((t: any) => t.name === taskFilter);
+      });
+    }
+
     return result;
-  }, [instances, filterKey, statusFilter]);
+  }, [instances, filterKey, statusFilter, taskFilter]);
 
   /**
    * Manual Refresh Handler.
@@ -474,7 +494,7 @@ export default function InstanceManager() {
 
             <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-soft">
               <button
-                onClick={() => { setViewMode("active"); setStatusFilter("ALL"); }}
+                onClick={() => { setViewMode("active"); setStatusFilter("ALL"); setTaskFilter("ALL"); }}
                 className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
                   viewMode === "active"
                     ? "bg-surface text-brand-500 shadow-lifted"
@@ -484,7 +504,7 @@ export default function InstanceManager() {
                 Active
               </button>
               <button
-                onClick={() => { setViewMode("history"); setStatusFilter("ALL"); }}
+                onClick={() => { setViewMode("history"); setStatusFilter("ALL"); setTaskFilter("ALL"); }}
                 className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
                   viewMode === "history"
                     ? "bg-surface text-brand-500 shadow-lifted"
@@ -550,6 +570,18 @@ export default function InstanceManager() {
           onRowClick={handleInspect}
           headerActions={
             <div className="flex gap-2">
+              <select
+                value={taskFilter}
+                onChange={(e) => setTaskFilter(e.target.value)}
+                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+              >
+                <option value="ALL">All Tasks</option>
+                {uniqueTasks.map((tName) => (
+                  <option key={tName} value={tName}>
+                    {tName}
+                  </option>
+                ))}
+              </select>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
