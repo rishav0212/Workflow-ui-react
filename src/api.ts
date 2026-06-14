@@ -208,6 +208,17 @@ export const terminateProcessInstance = async (id: string) => {
   return await api.delete(`/api/admin/processes/instances/${id}`);
 };
 
+/**
+ * Forces a running process instance to gracefully complete by programmatically
+ * migrating its active execution tokens to the End Event of the process.
+ * This bypasses remaining tasks but ensures the instance is marked as 'Completed'
+ * rather than 'Terminated' (no deleteReason is set).
+ * Secured by tenant isolation and Casbin permission checks in the backend.
+ */
+export const forceCompleteProcessInstance = async (id: string) => {
+  return await api.post(`/api/admin/processes/instances/${id}/force-complete`);
+};
+
 export const fetchInstanceVariables = async (id: string) => {
   const res = await api.get(
     `/process-api/runtime/process-instances/${id}/variables`,

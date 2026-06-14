@@ -10,6 +10,7 @@ import {
   fetchProcessVersions,
   migrateProcessInstance,
   fetchAdminProcesses,
+  forceCompleteProcessInstance,
   fetchAllSystemTasks,
 } from "./api";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -185,6 +186,21 @@ export default function InstanceManager() {
     }
   };
 
+  const handleForceComplete = async (id: string) => {
+    if (window.confirm("Force this process to complete naturally? It will skip all remaining tasks.")) {
+      setLoading(true);
+      try {
+        await forceCompleteProcessInstance(id);
+        loadInstances(true);
+        setSelectedInstance(null);
+      } catch (e) {
+        console.error("Force complete failed", e);
+        alert("Failed to force complete the process instance.");
+        setLoading(false);
+      }
+    }
+  };
+
   const handleBulkTerminate = async () => {
     if (window.confirm(`Terminate ${selectedIds.size} instances?`)) {
       setLoading(true);
@@ -335,13 +351,22 @@ export default function InstanceManager() {
           </button>
           <Secure resource="page:instance_manager" action="delete_instance">
             {viewMode === "active" && (
-              <button
-                onClick={() => handleTerminate(inst.id)}
-                className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
-                title="Terminate Instance"
-              >
-                <i className="fas fa-power-off text-xs"></i>
-              </button>
+              <>
+                <button
+                  onClick={() => handleForceComplete(inst.id)}
+                  className="p-2 text-sage-600 hover:bg-sage-100 hover:text-sage-700 border border-sage-200 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-sage-400"
+                  title="Force Complete Instance"
+                >
+                  <i className="fas fa-fast-forward text-xs"></i>
+                </button>
+                <button
+                  onClick={() => handleTerminate(inst.id)}
+                  className="p-2 text-status-error hover:bg-status-error/15 hover:text-status-error border border-status-error/20 rounded-lg transition-all shadow-soft hover:shadow-lifted hover:border-status-error/40"
+                  title="Terminate Instance"
+                >
+                  <i className="fas fa-power-off text-xs"></i>
+                </button>
+              </>
             )}
           </Secure>
         </div>
