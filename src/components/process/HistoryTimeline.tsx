@@ -44,9 +44,9 @@ const HistoryTimeline = memo(
       if (highlightTaskId && history.length > 0) {
         const targetEvent = history.find((h) => h.taskId === highlightTaskId);
 
-        // Only open if found AND it hasn't been opened yet (check selectedSubmission to prevent loops)
-        if (targetEvent && !selectedSubmission) {
-          // Reuse your existing view handler
+        // Only auto-open if found, hasn't been opened yet, AND the task is actually completed.
+        // We do not want to auto-open empty forms for active tasks.
+        if (targetEvent && !selectedSubmission && targetEvent.endTime) {
           handleViewEvent(targetEvent);
         }
       }
