@@ -37,6 +37,7 @@ import { PermissionProvider, usePermissions } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
 import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
+import TaskResolver from "./TaskResolver";
 
 interface User {
   username: string;
@@ -67,7 +68,7 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = ({ user, apps = [] }: any) => {
+const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
   const { hasPermission } = usePermissions();
@@ -204,17 +205,17 @@ const GlobalNav = ({ user, apps = [] }: any) => {
               </>
             )}
 
-            {tooljetApps.length > 0 && (
+            {apps.length > 0 && (
               <>
                 <div className="h-px bg-neutral-700/40 my-3 mx-1" />
                 <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500 px-3 py-2">
                   Applications
                 </p>
-                {tooljetApps.map((app) => (
+                {apps.map((app: any) => (
                   <MobileNavItem
                     key={app.tooljetAppUuid}
                     to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-                    icon="fas fa-rocket"
+                    icon={app.icon || "fas fa-window-maximize"}
                     label={app.displayName}
                     onClick={onCloseMobileMenu}
                   />
@@ -620,47 +621,8 @@ const InboxLayout = ({
   );
 };
 
-// const AdminGuard = ({ user }: { user: User }) => {
-//   const { hasPermission, isLoading } = usePermissions();
-
-//   // Prevent UI flashing by showing a loader while permissions are being resolved
-//   if (isLoading) {
-//     return (
-//       <div className="flex-1 flex items-center justify-center bg-canvas h-full">
-//         <i className="fas fa-circle-notch fa-spin text-brand-500 text-3xl"></i>
-//       </div>
-//     );
-//   }
-
-//   if (hasAdminAccess) {
-//     return <Outlet />;
-//   }
-
-//   // Render an unauthorized access screen for users without the necessary permissions
-//   return (
-//     <div className="flex-1 flex items-center justify-center bg-canvas h-full">
-//       <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
-//         <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
-//           <i className="fas fa-shield-alt text-2xl"></i>
-//         </div>
-//         <h2 className="text-xl font-bold text-ink-primary">
-//           Access Restricted
-//         </h2>
-//         <p className="text-sm text-neutral-500 mt-2 mb-6">
-//           You do not have the required permissions to view this administration
-//           area.
-//         </p>
-//         <button
-//           onClick={() => (window.location.href = "/")}
-//           className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
-//         >
-//           Return to Inbox
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
 const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tooljetApps, setTooljetApps] = useState<any[]>([]);
   const { tenantId } = useParams<{ tenantId: string }>();
 
@@ -673,7 +635,7 @@ const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
       <Toaster position="top-right" reverseOrder={false} gutter={12} />
-      <GlobalNav user={user} apps={tooljetApps} />
+      <GlobalNav user={user} apps={tooljetApps} mobileMenuOpen={mobileMenuOpen} onCloseMobileMenu={() => setMobileMenuOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopHeader
@@ -681,6 +643,7 @@ const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any
           onLogout={onLogout}
           notifications={notifications}
           clearNotifications={clearNotifications}
+          onMenuToggle={() => setMobileMenuOpen((v) => !v)}
         />
         <div className="flex-1 relative">
           <ToolJetCacheManager />
@@ -698,7 +661,6 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  // Admin Security State
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     try {
@@ -735,7 +697,6 @@ export default function App() {
         return updated;
       });
 
-      // 🎨 ENHANCED: Premium Toast Notifications
       toast.custom(
         (t) => (
           <div
@@ -850,7 +811,6 @@ export default function App() {
     return <Navigate to={`/${tenantId}/login`} replace />;
   };
 
-  // REQUIRED: To check cookies (Standard JS)
   const RootRedirect = () => {
     const cookie = document.cookie.match(
       new RegExp("(^| )WORKFLOW_TENANT=([^;]+)"),
@@ -885,13 +845,10 @@ export default function App() {
             element={<Navigate to="/saar-biotech/login" replace />}
           />
 
-          {/* 1. Login Screen */}
           <Route path="/:tenantId/login" element={<LoginScreen />} />
 
-          {/* 2. Catch "/acme/dashboard" -> Send to "/acme/login" */}
           <Route path="/:tenantId/*" element={<LoginRedirect />} />
 
-          {/* 3. Catch "/" -> Send to Cookie Tenant or Default */}
           <Route path="*" element={<RootRedirect />} />
         </Routes>
       </BrowserRouter>
@@ -902,7 +859,6 @@ export default function App() {
     <PermissionProvider>
       <BrowserRouter>
         <Routes>
-          {/* 🟢 2. Root Redirect: If user goes to '/', send them to their default tenant */}
           <Route
             path="/"
             element={
@@ -912,8 +868,6 @@ export default function App() {
               />
             }
           />
-
-          {/* 🟢 3. TENANT LAYOUT WRAPPER (The Fix) */}
 
           <Route
             path="/:tenantId"
@@ -929,14 +883,10 @@ export default function App() {
               />
             }
           >
-            {/* 🟢 4. NESTED ROUTES (Relative paths, no leading '/') */}
-
-            {/* Dashboard */}
             <Route
               path="dashboard"
               element={<Dashboard addNotification={addNotification} />}
             />
-            {/* 👉 ADD THIS NEW ROUTE HERE: The Task Resolver Route */}
             <Route
               path="task/:processKey/:businessKey"
               element={<TaskResolver currentUser={user.username} />}
@@ -946,7 +896,6 @@ export default function App() {
               element={<Navigate to="../inbox" replace />}
             />
 
-            {/* 🟢 TOOLJET APP ROUTES */}
             <Route path="apps/:appId" element={<div className="hidden" />} />
             {/* The wildcard route below ensures that if a user refreshes on a deep link 
                 (like /apps/123/orders), React Router doesn't crash. The ToolJetCacheManager 
