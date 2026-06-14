@@ -292,9 +292,8 @@ export const fetchHistoricActivities = async (processInstanceId: string) => {
 export const fetchHistoricProcessInstances = async (
   finished: boolean = true,
 ) => {
-  const res = await api.get(
-    `/process-api/history/historic-process-instances?finished=${finished}&size=100000&sort=startTime&order=desc`,
-  );
+  // Use our new enriched backend endpoint
+  const res = await api.get("/api/admin/processes/instances/history");
   return res.data.data;
 };
 

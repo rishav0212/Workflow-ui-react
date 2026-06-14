@@ -50,6 +50,7 @@ export default function InstanceManager() {
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [targetVersions, setTargetVersions] = useState<any[]>([]);
   const [filterKey, setFilterKey] = useState(urlFilterKey || "ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const { tenantId } = useParams<{ tenantId: string }>();
 
   useEffect(() => {
@@ -98,8 +99,9 @@ export default function InstanceManager() {
       apiCall = fetchHistoricProcessInstances(true).then((data) => {
         return data.map((inst: any) => ({
           ...inst,
-          activeTasks: [],
-          activeTaskNames: "",
+          activeTaskNames: (inst.activeTasks || [])
+            .map((t: any) => t.name)
+            .join(", "),
         }));
       });
     }
@@ -133,14 +135,28 @@ export default function InstanceManager() {
   }, [definitions]);
 
   const filteredInstances = useMemo(() => {
-    if (filterKey === "ALL") return instances;
-    return instances.filter((i) => {
-      const instKey =
-        i.processDefinitionKey ||
-        (i.processDefinitionId ? i.processDefinitionId.split(":")[0] : "");
-      return instKey === filterKey;
-    });
-  }, [instances, filterKey]);
+    let result = instances;
+    
+    if (filterKey !== "ALL") {
+      result = result.filter((i) => {
+        const instKey =
+          i.processDefinitionKey ||
+          (i.processDefinitionId ? i.processDefinitionId.split(":")[0] : "");
+        return instKey === filterKey;
+      });
+    }
+
+    if (statusFilter !== "ALL") {
+      result = result.filter((i) => {
+        if (statusFilter === "ACTIVE") return !i.endTime;
+        if (statusFilter === "COMPLETED") return i.endTime && !i.deleteReason;
+        if (statusFilter === "TERMINATED") return i.endTime && !!i.deleteReason;
+        return true;
+      });
+    }
+
+    return result;
+  }, [instances, filterKey, statusFilter]);
 
   /**
    * Manual Refresh Handler.
@@ -302,13 +318,10 @@ export default function InstanceManager() {
       ),
     },
     {
-      header: "Active Task(s)",
+      header: "Task(s)",
       key: "activeTaskNames",
       sortable: true,
       render: (inst) => {
-        if (viewMode === "history") {
-          return <span className="text-ink-muted italic text-[11px]">N/A</span>;
-        }
         if (!inst.activeTasks || inst.activeTasks.length === 0) {
           return <span className="text-ink-muted italic text-[11px]">None</span>;
         }
@@ -317,7 +330,12 @@ export default function InstanceManager() {
             {inst.activeTasks.map((t: any) => (
               <span
                 key={t.id}
-                className="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 shadow-sm"
+                className={`text-[10px] font-bold px-2 py-0.5 rounded border shadow-sm ${
+                  inst.deleteReason
+                    ? "bg-status-error/10 text-status-error border-status-error/30"
+                    : "bg-brand-50 text-brand-700 border-brand-200"
+                }`}
+                title={inst.deleteReason ? "Task cancelled when instance was terminated" : "Active task"}
               >
                 {t.name || "Unnamed Task"}
               </span>
@@ -400,7 +418,7 @@ export default function InstanceManager() {
 
             <div className="flex bg-canvas-subtle p-1 rounded-xl border border-canvas-active shadow-soft">
               <button
-                onClick={() => setViewMode("active")}
+                onClick={() => { setViewMode("active"); setStatusFilter("ALL"); }}
                 className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
                   viewMode === "active"
                     ? "bg-surface text-brand-500 shadow-lifted"
@@ -410,7 +428,7 @@ export default function InstanceManager() {
                 Active
               </button>
               <button
-                onClick={() => setViewMode("history")}
+                onClick={() => { setViewMode("history"); setStatusFilter("ALL"); }}
                 className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
                   viewMode === "history"
                     ? "bg-surface text-brand-500 shadow-lifted"
@@ -458,23 +476,40 @@ export default function InstanceManager() {
           activeRowId={selectedInstance?.id}
           onRowClick={handleInspect}
           headerActions={
-            <select
-              value={filterKey}
-              onChange={(e) => {
-                setFilterKey(e.target.value);
-                setSearchParams(
-                  e.target.value === "ALL" ? {} : { key: e.target.value },
-                );
-              }}
-              className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
-            >
-              <option value="ALL">All Definitions</option>
-              {uniqueKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+              >
+                <option value="ALL">All Statuses</option>
+                {viewMode === "active" ? (
+                  <option value="ACTIVE">Active</option>
+                ) : (
+                  <>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="TERMINATED">Terminated</option>
+                  </>
+                )}
+              </select>
+              <select
+                value={filterKey}
+                onChange={(e) => {
+                  setFilterKey(e.target.value);
+                  setSearchParams(
+                    e.target.value === "ALL" ? {} : { key: e.target.value },
+                  );
+                }}
+                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+              >
+                <option value="ALL">All Definitions</option>
+                {uniqueKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key}
+                  </option>
+                ))}
+              </select>
+            </div>
           }
         />
       </div>
