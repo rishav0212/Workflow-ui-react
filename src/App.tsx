@@ -490,7 +490,7 @@ const TopHeader = ({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-sm font-black uppercase transition-transform group-hover:scale-105 tracking-wider">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-[13px] font-bold uppercase transition-transform group-hover:scale-105 tracking-wide">
                 {getInitials()}
               </div>
             )}
