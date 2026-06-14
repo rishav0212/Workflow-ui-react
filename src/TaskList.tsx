@@ -124,11 +124,10 @@ const TaskItem = memo(
         className={`
         group relative p-3.5 cursor-pointer transition-all duration-200 border rounded-xl
         hover:scale-[1.01] active:scale-[0.99]
-        ${
-          isActive
+        ${isActive
             ? "bg-brand-50 border-brand-400 shadow-brand-md ring-2 ring-brand-200/50"
             : "bg-white border-canvas-subtle hover:border-brand-300 hover:shadow-lifted"
-        }
+          }
       `}
         style={{
           animationDelay: `${index * 35}ms`,
@@ -144,19 +143,17 @@ const TaskItem = memo(
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
               <div
-                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${
-                  isActive
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${isActive
                     ? "bg-brand-500 animate-pulse-soft shadow-brand-sm ring-2 ring-brand-200"
                     : isFailed
-                    ? "bg-status-error animate-pulse-soft"
-                    : "bg-neutral-300"
-                }`}
+                      ? "bg-status-error animate-pulse-soft"
+                      : "bg-neutral-300"
+                  }`}
               ></div>
 
               <h4
-                className={`text-base font-semibold truncate transition-colors ${
-                  isActive ? "text-brand-900" : "text-ink-primary"
-                }`}
+                className={`text-base font-semibold truncate transition-colors ${isActive ? "text-brand-900" : "text-ink-primary"
+                  }`}
               >
                 {task.name}
               </h4>
@@ -168,9 +165,8 @@ const TaskItem = memo(
             )}
           </div>
           <span
-            className={`text-xs whitespace-nowrap font-medium transition-colors ${
-              isActive ? "text-brand-700" : "text-neutral-500"
-            }`}
+            className={`text-xs whitespace-nowrap font-medium transition-colors ${isActive ? "text-brand-700" : "text-neutral-500"
+              }`}
           >
             {timeAgo(task.createTime)}
           </span>
@@ -205,9 +201,8 @@ const TaskItem = memo(
         </div>
 
         <div
-          className={`absolute inset-0 rounded-xl ring-2 ring-inset ring-brand-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
-            isActive ? "hidden" : ""
-          }`}
+          className={`absolute inset-0 rounded-xl ring-2 ring-inset ring-brand-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${isActive ? "hidden" : ""
+            }`}
         ></div>
       </div>
     );
@@ -338,12 +333,12 @@ export default function TaskList({
   // 🚀 FILTERING (Uses Deferred Query)
   const filteredTasks = useMemo(() => {
     const filtered = tasks.filter((task) => {
-      if (optimisticHiddenTasks.includes(task.id)) return false;
+      if (optimisticHiddenTasks.includes(String(task.id))) return false;
       if (deferredSearchQuery) {
         const lowerQ = deferredSearchQuery.toLowerCase();
         const matchesName = task.name?.toLowerCase().includes(lowerQ);
         const matchesDesc = task.description?.toLowerCase().includes(lowerQ);
-        const matchesId = task.id?.includes(lowerQ);
+        const matchesId = String(task.id).toLowerCase().includes(lowerQ);
         if (!matchesName && !matchesDesc && !matchesId) return false;
       }
       if (filterPriority && (task.priority || 0) <= 50) return false;
@@ -353,9 +348,9 @@ export default function TaskList({
     });
 
     return filtered.sort((a, b) => {
-      const isFailedA = failedSubmissionTasks.includes(a.id);
-      const isFailedB = failedSubmissionTasks.includes(b.id);
-      
+      const isFailedA = failedSubmissionTasks.includes(String(a.id));
+      const isFailedB = failedSubmissionTasks.includes(String(b.id));
+
       if (isFailedA && !isFailedB) return -1;
       if (!isFailedA && isFailedB) return 1;
 
@@ -467,11 +462,10 @@ export default function TaskList({
             <div className="relative" ref={sortRef}>
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className={`px-2.5 h-7 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-all border ${
-                  showSortMenu
+                className={`px-2.5 h-7 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-all border ${showSortMenu
                     ? "bg-accent-50 text-accent-700 shadow-accent-sm border-accent-200"
                     : "text-neutral-600 hover:bg-canvas-active border-transparent hover:border-canvas-active"
-                }`}
+                  }`}
                 title="Sort tasks"
               >
                 <i className="fas fa-sort text-[10px]"></i>
@@ -507,11 +501,10 @@ export default function TaskList({
                         updateFilter("sort", option.value);
                         setShowSortMenu(false);
                       }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${
-                        sortBy === option.value
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${sortBy === option.value
                           ? "bg-accent-50 text-accent-700 shadow-accent-sm"
                           : "text-neutral-600 hover:bg-canvas-subtle"
-                      }`}
+                        }`}
                     >
                       <i
                         className={`${option.icon} text-[10px] w-3.5 text-center`}
@@ -526,11 +519,10 @@ export default function TaskList({
             {/* Filter Button */}
             <button
               onClick={() => setShowFilterMenu(!showFilterMenu)}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all border relative ${
-                showFilterMenu || activeFiltersCount > 0
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all border relative ${showFilterMenu || activeFiltersCount > 0
                   ? "bg-brand-50 text-brand-600 shadow-brand-sm border-brand-200"
                   : "text-neutral-500 hover:bg-canvas-active border-transparent hover:border-canvas-active"
-              }`}
+                }`}
             >
               <i className="fas fa-sliders-h text-[10px]"></i>
               {activeFiltersCount > 0 && (
@@ -575,11 +567,10 @@ export default function TaskList({
                       updateFilter("category", null);
                       setShowFilterMenu(false);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition-all ${
-                      filterTaskName === "all"
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition-all ${filterTaskName === "all"
                         ? "bg-brand-50 text-brand-700 font-bold shadow-soft"
                         : "text-neutral-600 hover:bg-canvas-subtle"
-                    }`}
+                      }`}
                   >
                     All Categories
                   </button>
@@ -590,11 +581,10 @@ export default function TaskList({
                         updateFilter("category", name);
                         setShowFilterMenu(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate mb-1 transition-all ${
-                        filterTaskName === name
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate mb-1 transition-all ${filterTaskName === name
                           ? "bg-brand-50 text-brand-700 font-bold shadow-soft"
                           : "text-neutral-600 hover:bg-canvas-subtle"
-                      }`}
+                        }`}
                     >
                       {name}
                     </button>
