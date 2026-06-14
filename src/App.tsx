@@ -40,6 +40,7 @@ import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 
 interface User {
   username: string;
+  name?: string;
   email: string;
   authorities: Array<{ authority: string }>;
   tenantId?: string;
@@ -328,9 +329,12 @@ const TopHeader = ({
         <div className="flex items-center gap-3 pl-3 border-l border-canvas-subtle">
           <div className="text-right hidden md:block">
             <div className="text-sm font-bold text-ink-primary">
-              {user.username}
+              {user.name || user.username}
             </div>
-            <div className="text-[10px] text-status-success font-bold uppercase tracking-wider flex items-center justify-end gap-1">
+            <div className="text-[11px] text-neutral-500 font-medium">
+              @{user.username}
+            </div>
+            <div className="text-[10px] text-status-success font-bold uppercase tracking-wider flex items-center justify-end gap-1 mt-0.5">
               <span className="w-1.5 h-1.5 bg-status-success rounded-full animate-pulse"></span>
               Online
             </div>
