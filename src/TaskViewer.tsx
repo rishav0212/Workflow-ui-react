@@ -26,7 +26,11 @@ import ProcessDiagram from "./components/process/ProcessDiagram";
 // --- INTERFACE FOR OUTLET CONTEXT ---
 interface GlobalContext {
   refreshTasks: () => void;
-  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+  addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number;
+  hideTask: (taskId: string) => void;
+  unhideTask: (taskId: string) => void;
+  markTaskAsFailed: (taskId: string) => void;
+  clearTaskFailure: (taskId: string) => void;
 }
 
 const TABS = [
@@ -392,7 +396,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const isSubmitted = useRef(false);
 
-  const { refreshTasks, addNotification } = useOutletContext<GlobalContext>();
+  const { refreshTasks, addNotification, hideTask, unhideTask, markTaskAsFailed, clearTaskFailure } = useOutletContext<GlobalContext>();
 
   // State
   const [taskData, setTaskData] = useState<any>(null);
@@ -664,55 +668,62 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   }, []);
 
   const onSubFormSubmit = useCallback(
-    async (submission: any) => {
+    (submission: any) => {
       if (isReadOnly || !selectedAction || !taskId) return;
-      setSubmitting(true);
       const payload = {
         action: selectedAction.action,
         formData: submission.data,
         submittedFormKey: selectedAction.targetForm,
         variables: selectedAction.variables || {},
       };
-      try {
-        await submitTask(taskId, payload);
-        isSubmitted.current = true;
-        addNotification(
-          `Task Completed Successfully!${getNotificationContext()}`,
-          "success",
-        );
-        refreshTasks();
-        // 1. Get the absolute latest search parameters from the hook
-        // 1. Get current params
-        const finalParams = new URLSearchParams(searchParams);
-
-        // 2. Remove ONLY the tab parameter
-        finalParams.delete("tab");
-
-        // 3. Navigate DIRECTLY to the tenant's inbox (bypassing the App.tsx root redirect)
-        navigate(`/${tenantId}/inbox?${finalParams.toString()}`, {
-          replace: true,
-        });
-      } catch (err: any) {
-        const msg = parseApiError(err);
-        if (err.response?.status === 422) {
-          addNotification(`${msg}${getNotificationContext()}`, "error");
-        } else {
+      
+      const notifId = addNotification(`Submitting task: ${taskData?.taskName || taskId}...`, "loading");
+      
+      clearTaskFailure(taskId);
+      hideTask(taskId);
+      setShowModal(false);
+      isSubmitted.current = true;
+      
+      const finalParams = new URLSearchParams(searchParams);
+      finalParams.delete("tab");
+      navigate(`/${tenantId}/inbox?${finalParams.toString()}`, { replace: true });
+      
+      submitTask(taskId, payload)
+        .then(() => {
           addNotification(
-            `Submission failed: ${msg}${getNotificationContext()}`,
-            "error",
+            `Task Completed Successfully!${getNotificationContext()}`,
+            "success",
+            notifId
           );
-        }
-      } finally {
-        setSubmitting(false);
-      }
+          refreshTasks();
+        })
+        .catch((err: any) => {
+          unhideTask(taskId);
+          markTaskAsFailed(taskId);
+          const msg = parseApiError(err);
+          const errorMsg = err.response?.status === 422 ? msg : `Submission failed: ${msg}`;
+          addNotification(
+            `${errorMsg}${getNotificationContext()}`, 
+            "error", 
+            notifId, 
+            `/${tenantId}/inbox/task/${taskId}?${searchParams.toString()}`, 
+            "Review Task"
+          );
+        });
     },
     [
       isReadOnly,
       selectedAction,
       taskId,
+      taskData,
       addNotification,
+      hideTask,
+      unhideTask,
+      markTaskAsFailed,
+      clearTaskFailure,
       refreshTasks,
       navigate,
+      tenantId,
       getNotificationContext,
       searchParams,
     ],

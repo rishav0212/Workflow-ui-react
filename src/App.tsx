@@ -36,10 +36,12 @@ import UserManagement from "./features/iam/UserManagement";
 import { PermissionProvider, usePermissions } from "./hooks/PermissionContext";
 import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
-import TaskResolver from "./TaskResolver";
+import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 
 interface User {
   username: string;
+  name?: string;
+  picture?: string;
   email: string;
   authorities: Array<{ authority: string }>;
   tenantId?: string;
@@ -47,8 +49,11 @@ interface User {
 export interface NotificationItem {
   id: number;
   message: string;
-  type: "success" | "error" | "info";
+  type: "success" | "error" | "info" | "loading";
   timestamp: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  taskId?: string;
 }
 
 const timeAgo = (dateStr: string) => {
@@ -62,7 +67,7 @@ const timeAgo = (dateStr: string) => {
 };
 
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
+const GlobalNav = ({ user, apps = [] }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
   const { hasPermission } = usePermissions();
@@ -71,15 +76,6 @@ const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
   const canManageAccess = hasPermission("module:access_control", "read");
   const canViewInstances = hasPermission("module:instance_manager", "view");
   const hasAdminAccess = canManageUsers || canManageAccess || canViewInstances;
-
-  const [tooljetApps, setTooljetApps] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchMyToolJetApps()
-      .then((data) => setTooljetApps(data))
-      .catch((err) => console.error("Failed to load apps", err));
-  }, [currentTenant]);
-
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════
@@ -103,7 +99,9 @@ const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
             icon="fas fa-inbox"
             label="Inbox"
           />
+
           <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
+
           {hasAdminAccess && (
             <NavIcon
               to={`/${currentTenant}/admin`}
@@ -111,12 +109,15 @@ const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
               label="Admin Portal"
             />
           )}
+
           <div className="w-8 h-[1px] bg-neutral-700/50 my-2"></div>
-          {tooljetApps.map((app) => (
+
+          {/* 🟢 DYNAMIC TOOLJET APPS LOOP */}
+          {apps.map((app: any) => (
             <NavIcon
               key={app.tooljetAppUuid}
               to={`/${currentTenant}/apps/${app.tooljetAppUuid}`}
-              icon="fas fa-rocket"
+              icon={app.icon || "fas fa-window-maximize"}
               label={app.displayName}
             />
           ))}
@@ -137,23 +138,20 @@ const GlobalNav = ({ user, mobileMenuOpen, onCloseMobileMenu }: any) => {
           MOBILE DRAWER — only visible on mobile
       ════════════════════════════════════════════════════════════════ */}
       <div
-        className={`md:hidden fixed inset-0 z-50 transition-all duration-300 ${
-          mobileMenuOpen ? "visible" : "invisible pointer-events-none"
-        }`}
+        className={`md:hidden fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? "visible" : "invisible pointer-events-none"
+          }`}
       >
         {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-neutral-900/65 backdrop-blur-sm transition-opacity duration-300 ${
-            mobileMenuOpen ? "opacity-100" : "opacity-0"
-          }`}
+          className={`absolute inset-0 bg-neutral-900/65 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100" : "opacity-0"
+            }`}
           onClick={onCloseMobileMenu}
         />
 
         {/* Drawer Panel */}
         <div
-          className={`absolute left-0 top-0 bottom-0 w-72 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-            mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`absolute left-0 top-0 bottom-0 w-72 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           {/* Drawer Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-700/40 flex-shrink-0">
@@ -259,7 +257,8 @@ const ToolJetCacheManager = () => {
   const location = useLocation();
 
   // Check if we are currently viewing an app route
-  const match = matchPath("/:tenantId/apps/:appId", location.pathname);
+  // 🟢 ENHANCED: Allow wildcard matching so sub-pages don't break the layout
+  const match = matchPath("/:tenantId/apps/:appId/*", location.pathname);
   const currentAppId = match?.params?.appId;
 
   // Keep a running list of all apps opened during this browser session
@@ -278,9 +277,8 @@ const ToolJetCacheManager = () => {
       {openedApps.map((appId) => (
         <div
           key={appId}
-          className={`absolute inset-0 z-10 bg-canvas ${
-            appId === currentAppId ? "block animate-fadeIn" : "hidden"
-          }`}
+          className={`absolute inset-0 z-10 bg-canvas ${appId === currentAppId ? "block animate-fadeIn" : "hidden"
+            }`}
         >
           <ToolJetViewer appId={appId} />
         </div>
@@ -304,10 +302,9 @@ const MobileNavItem = ({
     to={to}
     onClick={onClick}
     className={({ isActive }) =>
-      `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
-        isActive
-          ? "bg-brand-500/15 text-brand-300 border border-brand-500/25"
-          : "text-neutral-400 hover:bg-neutral-700/40 hover:text-neutral-100"
+      `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${isActive
+        ? "bg-brand-500/15 text-brand-300 border border-brand-500/25"
+        : "text-neutral-400 hover:bg-neutral-700/40 hover:text-neutral-100"
       }`
     }
   >
@@ -323,10 +320,9 @@ const NavIcon = ({ to, icon, label }: any) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
-      `nav-item group relative w-12 h-12 rounded-xl flex items-center justify-center text-lg transition-all duration-200 ${
-        isActive
-          ? "bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-brand-lg ring-2 ring-brand-400/30"
-          : "text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200"
+      `nav-item group relative w-12 h-12 rounded-xl flex items-center justify-center text-lg transition-all duration-200 ${isActive
+        ? "bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-brand-lg ring-2 ring-brand-400/30"
+        : "text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200"
       }`
     }
   >
@@ -442,6 +438,11 @@ const TopHeader = ({
                               <i className="fas fa-info text-status-info text-[10px]"></i>
                             </div>
                           )}
+                          {n.type === "loading" && (
+                            <div className="w-6 h-6 bg-brand-50 rounded-full flex items-center justify-center">
+                              <i className="fas fa-circle-notch fa-spin text-brand-500 text-[10px]"></i>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-ink-primary leading-snug font-light">
@@ -450,6 +451,14 @@ const TopHeader = ({
                           <p className="text-[10px] text-neutral-500 mt-1 font-medium">
                             {timeAgo(n.timestamp)}
                           </p>
+                          {n.actionUrl && n.actionLabel && (
+                            <NavLink
+                              to={n.actionUrl}
+                              className="inline-block mt-2 text-[10px] font-bold bg-white border border-canvas-active px-2.5 py-1 rounded-md text-ink-primary hover:bg-neutral-50 shadow-soft transition-colors"
+                            >
+                              {n.actionLabel}
+                            </NavLink>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -461,23 +470,42 @@ const TopHeader = ({
         </div>
 
         {/* User Section */}
-        <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 border-l border-canvas-subtle">
-          {/* Username — hidden on small screens */}
-          <div className="text-right hidden lg:block">
-            <div className="text-sm font-bold text-ink-primary">
-              {user.username}
+        <div className="flex items-center gap-4 pl-4 border-l border-canvas-subtle ml-1">
+          <div className="flex items-center gap-3 group cursor-pointer p-1 pr-4 rounded-full bg-canvas-subtle/50 hover:bg-white hover:shadow-floating border border-transparent hover:border-brand-200 transition-all duration-300">
+            {/* Avatar */}
+            {user.picture ? (
+              <img
+                src={user.picture}
+                alt="Profile"
+                className="w-9 h-9 rounded-full border-2 border-white shadow-sm object-cover transition-transform group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold uppercase transition-transform group-hover:scale-105">
+                {user.name?.[0] || user.username?.[0] || "?"}
+              </div>
+            )}
+
+            {/* User Info */}
+            <div className="hidden md:flex flex-col justify-center text-left">
+              <span className="text-[13px] font-bold text-ink-primary leading-tight group-hover:text-brand-700 transition-colors">
+                {user.name || user.username}
+              </span>
+              <span className="text-[10px] font-bold text-brand-500/80 tracking-wide uppercase mt-0.5">
+                @{user.username}
+              </span>
             </div>
-            <div className="text-[10px] text-status-success font-bold uppercase tracking-wider flex items-center justify-end gap-1">
-              <span className="w-1.5 h-1.5 bg-status-success rounded-full animate-pulse"></span>
-              Online
-            </div>
+
+            {/* Subtle Chevron */}
+            <i className="fas fa-chevron-down text-[10px] text-neutral-400 ml-1 group-hover:text-brand-500 transition-colors hidden md:block"></i>
           </div>
+
           <button
             onClick={onLogout}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105"
+            className="w-9 h-9 rounded-full bg-white border border-canvas-subtle hover:bg-status-error/10 hover:border-status-error/30 hover:text-status-error flex items-center justify-center transition-all hover:shadow-sm group"
             title="Logout"
           >
-            <i className="fas fa-power-off text-sm"></i>
+            <i className="fas fa-power-off text-xs text-neutral-400 group-hover:text-status-error transition-colors"></i>
           </button>
         </div>
       </div>
@@ -535,8 +563,42 @@ const InboxLayout = ({
   user: User;
   refreshTrigger: number;
   onRefresh: () => void;
-  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+  addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number;
 }) => {
+  const [optimisticHiddenTasks, setOptimisticHiddenTasks] = useState<string[]>([]);
+  const [failedSubmissionTasks, setFailedSubmissionTasks] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("failed_tasks");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const markTaskAsFailed = useCallback((taskId: string) => {
+    setFailedSubmissionTasks((prev) => {
+      const next = [...new Set([taskId, ...prev])];
+      localStorage.setItem("failed_tasks", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearTaskFailure = useCallback((taskId: string) => {
+    setFailedSubmissionTasks((prev) => {
+      const next = prev.filter((id) => id !== taskId);
+      localStorage.setItem("failed_tasks", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const hideTask = useCallback((taskId: string) => {
+    setOptimisticHiddenTasks((prev) => [...prev, taskId]);
+  }, []);
+
+  const unhideTask = useCallback((taskId: string) => {
+    setOptimisticHiddenTasks((prev) => prev.filter((id) => id !== taskId));
+  }, []);
+
   return (
     <div className="flex h-full overflow-hidden bg-canvas">
       {/* LEFT PANE (Task List) */}
@@ -545,57 +607,92 @@ const InboxLayout = ({
           currentUser={user.username}
           refreshTrigger={refreshTrigger}
           addNotification={addNotification}
+          optimisticHiddenTasks={optimisticHiddenTasks}
+          failedSubmissionTasks={failedSubmissionTasks}
         />
       </div>
 
       {/* RIGHT PANE (Task Viewer) */}
       <div className="flex-1 min-w-0 bg-canvas relative overflow-y-auto flex flex-col">
-        <Outlet context={{ refreshTasks: onRefresh, addNotification }} />
+        <Outlet context={{ refreshTasks: onRefresh, addNotification, hideTask, unhideTask, markTaskAsFailed, clearTaskFailure }} />
       </div>
     </div>
   );
 };
 
-const TenantLayout = ({
-  user,
-  onLogout,
-  notifications,
-  onClearNotifications,
-}: {
-  user: User;
-  onLogout: () => void;
-  notifications: NotificationItem[];
-  onClearNotifications: () => void;
-}) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+// const AdminGuard = ({ user }: { user: User }) => {
+//   const { hasPermission, isLoading } = usePermissions();
+
+//   // Prevent UI flashing by showing a loader while permissions are being resolved
+//   if (isLoading) {
+//     return (
+//       <div className="flex-1 flex items-center justify-center bg-canvas h-full">
+//         <i className="fas fa-circle-notch fa-spin text-brand-500 text-3xl"></i>
+//       </div>
+//     );
+//   }
+
+//   if (hasAdminAccess) {
+//     return <Outlet />;
+//   }
+
+//   // Render an unauthorized access screen for users without the necessary permissions
+//   return (
+//     <div className="flex-1 flex items-center justify-center bg-canvas h-full">
+//       <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
+//         <div className="w-16 h-16 bg-status-error/10 rounded-full flex items-center justify-center mx-auto mb-5 text-status-error shadow-sm">
+//           <i className="fas fa-shield-alt text-2xl"></i>
+//         </div>
+//         <h2 className="text-xl font-bold text-ink-primary">
+//           Access Restricted
+//         </h2>
+//         <p className="text-sm text-neutral-500 mt-2 mb-6">
+//           You do not have the required permissions to view this administration
+//           area.
+//         </p>
+//         <button
+//           onClick={() => (window.location.href = "/")}
+//           className="w-full bg-canvas-subtle text-ink-primary font-bold py-3 rounded-xl hover:bg-neutral-200 transition-colors"
+//         >
+//           Return to Inbox
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
+const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any) => {
+  const [tooljetApps, setTooljetApps] = useState<any[]>([]);
+  const { tenantId } = useParams<{ tenantId: string }>();
+
+  useEffect(() => {
+    fetchMyToolJetApps()
+      .then(setTooljetApps)
+      .catch((err) => console.error("Failed to load apps", err));
+  }, [tenantId]);
 
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
       <Toaster position="top-right" reverseOrder={false} gutter={12} />
-      <GlobalNav
-        user={user}
-        mobileMenuOpen={mobileMenuOpen}
-        onCloseMobileMenu={() => setMobileMenuOpen(false)}
-      />
+      <GlobalNav user={user} apps={tooljetApps} />
+
       <div className="flex-1 flex flex-col min-w-0">
         <TopHeader
           user={user}
           onLogout={onLogout}
           notifications={notifications}
-          clearNotifications={onClearNotifications}
-          onMenuToggle={() => setMobileMenuOpen((v) => !v)}
+          clearNotifications={clearNotifications}
         />
-        {/* Content area — ToolJet fills this on mobile automatically */}
         <div className="flex-1 relative">
           <ToolJetCacheManager />
           <div className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            <Outlet />
+            <Outlet context={{ apps: tooljetApps }} />
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 // --- MAIN APP ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -613,16 +710,27 @@ export default function App() {
   });
 
   const addNotification = useCallback(
-    (message: string, type: "success" | "error" | "info") => {
+    (message: string, type: "success" | "error" | "info" | "loading", existingId?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => {
+      const id = existingId || Date.now();
       const newItem: NotificationItem = {
-        id: Date.now(),
+        id,
         message,
         type,
         timestamp: new Date().toISOString(),
+        actionUrl,
+        actionLabel,
+        taskId
       };
 
       setNotifications((prev) => {
-        const updated = [newItem, ...prev].slice(0, 15);
+        const existingIdx = prev.findIndex((n) => n.id === id);
+        let updated;
+        if (existingIdx >= 0) {
+          updated = [...prev];
+          updated[existingIdx] = newItem;
+        } else {
+          updated = [newItem, ...prev].slice(0, 15);
+        }
         localStorage.setItem("app_notifications", JSON.stringify(updated));
         return updated;
       });
@@ -631,55 +739,76 @@ export default function App() {
       toast.custom(
         (t) => (
           <div
-            className={`${
-              t.visible ? "animate-slideDown" : "opacity-0"
-            } max-w-md w-full bg-white shadow-floating rounded-xl pointer-events-auto flex border border-canvas-subtle overflow-hidden`}
+            className={`${t.visible ? "animate-slideDown" : "opacity-0"
+              } max-w-md w-full bg-white shadow-floating rounded-xl pointer-events-auto flex flex-col border border-canvas-subtle overflow-hidden`}
           >
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 pt-0.5">
-                  {type === "success" && (
-                    <div className="w-8 h-8 bg-status-success/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-check-circle text-status-success text-lg"></i>
-                    </div>
-                  )}
-                  {type === "error" && (
-                    <div className="w-8 h-8 bg-status-error/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-times-circle text-status-error text-lg"></i>
-                    </div>
-                  )}
-                  {type === "info" && (
-                    <div className="w-8 h-8 bg-status-info/10 rounded-full flex items-center justify-center">
-                      <i className="fas fa-info-circle text-status-info text-lg"></i>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-ink-primary">
-                    {type === "success"
-                      ? "Success"
-                      : type === "error"
-                        ? "Error"
-                        : "Notification"}
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600 leading-relaxed">
-                    {message}
-                  </p>
+            <div className="flex w-full">
+              <div className="flex-1 w-0 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 pt-0.5">
+                    {type === "success" && (
+                      <div className="w-8 h-8 bg-status-success/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-check-circle text-status-success text-lg"></i>
+                      </div>
+                    )}
+                    {type === "error" && (
+                      <div className="w-8 h-8 bg-status-error/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-times-circle text-status-error text-lg"></i>
+                      </div>
+                    )}
+                    {type === "info" && (
+                      <div className="w-8 h-8 bg-status-info/10 rounded-full flex items-center justify-center">
+                        <i className="fas fa-info-circle text-status-info text-lg"></i>
+                      </div>
+                    )}
+                    {type === "loading" && (
+                      <div className="w-8 h-8 bg-brand-50 rounded-full flex items-center justify-center shadow-brand-sm ring-1 ring-brand-100">
+                        <i className="fas fa-circle-notch fa-spin text-brand-500 text-lg"></i>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-ink-primary">
+                      {type === "success"
+                        ? "Success"
+                        : type === "error"
+                          ? "Error"
+                          : type === "loading"
+                            ? "Processing"
+                            : "Notification"}
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-600 leading-relaxed">
+                      {message}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <div className="flex border-l border-canvas-subtle bg-canvas-subtle/30">
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-neutral-400 hover:text-ink-primary hover:bg-canvas-subtle focus:outline-none transition-colors"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
             </div>
-            <div className="flex border-l border-canvas-subtle bg-canvas-subtle/30">
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className="w-full border border-transparent rounded-none p-4 flex items-center justify-center text-sm font-medium text-neutral-400 hover:text-ink-primary hover:bg-canvas-subtle focus:outline-none transition-colors"
-              >
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
+            {actionUrl && actionLabel && (
+              <div className="border-t border-canvas-subtle bg-canvas-subtle/50 p-2.5 flex justify-end">
+                <NavLink
+                  to={actionUrl}
+                  onClick={() => toast.dismiss(t.id)}
+                  className="text-xs font-bold bg-white border border-canvas-active px-4 py-1.5 rounded-lg text-ink-primary hover:bg-neutral-50 shadow-soft transition-colors"
+                >
+                  {actionLabel}
+                </NavLink>
+              </div>
+            )}
           </div>
         ),
-        { duration: 5000 },
+        { id: String(id), duration: type === "loading" ? Infinity : 5000 },
       );
+
+      return id;
     },
     [],
   );
@@ -791,9 +920,9 @@ export default function App() {
             element={
               <TenantLayout
                 user={user}
-                onLogout={handleLogout}
                 notifications={notifications}
-                onClearNotifications={() => {
+                onLogout={handleLogout}
+                clearNotifications={() => {
                   setNotifications([]);
                   localStorage.removeItem("app_notifications");
                 }}
@@ -817,9 +946,12 @@ export default function App() {
               element={<Navigate to="../inbox" replace />}
             />
 
-            {/* 🟢 MODIFIED: Make this an empty div. 
-              The ToolJetCacheManager (above) handles showing the actual iframe overlay */}
+            {/* 🟢 TOOLJET APP ROUTES */}
             <Route path="apps/:appId" element={<div className="hidden" />} />
+            {/* The wildcard route below ensures that if a user refreshes on a deep link 
+                (like /apps/123/orders), React Router doesn't crash. The ToolJetCacheManager 
+                reads this route and creates the iframe overlay. */}
+            <Route path="apps/:appId/*" element={<div className="hidden" />} />
             <Route path="admin/forms" element={<FormManager />} />
             <Route path="admin/forms/*" element={<FormManager />} />
             {/* Inbox & Tasks */}
@@ -870,6 +1002,14 @@ export default function App() {
             <Route path="admin/tasks" element={<TaskSupervision />} />
             <Route path="admin/process-groups" element={<ProcessGroups />} />
             <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route
+              path="admin/tooljet-apps"
+              element={
+                <Secure resource="module:tooljet_apps" action="manage">
+                  <ToolJetAppManager />
+                </Secure>
+              }
+            />
             <Route
               path="admin/inspect/:instanceId"
               element={

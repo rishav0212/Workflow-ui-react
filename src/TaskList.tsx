@@ -22,7 +22,9 @@ interface ExtendedTask extends Task {
 interface TaskListProps {
   currentUser: string;
   refreshTrigger?: number;
-  addNotification: (msg: string, type: "success" | "error" | "info") => void;
+  addNotification: (msg: string, type: "success" | "error" | "info" | "loading", id?: number, actionUrl?: string, actionLabel?: string, taskId?: string) => number | void;
+  optimisticHiddenTasks?: string[];
+  failedSubmissionTasks?: string[];
 }
 
 // ... (keep timeAgo and TaskListSkeleton same as before) ...
@@ -97,6 +99,7 @@ const TaskItem = memo(
     onNavigate,
     onHover,
     onLeave,
+    isFailed,
   }: {
     task: ExtendedTask;
     isActive: boolean;
@@ -104,7 +107,9 @@ const TaskItem = memo(
     onNavigate: (id: string) => void;
     onHover: (e: React.MouseEvent, text: string) => void;
     onLeave: () => void;
+    isFailed?: boolean;
   }) => {
+    // 🚀 Force IDE Sync: isFailed is defined here!
     const { tenantId } = useParams<{ tenantId: string }>();
     const isHighPriority = (task.priority || 0) > 50;
 
@@ -136,22 +141,31 @@ const TaskItem = memo(
         )}
 
         <div className="flex justify-between items-start gap-2 mb-2">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div
-              className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${
-                isActive
-                  ? "bg-brand-500 animate-pulse-soft shadow-brand-sm ring-2 ring-brand-200"
-                  : "bg-neutral-300"
-              }`}
-            ></div>
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <div
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all ${
+                  isActive
+                    ? "bg-brand-500 animate-pulse-soft shadow-brand-sm ring-2 ring-brand-200"
+                    : isFailed
+                    ? "bg-status-error animate-pulse-soft"
+                    : "bg-neutral-300"
+                }`}
+              ></div>
 
-            <h4
-              className={`text-base font-semibold truncate transition-colors ${
-                isActive ? "text-brand-900" : "text-ink-primary"
-              }`}
-            >
-              {task.name}
-            </h4>
+              <h4
+                className={`text-base font-semibold truncate transition-colors ${
+                  isActive ? "text-brand-900" : "text-ink-primary"
+                }`}
+              >
+                {task.name}
+              </h4>
+            </div>
+            {isFailed && (
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-status-error/10 text-status-error border border-status-error/20 w-fit mt-0.5 ml-5">
+                <i className="fas fa-exclamation-triangle"></i> Failed: Retry Submission
+              </div>
+            )}
           </div>
           <span
             className={`text-xs whitespace-nowrap font-medium transition-colors ${
@@ -204,6 +218,8 @@ export default function TaskList({
   currentUser,
   refreshTrigger = 0,
   addNotification,
+  optimisticHiddenTasks = [],
+  failedSubmissionTasks = [],
 }: TaskListProps) {
   const navigate = useNavigate();
   const { taskId: activeTaskId } = useParams();
@@ -322,6 +338,7 @@ export default function TaskList({
   // 🚀 FILTERING (Uses Deferred Query)
   const filteredTasks = useMemo(() => {
     const filtered = tasks.filter((task) => {
+      if (optimisticHiddenTasks.includes(task.id)) return false;
       if (deferredSearchQuery) {
         const lowerQ = deferredSearchQuery.toLowerCase();
         const matchesName = task.name?.toLowerCase().includes(lowerQ);
@@ -336,6 +353,12 @@ export default function TaskList({
     });
 
     return filtered.sort((a, b) => {
+      const isFailedA = failedSubmissionTasks.includes(a.id);
+      const isFailedB = failedSubmissionTasks.includes(b.id);
+      
+      if (isFailedA && !isFailedB) return -1;
+      if (!isFailedA && isFailedB) return 1;
+
       if (sortBy === "priority") {
         const prioA = a.priority || 0;
         const prioB = b.priority || 0;
@@ -649,6 +672,7 @@ export default function TaskList({
                 onNavigate={handleNavigate}
                 onHover={handleTooltipHover}
                 onLeave={handleTooltipLeave}
+                isFailed={failedSubmissionTasks.includes(task.id)}
               />
             ))}
           </div>

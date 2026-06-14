@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchDashboardStats, fetchCompletedTasks, parseApiError } from "./api";
+import { useOutletContext } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 import { useTenantRouting } from "./hooks/useTenantRouting";
 
@@ -24,7 +25,7 @@ export default function Dashboard({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Load Stats
+  const { apps = [] } = useOutletContext<{ apps: any[] }>() || {};
   useEffect(() => {
     fetchDashboardStats()
       .then(setStats)
@@ -224,6 +225,40 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {/* 2.5. USER APPS */}
+      {apps.length > 0 && (
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-ink-primary mb-4 flex items-center gap-2">
+            <i className="fas fa-layer-group text-brand-400"></i> Available Apps
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {apps.map((app) => (
+              <div
+                key={app.tooljetAppUuid}
+                onClick={() => navigateTo(`/apps/${app.tooljetAppUuid}`)}
+                className="card-interactive group cursor-pointer"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                    <i className={app.icon || "fas fa-window-maximize"}></i>
+                  </div>
+                  <span className="bg-canvas-subtle text-ink-secondary text-xs font-bold px-2 py-1 rounded-md group-hover:bg-indigo-100 group-hover:text-indigo-800 transition-colors">
+                    App
+                  </span>
+                </div>
+                <h3 className="font-bold text-ink-primary text-lg mb-1 truncate">
+                  {app.displayName}
+                </h3>
+                <p className="text-xs text-ink-tertiary flex items-center gap-1">
+                  Launch application{" "}
+                  <i className="fas fa-arrow-right opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-1"></i>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 3. HISTORY TABLE - Using DataGrid */}
       <div className="mb-10">
