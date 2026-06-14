@@ -333,7 +333,6 @@ const NavIcon = ({ to, icon, label }: any) => (
     </span>
   </NavLink>
 );
-
 // 🎨 ENHANCED: Premium Top Header with Better Visual Hierarchy
 const TopHeader = ({
   user,
@@ -344,6 +343,15 @@ const TopHeader = ({
 }: any) => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const getInitials = () => {
+    const source = user.name || user.username || "?";
+    const parts = source.trim().split(/\s+/);
+    if (parts.length > 1 && parts[1].length > 0) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return source.substring(0, 2).toUpperCase();
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -482,8 +490,8 @@ const TopHeader = ({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold uppercase transition-transform group-hover:scale-105">
-                {user.name?.[0] || user.username?.[0] || "?"}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-sm font-black uppercase transition-transform group-hover:scale-105 tracking-wider">
+                {getInitials()}
               </div>
             )}
 
