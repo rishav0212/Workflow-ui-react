@@ -184,16 +184,6 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
           </div>
         </div>
         <div className="flex gap-2">
-          {taskId && (
-            <TenantLink
-              to={`/inspect/instance/task/${taskId}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors border border-brand-200 shadow-sm mr-2"
-              title="Inspect Process Instance"
-            >
-              <i className="fas fa-search-plus"></i>
-              Inspect
-            </TenantLink>
-          )}
           {isHighPriority && (
             <StatusBadge
               type="error"
@@ -799,6 +789,15 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                   <i className={`${tab.icon} mr-2`}></i> {tab.label}
                 </button>
               ))}
+              {taskId && (
+                <TenantLink
+                  to={`/inspect/instance/task/${taskId}`}
+                  className="px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center text-neutral-600 hover:text-ink-primary hover:bg-white/50"
+                  title="Inspect Process Instance"
+                >
+                  <i className="fas fa-search-plus mr-2 text-brand-600"></i> Inspect
+                </TenantLink>
+              )}
             </div>
           </div>
 
