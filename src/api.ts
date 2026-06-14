@@ -297,6 +297,14 @@ export const fetchHistoricProcessInstances = async (
   return res.data.data;
 };
 
+export const deleteHistoricProcessInstance = async (id: string) => {
+  return await api.delete(`/api/admin/processes/instances/history/${id}`);
+};
+
+export const bulkDeleteHistoricInstances = async (instanceIds: string[]) => {
+  return await api.delete(`/api/admin/processes/instances/history/bulk`, { data: instanceIds });
+};
+
 export const fetchJobs = async (
   type: "timer" | "executable" | "deadletter" | "suspended",
 ) => {
