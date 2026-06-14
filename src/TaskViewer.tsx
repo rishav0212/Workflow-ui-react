@@ -791,7 +791,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
               ))}
               {taskId && (
                 <TenantLink
-                  to={`/inspect/instance/task/${taskId}`}
+                  to={`/inspect/instance?taskId=${taskId}`}
                   className="px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center text-neutral-600 hover:text-ink-primary hover:bg-white/50"
                   title="Inspect Process Instance"
                 >
