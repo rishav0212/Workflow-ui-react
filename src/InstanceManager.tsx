@@ -10,6 +10,7 @@ import {
   fetchProcessVersions,
   migrateProcessInstance,
   fetchAdminProcesses,
+  fetchAllSystemTasks,
 } from "./api";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import DataGrid, { type Column } from "./components/common/DataGrid";
@@ -45,6 +46,7 @@ export default function InstanceManager() {
     "current",
   );
   const [varAudit, setVarAudit] = useState<any[]>([]);
+  const [activeTasks, setActiveTasks] = useState<any[]>([]);
   const [targetVersions, setTargetVersions] = useState<any[]>([]);
   const [filterKey, setFilterKey] = useState(urlFilterKey || "ALL");
   const { tenantId } = useParams<{ tenantId: string }>();
@@ -70,10 +72,6 @@ export default function InstanceManager() {
       .catch(console.error);
   };
 
-  /**
-   * Main data fetcher for instances.
-   * @param forceRefresh - If true, bypasses cache and forces a network request.
-   */
   const loadInstances = (forceRefresh = false) => {
     // 1. Check Global Cache: If data exists and we aren't forcing a refresh, use it.
     if (!forceRefresh && DATA_CACHE[viewMode]) {
@@ -84,10 +82,26 @@ export default function InstanceManager() {
 
     // 2. Fallback to API: If no cache or forced refresh, fetch from server.
     setLoading(true);
-    const apiCall =
-      viewMode === "active"
-        ? fetchProcessInstances()
-        : fetchHistoricProcessInstances(true);
+    let apiCall: Promise<any[]>;
+
+    if (viewMode === "active") {
+      apiCall = fetchProcessInstances().then((data) => {
+        return data.map((inst: any) => ({
+          ...inst,
+          activeTaskNames: (inst.activeTasks || [])
+            .map((t: any) => t.name)
+            .join(", "),
+        }));
+      });
+    } else {
+      apiCall = fetchHistoricProcessInstances(true).then((data) => {
+        return data.map((inst: any) => ({
+          ...inst,
+          activeTasks: [],
+          activeTaskNames: "",
+        }));
+      });
+    }
 
     apiCall
       .then((data) => {
@@ -272,6 +286,31 @@ export default function InstanceManager() {
       ),
     },
     {
+      header: "Active Task(s)",
+      key: "activeTaskNames",
+      sortable: true,
+      render: (inst) => {
+        if (viewMode === "history") {
+          return <span className="text-ink-muted italic text-[11px]">N/A</span>;
+        }
+        if (!inst.activeTasks || inst.activeTasks.length === 0) {
+          return <span className="text-ink-muted italic text-[11px]">None</span>;
+        }
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            {inst.activeTasks.map((t: any) => (
+              <span
+                key={t.id}
+                className="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 shadow-sm"
+              >
+                {t.name || "Unnamed Task"}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
       header: "Actions",
       key: "actions",
       className: "text-right",
@@ -388,7 +427,7 @@ export default function InstanceManager() {
           columns={columns}
           loading={loading}
           getRowId={(inst) => inst.id}
-          searchFields={["id", "businessKey", "processDefinitionName"]}
+          searchFields={["id", "businessKey", "processDefinitionName", "activeTaskNames"]}
           dateFilterField={viewMode === "active" ? "startTime" : "endTime"}
           onSelectionChange={setSelectedIds}
           activeRowId={selectedInstance?.id}
@@ -511,6 +550,36 @@ export default function InstanceManager() {
                       </code>
                     </div>
                   ))}
+                </div>
+
+                <div className="space-y-2.5 mt-4">
+                  <span className="text-[8px] font-black uppercase text-ink-muted px-1 block">
+                    Active Tasks
+                  </span>
+                  {selectedInstance.activeTasks && selectedInstance.activeTasks.length > 0 ? (
+                    selectedInstance.activeTasks.map((task: any) => (
+                      <div
+                        key={task.id}
+                        className="p-3 bg-canvas-subtle rounded-lg border border-canvas-active"
+                      >
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] font-bold text-ink-primary">
+                            {task.name || "Unnamed Task"}
+                          </span>
+                          <span className="text-[8px] font-black text-brand-500 uppercase">
+                            {task.assignee || "Unassigned"}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-ink-secondary">
+                          Created: {new Date(task.createTime).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 text-[9px] text-ink-muted italic text-center border border-dashed border-canvas-active rounded-lg">
+                      No active tasks
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
