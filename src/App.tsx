@@ -41,6 +41,7 @@ import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 interface User {
   username: string;
   name?: string;
+  picture?: string;
   email: string;
   authorities: Array<{ authority: string }>;
   tenantId?: string;
@@ -327,6 +328,14 @@ const TopHeader = ({
 
         {/* User Section */}
         <div className="flex items-center gap-3 pl-3 border-l border-canvas-subtle">
+          {user.picture && (
+            <img 
+              src={user.picture} 
+              alt="Profile" 
+              className="w-10 h-10 rounded-full border-2 border-white shadow-soft object-cover hidden md:block"
+              referrerPolicy="no-referrer"
+            />
+          )}
           <div className="text-right hidden md:block">
             <div className="text-sm font-bold text-ink-primary">
               {user.name || user.username}
@@ -334,14 +343,10 @@ const TopHeader = ({
             <div className="text-[11px] text-neutral-500 font-medium">
               @{user.username}
             </div>
-            <div className="text-[10px] text-status-success font-bold uppercase tracking-wider flex items-center justify-end gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 bg-status-success rounded-full animate-pulse"></span>
-              Online
-            </div>
           </div>
           <button
             onClick={onLogout}
-            className="w-10 h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105"
+            className="w-10 h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105 ml-1"
             title="Logout"
           >
             <i className="fas fa-power-off text-sm"></i>
