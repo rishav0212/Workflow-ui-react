@@ -379,7 +379,7 @@ export default function TaskList({
       }
       return 0;
     });
-  }, [tasks, deferredSearchQuery, filterPriority, filterTaskName, sortBy]);
+  }, [tasks, deferredSearchQuery, filterPriority, filterTaskName, sortBy, optimisticHiddenTasks, failedSubmissionTasks]);
 
   const activeFiltersCount =
     (filterPriority ? 1 : 0) + (filterTaskName !== "all" ? 1 : 0);
