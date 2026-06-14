@@ -6,6 +6,7 @@ import {
   useOutletContext,
   useLocation,
 } from "react-router-dom";
+import TenantLink from "./components/common/TenantLink";
 import "formiojs/dist/formio.full.min.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 // @ts-ignore
@@ -161,6 +162,7 @@ const NoFormState = memo(() => (
 // 🎨 ENHANCED: Premium Task Header
 const TaskHeader = memo(({ taskData }: { taskData: any }) => {
   const isHighPriority = taskData?.priority > 50;
+  const { taskId } = useParams();
 
   return (
     <div className="bg-white p-6 border-b border-canvas-subtle">
@@ -182,6 +184,16 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
           </div>
         </div>
         <div className="flex gap-2">
+          {taskId && (
+            <TenantLink
+              to={`/inspect/instance/task/${taskId}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors border border-brand-200 shadow-sm mr-2"
+              title="Inspect Process Instance"
+            >
+              <i className="fas fa-search-plus"></i>
+              Inspect
+            </TenantLink>
+          )}
           {isHighPriority && (
             <StatusBadge
               type="error"
