@@ -318,29 +318,42 @@ const TopHeader = ({
         </div>
 
         {/* User Section */}
-        <div className="flex items-center gap-3 pl-3 border-l border-canvas-subtle">
-          {user.picture && (
-            <img 
-              src={user.picture} 
-              alt="Profile" 
-              className="w-10 h-10 rounded-full border-2 border-white shadow-soft object-cover hidden md:block"
-              referrerPolicy="no-referrer"
-            />
-          )}
-          <div className="text-right hidden md:block">
-            <div className="text-sm font-bold text-ink-primary">
-              {user.name || user.username}
+        <div className="flex items-center gap-4 pl-4 border-l border-canvas-subtle ml-1">
+          <div className="flex items-center gap-3 group cursor-pointer p-1 pr-4 rounded-full bg-canvas-subtle/50 hover:bg-white hover:shadow-floating border border-transparent hover:border-brand-200 transition-all duration-300">
+            {/* Avatar */}
+            {user.picture ? (
+              <img 
+                src={user.picture} 
+                alt="Profile" 
+                className="w-9 h-9 rounded-full border-2 border-white shadow-sm object-cover transition-transform group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold uppercase transition-transform group-hover:scale-105">
+                {user.name?.[0] || user.username?.[0] || "?"}
+              </div>
+            )}
+            
+            {/* User Info */}
+            <div className="hidden md:flex flex-col justify-center text-left">
+              <span className="text-[13px] font-bold text-ink-primary leading-tight group-hover:text-brand-700 transition-colors">
+                {user.name || user.username}
+              </span>
+              <span className="text-[10px] font-bold text-brand-500/80 tracking-wide uppercase mt-0.5">
+                @{user.username}
+              </span>
             </div>
-            <div className="text-[11px] text-neutral-500 font-medium">
-              @{user.username}
-            </div>
+            
+            {/* Subtle Chevron */}
+            <i className="fas fa-chevron-down text-[10px] text-neutral-400 ml-1 group-hover:text-brand-500 transition-colors hidden md:block"></i>
           </div>
+
           <button
             onClick={onLogout}
-            className="w-10 h-10 rounded-full bg-canvas-subtle hover:bg-status-error/10 hover:text-status-error flex items-center justify-center transition-all hover:scale-105 ml-1"
+            className="w-9 h-9 rounded-full bg-white border border-canvas-subtle hover:bg-status-error/10 hover:border-status-error/30 hover:text-status-error flex items-center justify-center transition-all hover:shadow-sm group"
             title="Logout"
           >
-            <i className="fas fa-power-off text-sm"></i>
+            <i className="fas fa-power-off text-xs text-neutral-400 group-hover:text-status-error transition-colors"></i>
           </button>
         </div>
       </div>
