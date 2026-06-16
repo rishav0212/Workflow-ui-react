@@ -28,10 +28,14 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
         if (match && match.params["*"]) {
             subPath = match.params["*"];
         }
+        
+        if (location.search) {
+            subPath += location.search;
+        }
 
         // Step 1: Exchange JWT for a short-lived ticket
         const response = await api.post(
-          `/api/tooljet/embed-ticket?appId=${appId}${subPath ? `&subPath=${subPath}` : ''}`,
+          `/api/tooljet/embed-ticket?appId=${appId}${subPath ? `&subPath=${encodeURIComponent(subPath)}` : ''}`,
         );
 
         // Step 2: Use the ticket URL for the iframe
@@ -72,7 +76,8 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
                     const newParentPath = `/${tenantId}/apps/${appId}${subPath}`;
                     
                     // Only push if it's actually different to avoid infinite loops
-                    if (location.pathname !== newParentPath) {
+                    const currentFullPath = location.pathname + location.search;
+                    if (currentFullPath !== newParentPath) {
                         navigate(newParentPath, { replace: true });
                     }
                 }
@@ -82,7 +87,7 @@ const ToolJetViewer = ({ appId: propAppId }: { appId?: string } = {}) => {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [appId, location.pathname, navigate]);
+  }, [appId, location.pathname, location.search, navigate]);
 
   // 🔴 Polished Error State
   if (error) {
