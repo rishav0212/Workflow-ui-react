@@ -401,11 +401,10 @@ export default function TaskSupervision() {
                 <button
                   key={mode}
                   onClick={() => handleModeChange(mode)}
-                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                    viewMode === mode
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${viewMode === mode
                       ? "bg-white text-brand-600 shadow-sm"
                       : "text-ink-tertiary"
-                  }`}
+                    }`}
                 >
                   {mode}
                 </button>
@@ -418,8 +417,8 @@ export default function TaskSupervision() {
       {/* Reassign Modal */}
       {tasksToReassign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-ink-primary/60 backdrop-blur-sm" 
+          <div
+            className="absolute inset-0 bg-ink-primary/60 backdrop-blur-sm"
             onClick={() => setTasksToReassign(null)}
           ></div>
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
@@ -435,7 +434,7 @@ export default function TaskSupervision() {
               <p className="text-sm text-ink-secondary mb-4">
                 Select a user to reassign {tasksToReassign.length} task{tasksToReassign.length > 1 ? "s" : ""} to:
               </p>
-              
+
               {systemUsers.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">Loading users...</div>
               ) : (
