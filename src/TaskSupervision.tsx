@@ -33,6 +33,7 @@ export default function TaskSupervision() {
   // Users State
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
   const [tasksToReassign, setTasksToReassign] = useState<string[] | null>(null);
+  const [selectedUserForReassign, setSelectedUserForReassign] = useState<string | null>(null);
 
   // Filter States
   const [taskNameFilter, setTaskNameFilter] = useState("");
@@ -419,14 +420,23 @@ export default function TaskSupervision() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-ink-primary/60 backdrop-blur-sm"
-            onClick={() => setTasksToReassign(null)}
+            onClick={() => {
+              setTasksToReassign(null);
+              setSelectedUserForReassign(null);
+            }}
           ></div>
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
             <div className="px-6 py-4 border-b border-canvas-subtle flex justify-between items-center bg-canvas-subtle shrink-0">
               <h3 className="text-lg font-serif font-bold text-ink-primary">
                 Reassign Task{tasksToReassign.length > 1 ? "s" : ""}
               </h3>
-              <button onClick={() => setTasksToReassign(null)} className="text-ink-secondary hover:text-ink-primary transition-colors">
+              <button 
+                onClick={() => {
+                  setTasksToReassign(null);
+                  setSelectedUserForReassign(null);
+                }} 
+                className="text-ink-secondary hover:text-ink-primary transition-colors"
+              >
                 <i className="fas fa-times text-xl"></i>
               </button>
             </div>
@@ -439,41 +449,86 @@ export default function TaskSupervision() {
                 <div className="text-center py-8 text-neutral-500">Loading users...</div>
               ) : (
                 <div className="rounded-lg border border-canvas-active overflow-hidden">
-                  {systemUsers.map((user) => (
-                    <button
-                      key={user.user_id || user.id}
-                      onClick={async () => {
-                        setLoading(true);
-                        setTasksToReassign(null);
-                        try {
-                          await bulkReassignTasks(tasksToReassign, user.user_id || user.id);
-                          setSelectedIds(new Set());
-                          loadTasks(true);
-                        } catch (err) {
-                          console.error("Reassignment failed", err);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      className="w-full text-left px-4 py-3 border-b border-canvas-subtle last:border-b-0 hover:bg-brand-50 flex items-center gap-3 group transition-colors"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 shadow-sm group-hover:scale-105 transition-transform">
-                        <i className="fas fa-user"></i>
-                      </div>
-                      <div>
-                        <div className="font-bold text-ink-primary group-hover:text-brand-700 transition-colors">
-                          {user.user_id || user.id}
+                  {systemUsers.map((user) => {
+                    const userId = user.user_id || user.id;
+                    const isSelected = selectedUserForReassign === userId;
+                    return (
+                      <button
+                        key={userId}
+                        onClick={() => setSelectedUserForReassign(userId)}
+                        className={`w-full text-left px-4 py-3 border-b border-canvas-subtle last:border-b-0 flex items-center gap-3 group transition-colors ${
+                          isSelected ? "bg-brand-50 border-l-4 border-l-brand-600" : "hover:bg-canvas-subtle border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform ${
+                          isSelected ? "bg-brand-600 text-white scale-105" : "bg-brand-100 text-brand-600 group-hover:scale-105"
+                        }`}>
+                          <i className="fas fa-user"></i>
                         </div>
-                        {(user.first_name || user.firstName) && (
-                          <div className="text-xs text-ink-secondary">
-                            {user.first_name || user.firstName} {user.last_name || user.lastName}
+                        <div>
+                          <div className={`font-bold transition-colors ${
+                            isSelected ? "text-brand-800" : "text-ink-primary group-hover:text-brand-700"
+                          }`}>
+                            {userId}
+                          </div>
+                          {(user.first_name || user.firstName) && (
+                            <div className="text-xs text-ink-secondary">
+                              {user.first_name || user.firstName} {user.last_name || user.lastName}
+                            </div>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <div className="ml-auto text-brand-600">
+                            <i className="fas fa-check-circle text-lg"></i>
                           </div>
                         )}
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
+            </div>
+            
+            <div className="px-6 py-4 border-t border-canvas-subtle bg-canvas-subtle flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => {
+                  setTasksToReassign(null);
+                  setSelectedUserForReassign(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-ink-secondary hover:bg-neutral-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!selectedUserForReassign || loading}
+                onClick={async () => {
+                  if (!selectedUserForReassign) return;
+                  setLoading(true);
+                  try {
+                    await bulkReassignTasks(tasksToReassign, selectedUserForReassign);
+                    setSelectedIds(new Set());
+                    setTasksToReassign(null);
+                    setSelectedUserForReassign(null);
+                    loadTasks(true);
+                  } catch (err) {
+                    console.error("Reassignment failed", err);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-bold text-white shadow-soft transition-all flex items-center gap-2 ${
+                  !selectedUserForReassign || loading
+                    ? "bg-neutral-400 cursor-not-allowed opacity-70"
+                    : "bg-brand-600 hover:bg-brand-700 hover:shadow-lifted active:scale-95"
+                }`}
+              >
+                {loading ? (
+                  <i className="fas fa-circle-notch fa-spin"></i>
+                ) : (
+                  <i className="fas fa-check"></i>
+                )}
+                Confirm Reassign
+              </button>
             </div>
           </div>
         </div>
