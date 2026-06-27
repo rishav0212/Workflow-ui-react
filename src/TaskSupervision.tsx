@@ -93,6 +93,9 @@ export default function TaskSupervision() {
     const assignees = new Set<string>();
     tasks.forEach((t) => {
       if (t.assignee) assignees.add(t.assignee);
+      if (t.candidateUsers) {
+        t.candidateUsers.forEach((u: string) => assignees.add(u));
+      }
     });
     return Array.from(assignees).sort();
   }, [tasks]);
