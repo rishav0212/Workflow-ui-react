@@ -6,6 +6,7 @@ import {
   reassignTask,
   bulkReassignTasks,
 } from "./api";
+import { fetchTenantUsers } from "./features/iam/api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 import TenantLink from "./components/common/TenantLink";
 
@@ -28,6 +29,10 @@ export default function TaskSupervision() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"active" | "completed">("active");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Users State
+  const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [reassignActiveFor, setReassignActiveFor] = useState<string | null>(null);
 
   // Filter States
   const [taskNameFilter, setTaskNameFilter] = useState("");
@@ -76,6 +81,10 @@ export default function TaskSupervision() {
    */
   useEffect(() => {
     loadTasks();
+    // Load users if not already loaded
+    if (systemUsers.length === 0) {
+      fetchTenantUsers().then(setSystemUsers).catch(console.error);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
@@ -132,8 +141,12 @@ export default function TaskSupervision() {
   };
 
   const handleBulkReassign = async (ids: string[]) => {
+    // For bulk we can still use prompt, or a custom modal. 
+    // To keep it simple, we'll keep prompt for bulk, or change it if requested.
+    // The user requested dropdown for the grid. Let's keep prompt for bulk for now, 
+    // or wait, let's just leave it since the prompt is only for bulk.
     const newUser = prompt(
-      `Enter username to reassign ${ids.length} tasks to:`,
+      `Enter username to reassign ${ids.length} tasks to (must match a valid user ID):`,
     );
     if (newUser) {
       setLoading(true);
@@ -208,20 +221,48 @@ export default function TaskSupervision() {
       header: "Assignee",
       key: "assignee",
       sortable: true,
-      render: (task) => (
-        <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border transition-all ${
-            task.assignee
-              ? "bg-brand-50/80 text-brand-600 border-brand-200 shadow-sm"
-              : "bg-status-warning/15 text-status-warning border-status-warning/30 shadow-sm"
-          }`}
-        >
-          <i
-            className={`fas text-[9px] ${task.assignee ? "fa-user-check" : "fa-user-clock"}`}
-          ></i>
-          {task.assignee || "Unassigned"}
-        </span>
-      ),
+      render: (task) => {
+        if (task.assignee) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide border transition-all bg-brand-50/80 text-brand-600 border-brand-200 shadow-sm">
+              <i className="fas fa-user-check text-[9px]"></i>
+              {task.assignee}
+            </span>
+          );
+        }
+
+        const hasCandidates = (task.candidateGroups?.length > 0) || (task.candidateUsers?.length > 0);
+
+        if (hasCandidates) {
+          return (
+            <div className="flex flex-col gap-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide border transition-all bg-status-info/15 text-status-info border-status-info/30 shadow-sm w-fit">
+                <i className="fas fa-users text-[9px]"></i>
+                Shared Task
+              </span>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {task.candidateGroups?.map((g: string) => (
+                  <span key={g} className="text-[9px] bg-canvas-subtle border border-canvas-active text-ink-secondary px-1.5 py-0.5 rounded">
+                    <i className="fas fa-users-cog text-[8px] mr-1"></i>{g}
+                  </span>
+                ))}
+                {task.candidateUsers?.map((u: string) => (
+                  <span key={u} className="text-[9px] bg-canvas-subtle border border-canvas-active text-ink-secondary px-1.5 py-0.5 rounded">
+                    <i className="fas fa-user text-[8px] mr-1"></i>{u}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide border transition-all bg-status-warning/15 text-status-warning border-status-warning/30 shadow-sm">
+            <i className="fas fa-user-clock text-[9px]"></i>
+            Unassigned
+          </span>
+        );
+      },
     },
     {
       header: viewMode === "active" ? "Created" : "Completed",
@@ -261,19 +302,41 @@ export default function TaskSupervision() {
             <i className="fas fa-map-signs mr-1"></i>Path
           </TenantLink>
           {viewMode === "active" && (
-            <button
-              onClick={() => {
-                const newUser = prompt("Enter username:", task.assignee || "");
-                if (newUser)
-                  reassignTask(task.id, newUser).then(() =>
-                    // Force refresh after reassign to show the new assignee
-                    loadTasks(true),
-                  );
-              }}
-              className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
-            >
-              <i className="fas fa-user-edit mr-1"></i>Reassign
-            </button>
+            reassignActiveFor === task.id ? (
+              <div className="flex items-center gap-1 bg-white border border-brand-200 rounded-lg p-0.5 shadow-soft z-10 relative">
+                <select
+                  className="bg-transparent text-[10px] font-medium outline-none py-1 pl-1 pr-4 appearance-none cursor-pointer"
+                  autoFocus
+                  onChange={(e) => {
+                    const newUser = e.target.value;
+                    if (newUser) {
+                      setLoading(true);
+                      reassignTask(task.id, newUser).then(() => {
+                        setReassignActiveFor(null);
+                        loadTasks(true);
+                      });
+                    }
+                  }}
+                  onBlur={() => setReassignActiveFor(null)}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Select User</option>
+                  {systemUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.id} {user.firstName ? `(${user.firstName} ${user.lastName})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <i className="fas fa-chevron-down absolute right-2 text-neutral-400 pointer-events-none text-[8px]"></i>
+              </div>
+            ) : (
+              <button
+                onClick={() => setReassignActiveFor(task.id)}
+                className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
+              >
+                <i className="fas fa-user-edit mr-1"></i>Reassign
+              </button>
+            )
           )}
         </div>
       ),

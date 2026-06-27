@@ -163,6 +163,9 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
   const isHighPriority = taskData?.priority > 50;
   const { taskId } = useParams();
 
+  const isShared = !!taskData?.isShared;
+  const isDirectlyAssigned = !!taskData?.assignee;
+
   return (
     <div className="bg-white p-6 border-b border-canvas-subtle">
       <div className="flex justify-between items-start mb-4">
@@ -182,7 +185,7 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           {isHighPriority && (
             <StatusBadge
               type="error"
@@ -190,17 +193,25 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
               icon="fas fa-flag"
             />
           )}
-          {!taskData?.assignee ? (
+          {isDirectlyAssigned && (
+            <StatusBadge
+              type="success"
+              label={`Assigned to ${taskData.assignee}`}
+              icon="fas fa-user-check"
+            />
+          )}
+          {isShared && (
+            <StatusBadge
+              type="info"
+              label="Shared Task"
+              icon="fas fa-users"
+            />
+          )}
+          {!isDirectlyAssigned && !isShared && (
             <StatusBadge
               type="warning"
               label="Unassigned"
               icon="fas fa-user-clock"
-            />
-          ) : (
-            <StatusBadge
-              type="success"
-              label="Assigned"
-              icon="fas fa-user-check"
             />
           )}
         </div>
@@ -257,6 +268,7 @@ const TaskHeader = memo(({ taskData }: { taskData: any }) => {
     </div>
   );
 });
+
 
 // 🎨 ENHANCED: Premium Action Toolbar
 const ActionToolbar = memo(

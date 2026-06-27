@@ -245,10 +245,10 @@ export const updateInstanceVariable = async (
 };
 
 export const fetchAllSystemTasks = async (params = {}) => {
-  const res = await api.get("/process-api/runtime/tasks", {
-    params: { size: 10, sort: "createTime", order: "desc", ...params },
+  // Use the new custom endpoint that includes candidate details
+  const res = await api.get("/api/workflow/admin/tasks/active", {
+    params: { size: 10000, ...params },
   });
-  // Returning the whole object so we can access res.data.total
   return res.data;
 };
 
