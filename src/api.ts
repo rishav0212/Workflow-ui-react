@@ -264,9 +264,10 @@ export const fetchHistoricTasks = async (params = {}) => {
   });
   return res.data;
 };
-export const reassignTask = async (taskId: string, userId: string) => {
+export const reassignTask = async (taskId: string, userIds: string | string[]) => {
+  const assigneesArray = Array.isArray(userIds) ? userIds : [userIds];
   return await api.put(`/api/workflow/tasks/${taskId}/assign`, {
-    assignee: userId,
+    assignees: assigneesArray,
   });
 };
 
@@ -324,8 +325,8 @@ export const deleteJob = async (jobId: string) => {
   return await api.delete(`/process-api/management/jobs/${jobId}`);
 };
 
-export const bulkReassignTasks = async (taskIds: string[], userId: string) => {
-  return Promise.all(taskIds.map((id) => reassignTask(id, userId)));
+export const bulkReassignTasks = async (taskIds: string[], userIds: string | string[]) => {
+  return Promise.all(taskIds.map((id) => reassignTask(id, userIds)));
 };
 
 export const bulkTerminateInstances = async (instanceIds: string[]) => {

@@ -33,7 +33,7 @@ export default function TaskSupervision() {
   // Users State
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
   const [tasksToReassign, setTasksToReassign] = useState<string[] | null>(null);
-  const [selectedUserForReassign, setSelectedUserForReassign] = useState<string | null>(null);
+  const [selectedUsersForReassign, setSelectedUsersForReassign] = useState<Set<string>>(new Set());
 
   // Filter States
   const [taskNameFilter, setTaskNameFilter] = useState("");
@@ -422,7 +422,7 @@ export default function TaskSupervision() {
             className="absolute inset-0 bg-ink-primary/60 backdrop-blur-sm"
             onClick={() => {
               setTasksToReassign(null);
-              setSelectedUserForReassign(null);
+              setSelectedUsersForReassign(new Set());
             }}
           ></div>
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
@@ -433,7 +433,7 @@ export default function TaskSupervision() {
               <button 
                 onClick={() => {
                   setTasksToReassign(null);
-                  setSelectedUserForReassign(null);
+                  setSelectedUsersForReassign(new Set());
                 }} 
                 className="text-ink-secondary hover:text-ink-primary transition-colors"
               >
@@ -451,11 +451,19 @@ export default function TaskSupervision() {
                 <div className="rounded-lg border border-canvas-active overflow-hidden">
                   {systemUsers.map((user) => {
                     const userId = user.user_id || user.id;
-                    const isSelected = selectedUserForReassign === userId;
+                    const isSelected = selectedUsersForReassign.has(userId);
                     return (
                       <button
                         key={userId}
-                        onClick={() => setSelectedUserForReassign(userId)}
+                        onClick={() => {
+                          const newSet = new Set(selectedUsersForReassign);
+                          if (newSet.has(userId)) {
+                            newSet.delete(userId);
+                          } else {
+                            newSet.add(userId);
+                          }
+                          setSelectedUsersForReassign(newSet);
+                        }}
                         className={`w-full text-left px-4 py-3 border-b border-canvas-subtle last:border-b-0 flex items-center gap-3 group transition-colors ${
                           isSelected ? "bg-brand-50 border-l-4 border-l-brand-600" : "hover:bg-canvas-subtle border-l-4 border-l-transparent"
                         }`}
@@ -493,22 +501,22 @@ export default function TaskSupervision() {
               <button
                 onClick={() => {
                   setTasksToReassign(null);
-                  setSelectedUserForReassign(null);
+                  setSelectedUsersForReassign(new Set());
                 }}
                 className="px-4 py-2 rounded-lg text-sm font-bold text-ink-secondary hover:bg-neutral-200 transition-colors"
               >
                 Cancel
               </button>
               <button
-                disabled={!selectedUserForReassign || loading}
+                disabled={selectedUsersForReassign.size === 0 || loading}
                 onClick={async () => {
-                  if (!selectedUserForReassign) return;
+                  if (selectedUsersForReassign.size === 0) return;
                   setLoading(true);
                   try {
-                    await bulkReassignTasks(tasksToReassign, selectedUserForReassign);
+                    await bulkReassignTasks(tasksToReassign, Array.from(selectedUsersForReassign));
                     setSelectedIds(new Set());
                     setTasksToReassign(null);
-                    setSelectedUserForReassign(null);
+                    setSelectedUsersForReassign(new Set());
                     loadTasks(true);
                   } catch (err) {
                     console.error("Reassignment failed", err);
@@ -517,7 +525,7 @@ export default function TaskSupervision() {
                   }
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-bold text-white shadow-soft transition-all flex items-center gap-2 ${
-                  !selectedUserForReassign || loading
+                  selectedUsersForReassign.size === 0 || loading
                     ? "bg-neutral-400 cursor-not-allowed opacity-70"
                     : "bg-brand-600 hover:bg-brand-700 hover:shadow-lifted active:scale-95"
                 }`}
