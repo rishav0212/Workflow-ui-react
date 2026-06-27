@@ -32,7 +32,7 @@ export default function TaskSupervision() {
 
   // Users State
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
-  const [reassignActiveFor, setReassignActiveFor] = useState<string | null>(null);
+  const [tasksToReassign, setTasksToReassign] = useState<string[] | null>(null);
 
   // Filter States
   const [taskNameFilter, setTaskNameFilter] = useState("");
@@ -141,26 +141,7 @@ export default function TaskSupervision() {
   };
 
   const handleBulkReassign = async (ids: string[]) => {
-    // For bulk we can still use prompt, or a custom modal. 
-    // To keep it simple, we'll keep prompt for bulk, or change it if requested.
-    // The user requested dropdown for the grid. Let's keep prompt for bulk for now, 
-    // or wait, let's just leave it since the prompt is only for bulk.
-    const newUser = prompt(
-      `Enter username to reassign ${ids.length} tasks to (must match a valid user ID):`,
-    );
-    if (newUser) {
-      setLoading(true);
-      try {
-        await bulkReassignTasks(ids, newUser);
-        setSelectedIds(new Set());
-        // Force refresh after reassign to show the new assignee immediately (bypassing cache)
-        loadTasks(true);
-      } catch (err) {
-        console.error("Bulk reassignment failed", err);
-      } finally {
-        setLoading(false);
-      }
-    }
+    setTasksToReassign(ids);
   };
 
   const columns: Column<any>[] = [
@@ -302,41 +283,12 @@ export default function TaskSupervision() {
             <i className="fas fa-map-signs mr-1"></i>Path
           </TenantLink>
           {viewMode === "active" && (
-            reassignActiveFor === task.id ? (
-              <div className="flex items-center gap-1 bg-white border border-brand-200 rounded-lg p-0.5 shadow-soft z-10 relative">
-                <select
-                  className="bg-transparent text-[10px] font-medium outline-none py-1 pl-1 pr-4 appearance-none cursor-pointer"
-                  autoFocus
-                  onChange={(e) => {
-                    const newUser = e.target.value;
-                    if (newUser) {
-                      setLoading(true);
-                      reassignTask(task.id, newUser).then(() => {
-                        setReassignActiveFor(null);
-                        loadTasks(true);
-                      });
-                    }
-                  }}
-                  onBlur={() => setReassignActiveFor(null)}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select User</option>
-                  {systemUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.id} {user.firstName ? `(${user.firstName} ${user.lastName})` : ""}
-                    </option>
-                  ))}
-                </select>
-                <i className="fas fa-chevron-down absolute right-2 text-neutral-400 pointer-events-none text-[8px]"></i>
-              </div>
-            ) : (
-              <button
-                onClick={() => setReassignActiveFor(task.id)}
-                className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
-              >
-                <i className="fas fa-user-edit mr-1"></i>Reassign
-              </button>
-            )
+            <button
+              onClick={() => setTasksToReassign([task.id])}
+              className="px-3 py-1.5 bg-brand-50 border-2 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-400 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-soft transition-all hover:shadow-lifted"
+            >
+              <i className="fas fa-user-edit mr-1"></i>Reassign
+            </button>
           )}
         </div>
       ),
@@ -462,6 +414,71 @@ export default function TaskSupervision() {
           </div>
         }
       />
+
+      {/* Reassign Modal */}
+      {tasksToReassign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-ink-primary/60 backdrop-blur-sm" 
+            onClick={() => setTasksToReassign(null)}
+          ></div>
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="px-6 py-4 border-b border-canvas-subtle flex justify-between items-center bg-canvas-subtle shrink-0">
+              <h3 className="text-lg font-serif font-bold text-ink-primary">
+                Reassign Task{tasksToReassign.length > 1 ? "s" : ""}
+              </h3>
+              <button onClick={() => setTasksToReassign(null)} className="text-ink-secondary hover:text-ink-primary transition-colors">
+                <i className="fas fa-times text-xl"></i>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <p className="text-sm text-ink-secondary mb-4">
+                Select a user to reassign {tasksToReassign.length} task{tasksToReassign.length > 1 ? "s" : ""} to:
+              </p>
+              
+              {systemUsers.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">Loading users...</div>
+              ) : (
+                <div className="rounded-lg border border-canvas-active overflow-hidden">
+                  {systemUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={async () => {
+                        setLoading(true);
+                        setTasksToReassign(null);
+                        try {
+                          await bulkReassignTasks(tasksToReassign, user.id);
+                          setSelectedIds(new Set());
+                          loadTasks(true);
+                        } catch (err) {
+                          console.error("Reassignment failed", err);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="w-full text-left px-4 py-3 border-b border-canvas-subtle last:border-b-0 hover:bg-brand-50 flex items-center gap-3 group transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 shadow-sm group-hover:scale-105 transition-transform">
+                        <i className="fas fa-user"></i>
+                      </div>
+                      <div>
+                        <div className="font-bold text-ink-primary group-hover:text-brand-700 transition-colors">
+                          {user.id}
+                        </div>
+                        {user.firstName && (
+                          <div className="text-xs text-ink-secondary">
+                            {user.firstName} {user.lastName}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
