@@ -108,9 +108,13 @@ export default function TaskSupervision() {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      const searchLower = taskNameFilter.toLowerCase();
       const matchesName =
         !taskNameFilter ||
-        task.name?.toLowerCase().includes(taskNameFilter.toLowerCase());
+        task.name?.toLowerCase().includes(searchLower) ||
+        task.assignee?.toLowerCase().includes(searchLower) ||
+        task.candidateUsers?.some((u: string) => u.toLowerCase().includes(searchLower)) ||
+        task.candidateGroups?.some((g: string) => g.toLowerCase().includes(searchLower));
 
       const matchesAssignee =
         !assigneeFilter ||
