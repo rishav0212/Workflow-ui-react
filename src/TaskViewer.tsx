@@ -15,7 +15,6 @@ import api, {
   fetchTaskRender,
   fetchFormSchema,
   submitTask,
-  claimTask,
   parseApiError,
 } from "./api";
 import SubmissionModal from "./SubmissionModal";
@@ -351,40 +350,6 @@ const ActionToolbar = memo(
   },
 );
 
-// 🎨 ENHANCED: Premium Claim Overlay
-const ClaimTaskOverlay = memo(
-  ({ onClaim, claiming }: { onClaim: () => void; claiming: boolean }) => (
-    <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-xl animate-fadeIn">
-      <div className="bg-white p-8 rounded-2xl shadow-floating border border-canvas-subtle max-w-sm w-full text-center">
-        <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-bounce-slow border border-brand-100">
-          <i className="fas fa-lock text-brand-500 text-3xl"></i>
-        </div>
-        <h3 className="text-xl font-serif font-bold text-ink-primary mb-2">
-          Claim Required
-        </h3>
-        <p className="text-neutral-600 text-sm mb-6 leading-relaxed">
-          You must assign this task to yourself before you can view the form
-          details or take action.
-        </p>
-        <button
-          onClick={onClaim}
-          disabled={claiming}
-          className="w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold shadow-brand-md hover:shadow-brand-lg transition-all duration-200 disabled:opacity-50"
-        >
-          {claiming ? (
-            <>
-              <i className="fas fa-circle-notch fa-spin mr-2"></i> Claiming...
-            </>
-          ) : (
-            <>
-              <i className="fas fa-hand-pointer mr-2"></i> Assign to Me
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  ),
-);
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -406,7 +371,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [mainFormSchema, setMainFormSchema] = useState<any>(null);
   const [buttons, setButtons] = useState<ActionButton[]>([]);
   const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
   const [selectedFormKey, setSelectedFormKey] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
 
@@ -417,9 +381,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<ActionButton | null>(
-    null,
-  );
+  const [selectedAction, setSelectedAction] = useState<ActionButton | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -618,48 +580,6 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
     }
   }, [taskId, navigate, addNotification]);
 
-  const handleClaim = useCallback(async () => {
-    if (!taskId || !taskData) return;
-    setClaiming(true);
-    try {
-      await claimTask(taskId, currentUser);
-      await loadTask();
-      refreshTasks();
-      addNotification(
-        `Task assigned to you successfully.${getNotificationContext()}`,
-        "success",
-      );
-    } catch (err: any) {
-      console.error(err);
-      const msg = parseApiError(err);
-      if (err.response?.status === 409) {
-        addNotification(
-          `Conflict: This task is already owned by another user.${getNotificationContext()}`,
-          "error",
-        );
-      } else {
-        addNotification(
-          `Claim failed: ${msg}${getNotificationContext()}`,
-          "error",
-        );
-      }
-      navigate(`/${tenantId}/inbox?${searchParams.toString()}`, {
-        replace: true,
-      });
-    } finally {
-      setClaiming(false);
-    }
-  }, [
-    taskId,
-    taskData,
-    currentUser,
-    loadTask,
-    refreshTasks,
-    addNotification,
-    getNotificationContext,
-    navigate,
-  ]);
-
   const handleActionClick = useCallback(async (btn: ActionButton) => {
     setSelectedAction(btn);
     setModalTitle(btn.label);
@@ -766,13 +686,11 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
         <div className="bg-white rounded-xl shadow-soft border border-canvas-subtle flex flex-col min-h-[600px] relative">
           <TaskHeader taskData={taskData} />
 
-          {!isUnassigned && (
-            <ActionToolbar
-              buttons={buttons}
-              onActionClick={handleActionClick}
-              disabled={isUnassigned}
-            />
-          )}
+          <ActionToolbar
+            buttons={buttons}
+            onActionClick={handleActionClick}
+            disabled={false}
+          />
 
           <div className="px-6 pt-6 pb-2">
             <div className="inline-flex bg-canvas-subtle p-1 rounded-lg border border-canvas-active shadow-soft">
@@ -808,17 +726,7 @@ export default function TaskViewer({ currentUser }: { currentUser: string }) {
                 height: "100%",
               }}
             >
-              {isUnassigned && (
-                <ClaimTaskOverlay onClaim={handleClaim} claiming={claiming} />
-              )}
-
-              <div
-                className={`transition-opacity duration-300 ${
-                  isUnassigned
-                    ? "opacity-20 pointer-events-none filter blur-sm"
-                    : "opacity-100"
-                }`}
-              >
+              <div className="transition-opacity duration-300 opacity-100">
                 {mainFormSchema ? (
                   <Form
                     src={""}
