@@ -116,7 +116,7 @@ export default function TaskSupervision() {
         !assigneeFilter ||
         (assigneeFilter === "unassigned"
           ? !task.assignee
-          : task.assignee === assigneeFilter);
+          : task.assignee === assigneeFilter || task.candidateUsers?.includes(assigneeFilter));
 
       const pName = task.processDefinitionName || task.processDefinitionId;
       const matchesProcess = !processFilter || pName === processFilter;
