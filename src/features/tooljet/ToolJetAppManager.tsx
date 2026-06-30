@@ -11,13 +11,14 @@ import {
 import AppRow from './AppRow';
 import AppFormModal from './AppFormModal';
 import OAuthCredentialsManager from './OAuthCredentialsManager';
+import ToolJetWorkspaceSettings from './ToolJetWorkspaceSettings';
 import { Secure } from '../../components/common/Secure';
 
 export default function ToolJetAppManager() {
     const [apps, setApps] = useState<ToolJetAppResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isReordering, setIsReordering] = useState(false);
-    const [activeTab, setActiveTab] = useState<'apps' | 'credentials'>('apps');
+    const [activeTab, setActiveTab] = useState<'apps' | 'credentials' | 'workspace'>('apps');
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -158,9 +159,19 @@ export default function ToolJetAppManager() {
                     >
                         API Credentials
                     </button>
+                    <button
+                        onClick={() => setActiveTab('workspace')}
+                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            activeTab === 'workspace' 
+                                ? 'bg-white text-ink-primary shadow-sm' 
+                                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
+                        }`}
+                    >
+                        Workspace Settings
+                    </button>
                 </div>
 
-                {activeTab === 'apps' ? (
+                {activeTab === 'apps' && (
                     <div className="bg-surface rounded-3xl border border-canvas-active shadow-soft overflow-hidden">
                     {isLoading ? (
                         <div className="p-12 flex justify-center">
@@ -197,8 +208,14 @@ export default function ToolJetAppManager() {
                         </div>
                     )}
                 </div>
-                ) : (
+                )}
+                
+                {activeTab === 'credentials' && (
                     <OAuthCredentialsManager />
+                )}
+
+                {activeTab === 'workspace' && (
+                    <ToolJetWorkspaceSettings />
                 )}
             </div>
 

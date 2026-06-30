@@ -67,3 +67,28 @@ export const createToolJetOauthClient = async (data: ToolJetOauthClientCreateReq
 export const deleteToolJetOauthClient = async (clientId: string): Promise<void> => {
     await api.delete(`/api/admin/tooljet-oauth-clients/${clientId}`);
 };
+
+export interface ToolJetWorkspaceResponse {
+    id: number;
+    workspaceUuid: string;
+    slug: string;
+    viewerEmail: string;
+    updatedAt: string;
+}
+
+export interface ToolJetWorkspaceUpdateRequest {
+    workspaceUuid: string;
+    slug: string;
+    viewerEmail: string;
+    viewerPassword?: string;
+}
+
+export const fetchToolJetWorkspace = async (): Promise<ToolJetWorkspaceResponse> => {
+    const res = await api.get('/api/admin/tooljet-workspace');
+    return unwrapData(res);
+};
+
+export const updateToolJetWorkspace = async (data: ToolJetWorkspaceUpdateRequest): Promise<ToolJetWorkspaceResponse> => {
+    const res = await api.put('/api/admin/tooljet-workspace', data);
+    return unwrapData(res);
+};
