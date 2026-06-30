@@ -10,12 +10,14 @@ import {
 } from '../../api/tooljetAdmin';
 import AppRow from './AppRow';
 import AppFormModal from './AppFormModal';
+import OAuthCredentialsManager from './OAuthCredentialsManager';
 import { Secure } from '../../components/common/Secure';
 
 export default function ToolJetAppManager() {
     const [apps, setApps] = useState<ToolJetAppResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isReordering, setIsReordering] = useState(false);
+    const [activeTab, setActiveTab] = useState<'apps' | 'credentials'>('apps');
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,17 +125,43 @@ export default function ToolJetAppManager() {
                         </p>
                     </div>
                     
-                    <button 
-                        onClick={handleAddClick}
-                        className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isLoading}
-                    >
-                        <i className="fas fa-plus"></i>
-                        Register App
-                    </button>
+                    {activeTab === 'apps' && (
+                        <button 
+                            onClick={handleAddClick}
+                            className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isLoading}
+                        >
+                            <i className="fas fa-plus"></i>
+                            Register App
+                        </button>
+                    )}
                 </header>
 
-                <div className="bg-surface rounded-3xl border border-canvas-active shadow-soft overflow-hidden">
+                <div className="flex space-x-1 bg-canvas-subtle p-1 rounded-xl mb-8 border border-canvas-active w-max">
+                    <button
+                        onClick={() => setActiveTab('apps')}
+                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            activeTab === 'apps' 
+                                ? 'bg-white text-ink-primary shadow-sm' 
+                                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
+                        }`}
+                    >
+                        Applications
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('credentials')}
+                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            activeTab === 'credentials' 
+                                ? 'bg-white text-ink-primary shadow-sm' 
+                                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
+                        }`}
+                    >
+                        API Credentials
+                    </button>
+                </div>
+
+                {activeTab === 'apps' ? (
+                    <div className="bg-surface rounded-3xl border border-canvas-active shadow-soft overflow-hidden">
                     {isLoading ? (
                         <div className="p-12 flex justify-center">
                             <i className="fas fa-circle-notch fa-spin text-3xl text-brand-500"></i>
@@ -169,6 +197,9 @@ export default function ToolJetAppManager() {
                         </div>
                     )}
                 </div>
+                ) : (
+                    <OAuthCredentialsManager />
+                )}
             </div>
 
             <AppFormModal
