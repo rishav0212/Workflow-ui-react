@@ -52,7 +52,7 @@ export default function ToolJetAppManager() {
         if (apps.length > 0) {
             const previewAppId = searchParams.get('previewApp');
             if (previewAppId && !previewingApp) {
-                const appToPreview = apps.find(a => a.id === previewAppId);
+                const appToPreview = apps.find(a => String(a.id) === previewAppId);
                 if (appToPreview) {
                     setPreviewingApp(appToPreview);
                 }
@@ -86,7 +86,7 @@ export default function ToolJetAppManager() {
     const handlePreviewClick = (app: ToolJetAppResponse) => {
         setPreviewingApp(app);
         setSearchParams(prev => {
-            prev.set('previewApp', app.id);
+            prev.set('previewApp', String(app.id));
             return prev;
         });
     };
