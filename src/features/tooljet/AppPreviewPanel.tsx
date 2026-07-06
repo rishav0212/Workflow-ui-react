@@ -119,8 +119,7 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
 
             {/* ── Slide-over panel ── */}
             <div
-                className="fixed inset-y-0 right-0 z-50 flex flex-col bg-surface shadow-floating animate-slideRight"
-                style={{ width: 'min(92vw, 1080px)' }}
+                className="fixed inset-0 z-50 flex flex-col bg-surface animate-fadeIn"
                 role="dialog"
                 aria-modal="true"
                 aria-label={`Preview ${app.displayName}`}
