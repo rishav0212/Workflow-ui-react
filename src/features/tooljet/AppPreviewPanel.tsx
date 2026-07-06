@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import type { ToolJetAppResponse, ToolJetAppVersion } from '../../api/tooljetAdmin';
 import { fetchAppVersions, getAdminPreviewTicket } from '../../api/tooljetAdmin';
 import { API_BASE_URL } from '../../config';
@@ -18,9 +19,10 @@ interface AppPreviewPanelProps {
  * Security: requires module:tooljet_apps — manage (enforced by the BFF backend).
  */
 export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [versions, setVersions] = useState<ToolJetAppVersion[]>([]);
     const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
-    const [selectedVersionId, setSelectedVersionId] = useState<string>('');
+    const [selectedVersionId, setSelectedVersionId] = useState<string>(searchParams.get('previewVersion') || '');
     const [isLoadingVersions, setIsLoadingVersions] = useState(false);
     const [iframeUrl, setIframeUrl] = useState<string | null>(null);
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -39,7 +41,10 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
         }
         setIframeUrl(null);
         setPreviewError(null);
-        setSelectedVersionId('');
+        
+        // Read version from URL if present, otherwise default to empty string
+        const urlVersion = searchParams.get('previewVersion') || '';
+        setSelectedVersionId(urlVersion);
         setIsLoadingVersions(true);
 
         fetchAppVersions(app.tooljetAppUuid)
@@ -58,6 +63,18 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
             })
             .finally(() => setIsLoadingVersions(false));
     }, [app?.tooljetAppUuid]);
+
+    // Update URL when version changes
+    const updateSelectedVersion = (versionId: string) => {
+        setSelectedVersionId(versionId);
+        setSearchParams(prev => {
+            if (versionId) prev.set('previewVersion', versionId);
+            else prev.delete('previewVersion');
+            return prev;
+        });
+        setIframeUrl(null);
+        setPreviewError(null);
+    };
 
     // ── Generate ticket and build iframe URL ─────────────────────────────────
     const handleOpenPreview = useCallback(async () => {
@@ -164,11 +181,7 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
                         ) : (
                             <select
                                 value={selectedVersionId}
-                                onChange={e => {
-                                    setSelectedVersionId(e.target.value);
-                                    setIframeUrl(null);
-                                    setPreviewError(null);
-                                }}
+                                onChange={e => updateSelectedVersion(e.target.value)}
                                 className="h-9 pl-3 pr-8 rounded-xl border border-canvas-active bg-canvas-subtle text-sm text-ink-primary font-medium focus:outline-none focus:border-brand-500/30 focus:ring-2 focus:ring-brand-500/20 transition-all cursor-pointer appearance-none min-w-[200px] max-w-[280px]"
                             >
                                 {/* "Published" option always maps to no versionId (BFF loads the released version) */}
@@ -238,7 +251,7 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
                                 <div className="flex flex-wrap items-center justify-center gap-2 mt-2 max-w-lg">
                                     {/* "Published" chip */}
                                     <button
-                                        onClick={() => { setSelectedVersionId(''); setIframeUrl(null); }}
+                                        onClick={() => updateSelectedVersion('')}
                                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                                             !selectedVersionId
                                                 ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
@@ -251,7 +264,7 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
                                     {versions.slice(0, 10).map(v => (
                                         <button
                                             key={v.id}
-                                            onClick={() => { setSelectedVersionId(v.id); setIframeUrl(null); }}
+                                            onClick={() => updateSelectedVersion(v.id)}
                                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                                                 selectedVersionId === v.id
                                                     ? 'bg-violet-600 text-white border-violet-600 shadow-sm'

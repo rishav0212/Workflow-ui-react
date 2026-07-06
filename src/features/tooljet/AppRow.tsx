@@ -28,28 +28,30 @@ export default function AppRow({
     return (
         <div className="flex items-center gap-4 p-4 hover:bg-canvas-subtle/50 transition-colors group border-b border-canvas-subtle last:border-0">
             {/* Reorder Controls */}
-            <div className="flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity pr-2">
-                <button
-                    onClick={onMoveUp}
-                    disabled={isFirst || isReordering}
-                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
-                        isFirst ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
-                    }`}
-                    title="Move Up"
-                >
-                    <i className="fas fa-chevron-up text-[10px]"></i>
-                </button>
-                <button
-                    onClick={onMoveDown}
-                    disabled={isLast || isReordering}
-                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
-                        isLast ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
-                    }`}
-                    title="Move Down"
-                >
-                    <i className="fas fa-chevron-down text-[10px]"></i>
-                </button>
-            </div>
+            <Secure resource="module:tooljet_apps" action="manage">
+                <div className="flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity pr-2">
+                    <button
+                        onClick={onMoveUp}
+                        disabled={isFirst || isReordering}
+                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
+                            isFirst ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
+                        }`}
+                        title="Move Up"
+                    >
+                        <i className="fas fa-chevron-up text-[10px]"></i>
+                    </button>
+                    <button
+                        onClick={onMoveDown}
+                        disabled={isLast || isReordering}
+                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-all border shadow-sm ${
+                            isLast ? 'bg-canvas text-neutral-300 border-transparent shadow-none cursor-not-allowed' : 'bg-surface border-canvas-active text-neutral-500 hover:text-brand-600 hover:border-brand-300 hover:shadow-brand-sm hover:bg-brand-50'
+                        }`}
+                        title="Move Down"
+                    >
+                        <i className="fas fa-chevron-down text-[10px]"></i>
+                    </button>
+                </div>
+            </Secure>
 
             {/* Icon */}
             <div className="w-12 h-12 rounded-xl bg-surface border border-canvas-active shadow-sm flex items-center justify-center text-brand-600 shrink-0 relative overflow-hidden group-hover:shadow-md transition-all">
@@ -87,22 +89,24 @@ export default function AppRow({
                         <span>Preview</span>
                     </button>
                 </Secure>
-                <button
-                    onClick={onEdit}
-                    disabled={isReordering}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 border border-transparent hover:border-canvas-active hover:shadow-sm transition-all"
-                    title="Edit Application"
-                >
-                    <i className="fas fa-pen text-sm"></i>
-                </button>
-                <button
-                    onClick={onDelete}
-                    disabled={isReordering}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:bg-status-error/10 hover:text-status-error border border-transparent hover:border-status-error/20 transition-all"
-                    title="Delete Application"
-                >
-                    <i className="fas fa-trash-alt text-sm"></i>
-                </button>
+                <Secure resource="module:tooljet_apps" action="manage">
+                    <button
+                        onClick={onEdit}
+                        disabled={isReordering}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:bg-white hover:text-brand-600 border border-transparent hover:border-canvas-active hover:shadow-sm transition-all"
+                        title="Edit Application"
+                    >
+                        <i className="fas fa-pen text-sm"></i>
+                    </button>
+                    <button
+                        onClick={onDelete}
+                        disabled={isReordering}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:bg-white hover:text-rose-600 border border-transparent hover:border-canvas-active hover:shadow-sm transition-all"
+                        title="Delete Application"
+                    >
+                        <i className="fas fa-trash-alt text-sm"></i>
+                    </button>
+                </Secure>
             </div>
         </div>
     );

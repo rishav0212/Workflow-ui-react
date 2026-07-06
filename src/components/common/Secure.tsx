@@ -4,6 +4,7 @@ import { usePermissions } from "../../hooks/PermissionContext";
 interface SecureProps {
   resource: string;
   action?: string; // Defaults to "view"
+  anyAction?: string[]; // If any of these actions are allowed, it renders
   children: React.ReactNode;
   fallback?: React.ReactNode; // What to show if denied (default: null)
   disableInstead?: boolean; // If true, renders the children but disabled
@@ -12,6 +13,7 @@ interface SecureProps {
 export const Secure = ({
   resource,
   action = "view",
+  anyAction,
   children,
   fallback = null,
   disableInstead = false,
@@ -26,7 +28,12 @@ export const Secure = ({
   }
 
   // 2. Check if the user has the required permission
-  const isAllowed = hasPermission(resource, action);
+  let isAllowed = false;
+  if (anyAction && anyAction.length > 0) {
+      isAllowed = anyAction.some(a => hasPermission(resource, a));
+  } else {
+      isAllowed = hasPermission(resource, action);
+  }
 
   // 3. If allowed, render the component normally
   if (isAllowed) {

@@ -962,7 +962,7 @@ export default function App() {
             <Route
               path="admin/tooljet-apps"
               element={
-                <Secure resource="module:tooljet_apps" action="manage">
+                <Secure resource="module:tooljet_apps" anyAction={['manage', 'preview']}>
                   <ToolJetAppManager />
                 </Secure>
               }

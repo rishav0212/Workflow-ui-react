@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import type { ToolJetAppResponse } from '../../api/tooljetAdmin';
 import { 
     fetchAdminToolJetApps, 
@@ -8,6 +9,7 @@ import {
     deleteToolJetApp,
     reorderToolJetApps
 } from '../../api/tooljetAdmin';
+import { Secure } from '../../components/common/Secure';
 import AppRow from './AppRow';
 import AppFormModal from './AppFormModal';
 import AppPreviewPanel from './AppPreviewPanel';
@@ -15,6 +17,7 @@ import OAuthCredentialsManager from './OAuthCredentialsManager';
 import ToolJetWorkspaceSettings from './ToolJetWorkspaceSettings';
 
 export default function ToolJetAppManager() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [apps, setApps] = useState<ToolJetAppResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isReordering, setIsReordering] = useState(false);
@@ -44,6 +47,19 @@ export default function ToolJetAppManager() {
         loadApps();
     }, [loadApps]);
 
+    // Read initial preview state from URL
+    useEffect(() => {
+        if (apps.length > 0) {
+            const previewAppId = searchParams.get('previewApp');
+            if (previewAppId && !previewingApp) {
+                const appToPreview = apps.find(a => a.id === previewAppId);
+                if (appToPreview) {
+                    setPreviewingApp(appToPreview);
+                }
+            }
+        }
+    }, [apps, searchParams, previewingApp]);
+
     const handleAddClick = () => {
         setEditingApp(undefined);
         setIsModalOpen(true);
@@ -69,6 +85,10 @@ export default function ToolJetAppManager() {
 
     const handlePreviewClick = (app: ToolJetAppResponse) => {
         setPreviewingApp(app);
+        setSearchParams(prev => {
+            prev.set('previewApp', app.id);
+            return prev;
+        });
     };
 
     const handleSaveApp = async (data: any) => {
@@ -133,16 +153,18 @@ export default function ToolJetAppManager() {
                         </p>
                     </div>
                     
-                    {activeTab === 'apps' && (
-                        <button 
-                            onClick={handleAddClick}
-                            className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isLoading}
-                        >
-                            <i className="fas fa-plus"></i>
-                            Register App
-                        </button>
-                    )}
+                    <Secure resource="module:tooljet_apps" action="manage">
+                        {activeTab === 'apps' && (
+                            <button 
+                                onClick={handleAddClick}
+                                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isLoading}
+                            >
+                                <i className="fas fa-plus"></i>
+                                Register App
+                            </button>
+                        )}
+                    </Secure>
                 </header>
 
                 <div className="flex space-x-1 bg-canvas-subtle p-1 rounded-xl mb-8 border border-canvas-active w-max">
@@ -156,26 +178,28 @@ export default function ToolJetAppManager() {
                     >
                         Applications
                     </button>
-                    <button
-                        onClick={() => setActiveTab('credentials')}
-                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
-                            activeTab === 'credentials' 
-                                ? 'bg-white text-ink-primary shadow-sm' 
-                                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
-                        }`}
-                    >
-                        API Credentials
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('workspace')}
-                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
-                            activeTab === 'workspace' 
-                                ? 'bg-white text-ink-primary shadow-sm' 
-                                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
-                        }`}
-                    >
-                        Workspace Settings
-                    </button>
+                    <Secure resource="module:tooljet_apps" action="manage">
+                        <button
+                            onClick={() => setActiveTab('credentials')}
+                            className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                activeTab === 'credentials' 
+                                    ? 'bg-white text-ink-primary shadow-sm' 
+                                    : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
+                            }`}
+                        >
+                            API Credentials
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('workspace')}
+                            className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                activeTab === 'workspace' 
+                                    ? 'bg-white text-ink-primary shadow-sm' 
+                                    : 'text-ink-secondary hover:text-ink-primary hover:bg-white/50'
+                            }`}
+                        >
+                            Workspace Settings
+                        </button>
+                    </Secure>
                 </div>
 
                 {activeTab === 'apps' && (
@@ -193,9 +217,11 @@ export default function ToolJetAppManager() {
                             <p className="text-ink-tertiary mb-8 max-w-sm mx-auto leading-relaxed">
                                 You haven't added any ToolJet applications to your workspace yet. Apps registered here will appear in the main navigation sidebar.
                             </p>
-                            <button onClick={handleAddClick} className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all inline-flex items-center gap-2">
-                                <i className="fas fa-plus"></i> Add Your First App
-                            </button>
+                            <Secure resource="module:tooljet_apps" action="manage">
+                                <button onClick={handleAddClick} className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all inline-flex items-center gap-2">
+                                    <i className="fas fa-plus"></i> Add Your First App
+                                </button>
+                            </Secure>
                         </div>
                     ) : (
                         <div className="divide-y divide-canvas-subtle">
@@ -238,7 +264,14 @@ export default function ToolJetAppManager() {
             {/* Admin Preview panel — slides in from the right */}
             <AppPreviewPanel
                 app={previewingApp}
-                onClose={() => setPreviewingApp(null)}
+                onClose={() => {
+                    setPreviewingApp(null);
+                    setSearchParams(prev => {
+                        prev.delete('previewApp');
+                        prev.delete('previewVersion');
+                        return prev;
+                    });
+                }}
             />
         </div>
     );
