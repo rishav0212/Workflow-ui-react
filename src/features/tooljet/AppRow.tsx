@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ToolJetAppResponse } from '../../api/tooljetAdmin';
+import { Secure } from '../../components/common/Secure';
 
 interface AppRowProps {
     app: ToolJetAppResponse;
@@ -75,15 +76,17 @@ export default function AppRow({
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={onPreview}
-                    disabled={isReordering}
-                    className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-neutral-500 hover:bg-violet-50 hover:text-violet-600 border border-transparent hover:border-violet-200 hover:shadow-sm transition-all text-xs font-semibold"
-                    title="Preview App"
-                >
-                    <i className="fas fa-eye text-sm"></i>
-                    <span>Preview</span>
-                </button>
+                <Secure resource="module:tooljet_apps" action="preview">
+                    <button
+                        onClick={onPreview}
+                        disabled={isReordering}
+                        className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-neutral-500 hover:bg-violet-50 hover:text-violet-600 border border-transparent hover:border-violet-200 hover:shadow-sm transition-all text-xs font-semibold"
+                        title="Preview App"
+                    >
+                        <i className="fas fa-eye text-sm"></i>
+                        <span>Preview</span>
+                    </button>
+                </Secure>
                 <button
                     onClick={onEdit}
                     disabled={isReordering}
