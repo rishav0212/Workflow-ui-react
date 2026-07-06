@@ -10,9 +10,9 @@ import {
 } from '../../api/tooljetAdmin';
 import AppRow from './AppRow';
 import AppFormModal from './AppFormModal';
+import AppPreviewPanel from './AppPreviewPanel';
 import OAuthCredentialsManager from './OAuthCredentialsManager';
 import ToolJetWorkspaceSettings from './ToolJetWorkspaceSettings';
-import { Secure } from '../../components/common/Secure';
 
 export default function ToolJetAppManager() {
     const [apps, setApps] = useState<ToolJetAppResponse[]>([]);
@@ -20,9 +20,12 @@ export default function ToolJetAppManager() {
     const [isReordering, setIsReordering] = useState(false);
     const [activeTab, setActiveTab] = useState<'apps' | 'credentials' | 'workspace'>('apps');
     
-    // Modal state
+    // Edit modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingApp, setEditingApp] = useState<ToolJetAppResponse | undefined>(undefined);
+
+    // Preview panel state
+    const [previewingApp, setPreviewingApp] = useState<ToolJetAppResponse | null>(null);
 
     const loadApps = useCallback(async () => {
         setIsLoading(true);
@@ -62,6 +65,10 @@ export default function ToolJetAppManager() {
                 toast.error("Failed to delete application");
             }
         }
+    };
+
+    const handlePreviewClick = (app: ToolJetAppResponse) => {
+        setPreviewingApp(app);
     };
 
     const handleSaveApp = async (data: any) => {
@@ -202,6 +209,7 @@ export default function ToolJetAppManager() {
                                     onMoveDown={() => handleMove(index, 'down')}
                                     onEdit={() => handleEditClick(app)}
                                     onDelete={() => handleDeleteClick(app)}
+                                    onPreview={() => handlePreviewClick(app)}
                                     isReordering={isReordering}
                                 />
                             ))}
@@ -219,11 +227,18 @@ export default function ToolJetAppManager() {
                 )}
             </div>
 
+            {/* Edit / Register modal — unchanged from before */}
             <AppFormModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 app={editingApp}
                 onSave={handleSaveApp}
+            />
+
+            {/* Admin Preview panel — slides in from the right */}
+            <AppPreviewPanel
+                app={previewingApp}
+                onClose={() => setPreviewingApp(null)}
             />
         </div>
     );

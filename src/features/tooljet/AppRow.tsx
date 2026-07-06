@@ -9,6 +9,7 @@ interface AppRowProps {
     onMoveDown: () => void;
     onEdit: () => void;
     onDelete: () => void;
+    onPreview: () => void;
     isReordering: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function AppRow({
     onMoveDown,
     onEdit,
     onDelete,
+    onPreview,
     isReordering
 }: AppRowProps) {
     return (
@@ -48,7 +50,7 @@ export default function AppRow({
                 </button>
             </div>
 
-            {/* Icon Preview */}
+            {/* Icon */}
             <div className="w-12 h-12 rounded-xl bg-surface border border-canvas-active shadow-sm flex items-center justify-center text-brand-600 shrink-0 relative overflow-hidden group-hover:shadow-md transition-all">
                 <div className="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <i className={`${app.icon || 'fas fa-window-maximize'} text-xl`}></i>
@@ -72,7 +74,16 @@ export default function AppRow({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    onClick={onPreview}
+                    disabled={isReordering}
+                    className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-neutral-500 hover:bg-violet-50 hover:text-violet-600 border border-transparent hover:border-violet-200 hover:shadow-sm transition-all text-xs font-semibold"
+                    title="Preview App"
+                >
+                    <i className="fas fa-eye text-sm"></i>
+                    <span>Preview</span>
+                </button>
                 <button
                     onClick={onEdit}
                     disabled={isReordering}

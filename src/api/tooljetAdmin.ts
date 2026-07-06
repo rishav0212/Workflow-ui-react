@@ -92,3 +92,48 @@ export const updateToolJetWorkspace = async (data: ToolJetWorkspaceUpdateRequest
     const res = await api.put('/api/admin/tooljet-workspace', data);
     return unwrapData(res);
 };
+
+// ─── App Preview (Admin Only) ────────────────────────────────────────────────
+
+export interface ToolJetAppVersion {
+    id: string;
+    name: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+/** Shape returned by GET /api/tenant/admin/tooljet/apps/{uuid}/versions */
+export interface AppVersionsResponse {
+    versions: ToolJetAppVersion[];
+    /** ID of the currently released/published version. Null if none is released yet. */
+    currentVersionId: string | null;
+}
+
+/**
+ * Fetches all versions + the current released version ID for a ToolJet app.
+ * Requires module:tooljet_apps — manage (enforced by the BFF backend).
+ */
+export const fetchAppVersions = async (tooljetAppUuid: string): Promise<AppVersionsResponse> => {
+    const res = await api.get(`/api/tenant/admin/tooljet/apps/${tooljetAppUuid}/versions`);
+    // Backend returns { versions: [...], currentVersionId: string | null }
+    const data = res.data;
+    return {
+        versions: Array.isArray(data?.versions) ? data.versions : [],
+        currentVersionId: data?.currentVersionId ?? null,
+    };
+};
+
+/**
+ * Generates an admin preview ticket for a ToolJet app.
+ * Returns { ticket, iframeUrl } — the iframeUrl can be used directly in an <iframe src>.
+ * versionId is optional; omitting it loads the current published version.
+ */
+export const getAdminPreviewTicket = async (
+    appId: string,
+    versionId?: string,
+): Promise<{ ticket: string; iframeUrl: string }> => {
+    const params = new URLSearchParams({ appId });
+    if (versionId) params.append('versionId', versionId);
+    const res = await api.post(`/api/tenant/admin/tooljet/embed-ticket/preview?${params.toString()}`);
+    return res.data;
+};
