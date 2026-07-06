@@ -66,9 +66,13 @@ export default function AppPreviewPanel({ app, onClose }: AppPreviewPanelProps) 
         setPreviewError(null);
         setIframeUrl(null);
         try {
+            const actualVersionName = selectedVersionId 
+                ? versions.find(v => v.id === selectedVersionId)?.name 
+                : undefined;
+
             const { iframeUrl: rawPath } = await getAdminPreviewTicket(
                 app.tooljetAppUuid,
-                selectedVersionId || undefined,
+                actualVersionName,
             );
             const base = API_BASE_URL.replace(/\/$/, '');
             setIframeUrl(`${base}${rawPath}`);
