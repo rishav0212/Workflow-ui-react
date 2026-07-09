@@ -67,8 +67,32 @@ const timeAgo = (dateStr: string) => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
+export const InfinityPlusLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2"
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Elegant Infinity Loop, perfectly balanced and slightly lowered */}
+    <path 
+      d="M16 16c3 0 3-5 0-5-3 0-5 5-8 5-3 0-3-5 0-5 3 0 5 5 8 5z" 
+    />
+    
+    {/* Crisp Plus Sign on the top right */}
+    <path 
+      d="M19 4v6M16 7h6" 
+      strokeWidth="2.5"
+    />
+  </svg>
+);
+
 // 🎨 ENHANCED: Sophisticated Sidebar with Warm Dark Theme
-const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) => {
+const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu, onLogout }: any) => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const currentTenant = tenantId;
   const { hasPermission } = usePermissions();
@@ -85,7 +109,7 @@ const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) 
       <div className="hidden md:flex w-20 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 border-r border-neutral-700/30 flex-col items-center py-6 z-40 shadow-premium">
         {/* Logo */}
         <div className="w-12 h-12 bg-gradient-to-br from-brand-400 via-brand-500 to-brand-600 rounded-xl flex items-center justify-center text-white text-xl shadow-brand-lg mb-8 ring-2 ring-brand-400/20 hover:scale-105 transition-transform cursor-pointer">
-          <i className="fas fa-layer-group"></i>
+          <InfinityPlusLogo className="w-7 h-7" />
         </div>
 
         {/* Navigation Icons */}
@@ -124,12 +148,18 @@ const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) 
           ))}
         </div>
 
-        {/* Settings at Bottom */}
-        <div className="pb-4">
+        {/* Settings and Logout at Bottom */}
+        <div className="pb-4 flex flex-col gap-3">
           <button className="nav-item group">
             <i className="fas fa-cog"></i>
             <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
               Settings
+            </span>
+          </button>
+          <button onClick={onLogout} className="nav-item group !text-status-error/70 hover:!text-status-error hover:!bg-status-error/10">
+            <i className="fas fa-power-off"></i>
+            <span className="absolute left-14 bg-neutral-800 text-white text-xs font-bold px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap z-50 shadow-floating border border-neutral-700 pointer-events-none transform translate-x-2 group-hover:translate-x-0">
+              Logout
             </span>
           </button>
         </div>
@@ -158,7 +188,7 @@ const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) 
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-700/40 flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-brand-400 to-brand-600 rounded-xl flex items-center justify-center text-white shadow-brand-sm">
-                <i className="fas fa-layer-group text-base"></i>
+                <InfinityPlusLogo className="w-5 h-5" />
               </div>
               <span className="text-lg font-bold text-white font-serif tracking-tight">
                 Infinity<span className="text-brand-400">Plus</span>
@@ -241,8 +271,8 @@ const GlobalNav = ({ user, apps = [], mobileMenuOpen, onCloseMobileMenu }: any) 
                   </span>
                 </div>
               </div>
-              <button className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-700/50 transition-all">
-                <i className="fas fa-cog text-sm"></i>
+              <button onClick={onLogout} className="w-8 h-8 flex items-center justify-center rounded-lg text-status-error/70 hover:text-status-error hover:bg-neutral-700/50 transition-all" title="Logout">
+                <i className="fas fa-power-off text-sm"></i>
               </button>
             </div>
           </div>
@@ -378,7 +408,7 @@ const TopHeader = ({
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-brand-400 to-brand-600 rounded-lg flex items-center justify-center text-white text-sm shadow-brand-sm">
-            <i className="fas fa-layer-group"></i>
+            <InfinityPlusLogo className="w-5 h-5" />
           </div>
           <h1 className="text-lg md:text-xl font-bold text-ink-primary tracking-tight font-serif">
             Infinity<span className="text-brand-500">Plus</span>
@@ -402,7 +432,7 @@ const TopHeader = ({
 
           {/* Notification Dropdown — responsive width on mobile */}
           {showNotifMenu && (
-            <div className="absolute top-full right-0 mt-3 w-[calc(100vw-2rem)] max-w-[24rem] bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
+            <div className="fixed top-[4.5rem] left-4 right-4 md:absolute md:top-full md:left-auto md:right-0 md:mt-3 md:w-[24rem] bg-white rounded-xl shadow-floating border border-canvas-subtle overflow-hidden z-50 animate-slideDown">
               <div className="px-4 py-3 border-b border-canvas-subtle flex justify-between items-center bg-canvas-subtle">
                 <span className="font-bold text-[10px] uppercase text-neutral-600 tracking-widest">
                   Notifications
@@ -478,8 +508,8 @@ const TopHeader = ({
           )}
         </div>
 
-        {/* User Section */}
-        <div className="flex items-center gap-4 pl-4 border-l border-canvas-subtle ml-1">
+        {/* User Section - Hidden on mobile, moved to Sidebar */}
+        <div className="hidden md:flex items-center gap-4 pl-4 border-l border-canvas-subtle ml-1">
           <div className="flex items-center gap-3 group cursor-pointer p-1 pr-4 rounded-full bg-canvas-subtle/50 hover:bg-white hover:shadow-floating border border-transparent hover:border-brand-200 transition-all duration-300">
             {/* Avatar */}
             {user.picture ? (
@@ -643,7 +673,7 @@ const TenantLayout = ({ user, notifications, onLogout, clearNotifications }: any
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
       <Toaster position="top-right" reverseOrder={false} gutter={12} />
-      <GlobalNav user={user} apps={tooljetApps} mobileMenuOpen={mobileMenuOpen} onCloseMobileMenu={() => setMobileMenuOpen(false)} />
+      <GlobalNav user={user} apps={tooljetApps} mobileMenuOpen={mobileMenuOpen} onCloseMobileMenu={() => setMobileMenuOpen(false)} onLogout={onLogout} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopHeader
