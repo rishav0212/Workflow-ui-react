@@ -131,43 +131,13 @@ export const fetchCompletedTasks = async (
 
 // --- ADMIN APIs (Kept as is) ---
 export const fetchAdminProcesses = async () => {
-  const res = await api.get(
-    "/process-api/repository/process-definitions?latest=true",
-  );
+  const res = await api.get("/api/admin/processes/definitions/latest");
   return res.data.data;
 };
 
 export const fetchProcessVersions = async (processKey: string) => {
-  // 1. Fetch the list of process definitions (Versions)
-  const res = await api.get(
-    `/process-api/repository/process-definitions?key=${processKey}&sort=version&order=desc`,
-  );
-
-  const definitions = res.data.data;
-
-  // 2. 🟢 ENRICHMENT: Fetch Deployment details for each definition to get the comment
-  // We use Promise.all to fetch them in parallel so it's fast.
-  const enrichedDefinitions = await Promise.all(
-    definitions.map(async (def: any) => {
-      try {
-        // Fetch the deployment object using the ID found in the process definition
-        const deploymentRes = await api.get(
-          `/process-api/repository/deployments/${def.deploymentId}`,
-        );
-
-        // Return the definition merged with the deployment name (where the comment lives)
-        return {
-          ...def,
-          deploymentName: deploymentRes.data.name, // This contains "Name - Comment"
-        };
-      } catch (err) {
-        // If deployment fetch fails, just return original def without name
-        return def;
-      }
-    }),
-  );
-
-  return enrichedDefinitions;
+  const res = await api.get(`/api/admin/processes/definitions?key=${processKey}`);
+  return res.data.data;
 };
 
 export const fetchProcessXml = async (id: string) => {
