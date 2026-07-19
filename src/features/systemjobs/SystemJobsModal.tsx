@@ -3,10 +3,23 @@ import { fetchAdminTimers, fetchAdminDeadLetters, retryAdminDeadLetter } from ".
 import toast from "react-hot-toast";
 import DataGrid, { type Column } from "../common/DataGrid";
 
+/**
+ * Props for the SystemJobsModal component.
+ */
 interface SystemJobsModalProps {
+  /** Callback fired when the user requests to close the modal. */
   onClose: () => void;
 }
 
+/**
+ * A Modal component that displays system-level background jobs from the Flowable engine.
+ * 
+ * <p>It allows administrators to view upcoming scheduled tasks (timers) and inspect
+ * jobs that have failed unrecoverably (dead letters). It also provides a UI to view
+ * the raw Java stack trace of the failure and a mechanism to retry the job.</p>
+ * 
+ * @param {SystemJobsModalProps} props - The properties for the modal.
+ */
 export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
   const [activeTab, setActiveTab] = useState<"timers" | "deadletters">("timers");
   const [loading, setLoading] = useState(false);
@@ -14,6 +27,10 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
   const [deadLetters, setDeadLetters] = useState<any[]>([]);
   const [selectedTrace, setSelectedTrace] = useState<string | null>(null);
 
+  /**
+   * Fetches the appropriate jobs data based on the currently active tab.
+   * Leverages the custom backend APIs `/api/admin/jobs/timers` and `/api/admin/jobs/deadletter`.
+   */
   const loadData = async () => {
     setLoading(true);
     try {
@@ -31,22 +48,32 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
     }
   };
 
+  // Re-fetch data whenever the tab changes
   useEffect(() => {
     loadData();
   }, [activeTab]);
 
+  /**
+   * Instructs the Flowable engine to move a dead letter job back to the executable queue,
+   * effectively retrying the transaction.
+   * 
+   * @param id The unique identifier of the Dead Letter Job.
+   */
   const handleRetry = async (id: string) => {
     try {
       setLoading(true);
       await retryAdminDeadLetter(id);
       toast.success("Job moved back to executable queue!");
-      loadData();
+      loadData(); // Refresh the list
     } catch (e: any) {
       toast.error("Retry failed: " + e.message);
       setLoading(false);
     }
   };
 
+  /**
+   * Column definitions for the Timers DataGrid.
+   */
   const timerColumns: Column<any>[] = [
     { header: "Job ID", key: "id", sortable: true },
     { header: "Process Def ID", key: "processDefinitionId", sortable: true },
@@ -59,6 +86,9 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
     { header: "Retries", key: "retries" },
   ];
 
+  /**
+   * Column definitions for the Dead Letters DataGrid.
+   */
   const deadLetterColumns: Column<any>[] = [
     { header: "Job ID", key: "id", sortable: true },
     { header: "Process Def ID", key: "processDefinitionId" },
@@ -73,7 +103,8 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
           {p.stacktrace && (
             <button 
               onClick={() => setSelectedTrace(p.stacktrace)}
-              className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200 hover:bg-red-200"
+              className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200 hover:bg-red-200 transition-colors"
+              title="View full stacktrace"
             >
               View Trace
             </button>
@@ -98,21 +129,22 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
+      {/* Dimmed Backdrop */}
       <div
         className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm"
         onClick={onClose}
       ></div>
 
       <div className="relative w-full max-w-5xl bg-surface rounded-xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden border border-canvas-subtle">
-        {/* Header */}
+        
+        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-canvas-subtle bg-white">
           <div>
             <h3 className="text-lg font-serif font-bold text-ink-primary">
               System Background Jobs
             </h3>
             <p className="text-xs text-ink-tertiary font-medium">
-              Monitor upcoming timer schedules and failed jobs.
+              Monitor upcoming timer schedules and failed jobs in Flowable.
             </p>
           </div>
           <button
@@ -123,7 +155,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Tab Navigation */}
         <div className="flex border-b border-canvas-subtle bg-canvas-subtle">
           <button
             onClick={() => setActiveTab("timers")}
@@ -147,7 +179,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
           </button>
         </div>
 
-        {/* Content */}
+        {/* Dynamic Data Grid */}
         <div className="flex-1 overflow-auto p-6 bg-canvas">
           <DataGrid
             data={activeTab === "timers" ? timers : deadLetters}
@@ -160,7 +192,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
         </div>
       </div>
 
-      {/* Stacktrace Modal */}
+      {/* Sub-Modal: Stacktrace Viewer */}
       {selectedTrace && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-neutral-900/60" onClick={() => setSelectedTrace(null)}></div>

@@ -11,7 +11,7 @@ import {
 } from "./api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 import BatchStartModal from "./components/process/BatchStartModal";
-import SystemJobsModal from "./components/process/SystemJobsModal";
+import SystemJobsModal from "./features/systemjobs/SystemJobsModal";
 
 /**
  * GLOBAL CACHE STORAGE
