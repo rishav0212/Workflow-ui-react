@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchAdminTimers, fetchAdminDeadLetters, retryAdminDeadLetter } from "../../api";
 import toast from "react-hot-toast";
-import DataGrid, { type Column } from "../common/DataGrid";
+import DataGrid, { type Column } from "../../components/common/DataGrid";
 
 /**
  * Props for the SystemJobsModal component.
@@ -81,7 +81,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
       header: "Due Date", 
       key: "dueDate", 
       sortable: true,
-      render: (p) => new Date(p.dueDate).toLocaleString() 
+      render: (p: any) => new Date(p.dueDate).toLocaleString() 
     },
     { header: "Retries", key: "retries" },
   ];
@@ -95,7 +95,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
     { 
       header: "Exception", 
       key: "exceptionMessage",
-      render: (p) => (
+      render: (p: any) => (
         <div className="flex items-center gap-2">
           <span className="text-status-error font-bold truncate max-w-xs" title={p.exceptionMessage}>
             {p.exceptionMessage}
@@ -116,7 +116,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
       header: "Actions",
       key: "actions",
       className: "text-right",
-      render: (p) => (
+      render: (p: any) => (
         <button
           onClick={() => handleRetry(p.id)}
           className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-brand-600 text-brand-600 hover:bg-brand-600 hover:text-white transition-all"
@@ -185,7 +185,7 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
             data={activeTab === "timers" ? timers : deadLetters}
             columns={activeTab === "timers" ? timerColumns : deadLetterColumns}
             loading={loading}
-            getRowId={(p) => p.id}
+            getRowId={(p: any) => p.id}
             searchFields={["id", "processDefinitionId", "exceptionMessage"]}
             itemsPerPage={10}
           />
