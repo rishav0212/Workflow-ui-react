@@ -170,6 +170,26 @@ export const fetchProcessInstances = async () => {
   return res.data.data;
 };
 
+export const startProcessEmpty = async (processKey: string) => {
+  const res = await api.post(`/api/admin/processes/definitions/${processKey}/start-empty`);
+  return res.data;
+};
+
+export const fetchAdminTimers = async () => {
+  const res = await api.get('/api/admin/jobs/timers');
+  return res.data;
+};
+
+export const fetchAdminDeadLetters = async () => {
+  const res = await api.get('/api/admin/jobs/deadletter');
+  return res.data;
+};
+
+export const retryAdminDeadLetter = async (id: string) => {
+  const res = await api.post(`/api/admin/jobs/deadletter/${id}/retry`);
+  return res.data;
+};
+
 /**
  * Terminates a specific process instance using the secured backend API.
  * The backend enforces both Casbin permissions and Tenant Isolation.

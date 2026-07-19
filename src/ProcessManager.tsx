@@ -7,9 +7,11 @@ import {
   deleteDeployment,
   fireGlobalSignal,
   purgeProcessData,
+  startProcessEmpty,
 } from "./api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
 import BatchStartModal from "./components/process/BatchStartModal";
+import SystemJobsModal from "./components/process/SystemJobsModal";
 
 /**
  * GLOBAL CACHE STORAGE
@@ -25,6 +27,7 @@ const DATA_CACHE: {
 export default function ProcessManager() {
   const [processes, setProcesses] = useState<any[]>([]);
   const [batchProcess, setBatchProcess] = useState<string | null>(null);
+  const [showJobsModal, setShowJobsModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,6 +58,23 @@ export default function ProcessManager() {
   useEffect(() => {
     loadProcesses();
   }, []);
+
+  const handleStartScheduler = async (processKey: string) => {
+    const confirmed = window.confirm(
+      `Start this scheduler immediately?\n\nThis will spawn a new process instance for "${processKey}" in the background.`
+    );
+    if (confirmed) {
+      try {
+        setLoading(true);
+        await startProcessEmpty(processKey);
+        alert(`Scheduler "${processKey}" started successfully!`);
+      } catch (err: any) {
+        alert("Failed to start scheduler: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const handlePurge = async (processKey: string) => {
     const confirmed = window.confirm(
@@ -215,6 +235,19 @@ export default function ProcessManager() {
       className: "text-right",
       render: (p) => (
         <div className="flex justify-end gap-3 items-center">
+          {p.category === "SCHEDULER" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartScheduler(p.key);
+              }}
+              className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-purple-600 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white transition-all shadow-sm flex items-center gap-1.5"
+              title="Start Scheduler Process Immediately"
+            >
+              <i className="fas fa-play"></i>
+              Run Scheduler
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -318,6 +351,14 @@ export default function ProcessManager() {
           headerActions={
             <>
               <button
+                onClick={() => setShowJobsModal(true)}
+                className="flex items-center gap-2 px-4 py-1.5 bg-neutral-800 text-white rounded-lg text-[10px] font-bold shadow-soft hover:bg-neutral-900 transition-all uppercase tracking-wide"
+              >
+                <i className="fas fa-cogs"></i>
+                System Jobs
+              </button>
+
+              <button
                 onClick={handleFireSignal}
                 className="flex items-center gap-2 px-4 py-1.5 bg-status-info text-white rounded-lg text-[10px] font-bold shadow-soft hover:bg-opacity-90 transition-all uppercase tracking-wide"
               >
@@ -358,6 +399,9 @@ export default function ProcessManager() {
             setBatchProcess(null);
           }}
         />
+      )}
+      {showJobsModal && (
+        <SystemJobsModal onClose={() => setShowJobsModal(false)} />
       )}
     </div>
   );
