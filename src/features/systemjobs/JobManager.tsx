@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchJobs, retryJob, deleteJob } from "./jobApi";
 import { Secure } from "../../components/common/Secure";
+import DataGrid, { Column } from "../../components/common/DataGrid";
 
 export default function JobManager() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -13,6 +14,12 @@ export default function JobManager() {
     setLoading(true);
     try {
       const data = await fetchJobs(type);
+      // Reverse sort according to the date (descending)
+      data.sort((a: any, b: any) => {
+        const dateA = new Date(a.createTime || a.dueDate || 0).getTime();
+        const dateB = new Date(b.createTime || b.dueDate || 0).getTime();
+        return dateB - dateA;
+      });
       setJobs(data);
     } catch (e) {
       console.error(e);
@@ -38,6 +45,105 @@ export default function JobManager() {
     }
   };
 
+  const columns: Column<any>[] = [
+    {
+      header: "Job / Exception",
+      key: "exceptionMessage",
+      sortable: true,
+      render: (job) => (
+        <div className="max-w-md">
+          <div className="font-mono text-[11px] text-ink-secondary mb-1 flex items-center gap-2">
+            ID: {job.id}
+            {job.stacktrace && (
+              <button 
+                onClick={() => setSelectedStackTrace(job.stacktrace)}
+                className="bg-canvas-active hover:bg-canvas-subtle text-ink-primary px-2 py-0.5 rounded text-[10px] uppercase font-bold transition-colors"
+              >
+                View Logs
+              </button>
+            )}
+          </div>
+          <div
+            className="text-status-error text-xs font-bold truncate"
+            title={job.exceptionMessage}
+          >
+            {job.exceptionMessage || "No exception details available"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Context",
+      key: "processInstanceId",
+      sortable: true,
+      render: (job) => (
+        <div>
+          <div className="text-[10px] font-black uppercase text-ink-tertiary">
+            Instance ID
+          </div>
+          <div className="text-xs font-mono">
+            {job.processInstanceId ? `${job.processInstanceId.substring(0, 8)}...` : "N/A"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Retries",
+      key: "retries",
+      sortable: true,
+      className: "text-center",
+      render: (job) => (
+        <span
+          className={`px-2 py-1 rounded text-xs font-black ${
+            job.retries === 0
+              ? "bg-status-error/10 text-status-error"
+              : "bg-canvas-active text-ink-secondary"
+          }`}
+        >
+          {job.retries}
+        </span>
+      ),
+    },
+    {
+      header: "Date",
+      key: "dueDate",
+      sortable: true,
+      render: (job) => (
+        <span className="text-ink-tertiary text-xs">
+          {job.dueDate ? new Date(job.dueDate).toLocaleString() : job.createTime ? new Date(job.createTime).toLocaleString() : "Immediate"}
+        </span>
+      ),
+    },
+    {
+      header: "Actions",
+      key: "actions",
+      sortable: false,
+      className: "text-right",
+      render: (job) => (
+        <div className="flex gap-3 justify-end items-center">
+          {type === "deadletter" && (
+            <Secure resource="module:admin_workflows" action="execute" disableInstead>
+              <button
+                onClick={() => handleRetry(job.id)}
+                className="text-[11px] font-black uppercase text-brand-600 hover:text-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Retry
+              </button>
+            </Secure>
+          )}
+          <Secure resource="module:admin_workflows" action="execute" disableInstead>
+            <button
+              onClick={() => handleDelete(job.id)}
+              className="text-[11px] font-black uppercase text-status-error hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete
+            </button>
+          </Secure>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <Secure 
       resource="module:admin_workflows" 
@@ -53,7 +159,7 @@ export default function JobManager() {
         </div>
       }
     >
-      <div className="min-h-screen bg-canvas p-8">
+      <div className="min-h-screen bg-canvas p-8 flex flex-col">
         {/* --- STACKTRACE MODAL --- */}
         {selectedStackTrace && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -76,7 +182,7 @@ export default function JobManager() {
           </div>
         )}
 
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
           <header className="mb-8 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-serif font-bold text-ink-primary tracking-tight">
@@ -111,123 +217,13 @@ export default function JobManager() {
             </div>
           </header>
 
-          <div className="bg-surface rounded-2xl border border-canvas-active overflow-hidden shadow-soft">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-canvas-subtle border-b border-canvas-active">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                    Job / Exception
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                    Context
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary text-center">
-                    Retries
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-ink-tertiary text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-canvas-subtle">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-10 text-center text-ink-tertiary"
-                    >
-                      <i className="fas fa-circle-notch fa-spin mr-2"></i>
-                      Loading...
-                    </td>
-                  </tr>
-                ) : jobs.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-10 text-center text-ink-tertiary"
-                    >
-                      No {type} jobs found.
-                    </td>
-                  </tr>
-                ) : (
-                  jobs.map((job) => (
-                    <tr
-                      key={job.id}
-                      className="hover:bg-canvas-subtle/20 transition-colors"
-                    >
-                      <td className="px-6 py-4 max-w-md">
-                        <div className="font-mono text-[11px] text-ink-secondary mb-1 flex items-center gap-2">
-                          ID: {job.id}
-                          {job.stacktrace && (
-                            <button 
-                              onClick={() => setSelectedStackTrace(job.stacktrace)}
-                              className="bg-canvas-active hover:bg-canvas-subtle text-ink-primary px-2 py-0.5 rounded text-[10px] uppercase font-bold transition-colors"
-                            >
-                              View Logs
-                            </button>
-                          )}
-                        </div>
-                        <div
-                          className="text-status-error text-xs font-bold truncate"
-                          title={job.exceptionMessage}
-                        >
-                          {job.exceptionMessage ||
-                            "No exception details available"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-[10px] font-black uppercase text-ink-tertiary">
-                          Instance ID
-                        </div>
-                        <div className="text-xs font-mono">
-                          {job.processInstanceId?.substring(0, 8)}...
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-black ${
-                            job.retries === 0
-                              ? "bg-status-error/10 text-status-error"
-                              : "bg-canvas-active text-ink-secondary"
-                          }`}
-                        >
-                          {job.retries}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-ink-tertiary text-xs">
-                        {job.dueDate
-                          ? new Date(job.dueDate).toLocaleString()
-                          : "Immediate"}
-                      </td>
-                      <td className="px-6 py-4 text-right flex gap-3 justify-end items-center">
-                        {type === "deadletter" && (
-                          <Secure resource="module:admin_workflows" action="execute" disableInstead>
-                            <button
-                              onClick={() => handleRetry(job.id)}
-                              className="text-[11px] font-black uppercase text-brand-600 hover:text-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Retry
-                            </button>
-                          </Secure>
-                        )}
-                        <Secure resource="module:admin_workflows" action="execute" disableInstead>
-                          <button
-                            onClick={() => handleDelete(job.id)}
-                            className="text-[11px] font-black uppercase text-status-error hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Delete
-                          </button>
-                        </Secure>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataGrid
+            data={jobs}
+            columns={columns}
+            loading={loading}
+            getRowId={(job) => job.id}
+            searchFields={["id", "exceptionMessage", "processInstanceId"]}
+          />
         </div>
       </div>
     </Secure>
