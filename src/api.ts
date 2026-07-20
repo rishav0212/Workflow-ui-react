@@ -175,20 +175,7 @@ export const startProcessEmpty = async (processKey: string) => {
   return res.data;
 };
 
-export const fetchAdminTimers = async () => {
-  const res = await api.get('/api/admin/jobs/timers');
-  return res.data;
-};
 
-export const fetchAdminDeadLetters = async () => {
-  const res = await api.get('/api/admin/jobs/deadletter');
-  return res.data;
-};
-
-export const retryAdminDeadLetter = async (id: string) => {
-  const res = await api.post(`/api/admin/jobs/deadletter/${id}/retry`);
-  return res.data;
-};
 
 /**
  * Terminates a specific process instance using the secured backend API.
@@ -296,24 +283,7 @@ export const bulkDeleteHistoricInstances = async (instanceIds: string[]) => {
   return await api.delete(`/api/admin/processes/instances/history/bulk`, { data: instanceIds });
 };
 
-export const fetchJobs = async (
-  type: "timer" | "executable" | "deadletter" | "suspended",
-) => {
-  const res = await api.get(
-    `/process-api/management/jobs?type=${type}&size=100000`,
-  );
-  return res.data.data;
-};
 
-export const retryJob = async (jobId: string) => {
-  return await api.post(`/process-api/management/jobs/${jobId}`, {
-    action: "move",
-  });
-};
-
-export const deleteJob = async (jobId: string) => {
-  return await api.delete(`/process-api/management/jobs/${jobId}`);
-};
 
 export const bulkReassignTasks = async (taskIds: string[], userIds: string | string[]) => {
   return Promise.all(taskIds.map((id) => reassignTask(id, userIds)));

@@ -28,7 +28,7 @@ import TaskSupervision from "./TaskSupervision";
 import InstanceInspector from "./InstanceInspector";
 import ProcessGroups from "./ProcessGroups";
 import AdminAnalytics from "./AdminAnalytics";
-import JobManager from "./JobManager";
+import JobManager from "./features/systemjobs/JobManager";
 import DmnViewer from "./DmnViewer";
 import { GOOGLE_LOGIN_URL } from "./config";
 import ToolJetViewer from "./components/Views/ToolJetViewer";
