@@ -72,22 +72,23 @@ export default function AdminDashboard() {
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
-    // {
-    //   to: `/admin/jobs`,
-    //   icon: "fas fa-tools",
-    //   title: "Incident Manager",
-    //   desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
-    //   color: "text-status-error",
-    //   bg: "bg-status-error/10",
-    // },
-    // {
-    //   to: `/admin/dmn`,
-    //   icon: "fas fa-table",
-    //   title: "Business Rules",
-    //   desc: "Inspect DMN Decision Tables and business logic implementations.",
-    //   color: "text-indigo-600",
-    //   bg: "bg-indigo-50",
-    // },
+    {
+      to: `/admin/jobs`,
+      icon: "fas fa-tools",
+      title: "Incident Manager",
+      desc: "The Repair Shop: Retry deadletter jobs, fix timers, and manage exceptions.",
+      color: "text-status-error",
+      bg: "bg-status-error/10",
+      secure: { resource: "module:admin_workflows", action: "view" },
+    },
+    {
+      to: `/admin/dmn`,
+      icon: "fas fa-table",
+      title: "Business Rules",
+      desc: "Inspect DMN Decision Tables and business logic implementations.",
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+    },
   ];
 
   return (
