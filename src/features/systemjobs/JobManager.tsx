@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchJobs, retryJob, deleteJob } from "./jobApi";
 import { Secure } from "../../components/common/Secure";
-import DataGrid, { Column } from "../../components/common/DataGrid";
+import DataGrid, { type Column } from "../../components/common/DataGrid";
 
 export default function JobManager() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -55,7 +55,7 @@ export default function JobManager() {
           <div className="font-mono text-[11px] text-ink-secondary mb-1 flex items-center gap-2">
             ID: {job.id}
             {job.stacktrace && (
-              <button 
+              <button
                 onClick={() => setSelectedStackTrace(job.stacktrace)}
                 className="bg-canvas-active hover:bg-canvas-subtle text-ink-primary px-2 py-0.5 rounded text-[10px] uppercase font-bold transition-colors"
               >
@@ -94,11 +94,10 @@ export default function JobManager() {
       className: "text-center",
       render: (job) => (
         <span
-          className={`px-2 py-1 rounded text-xs font-black ${
-            job.retries === 0
+          className={`px-2 py-1 rounded text-xs font-black ${job.retries === 0
               ? "bg-status-error/10 text-status-error"
               : "bg-canvas-active text-ink-secondary"
-          }`}
+            }`}
         >
           {job.retries}
         </span>
@@ -145,9 +144,9 @@ export default function JobManager() {
   ];
 
   return (
-    <Secure 
-      resource="module:admin_workflows" 
-      action="view" 
+    <Secure
+      resource="module:admin_workflows"
+      action="view"
       fallback={
         <div className="min-h-screen bg-canvas p-8 flex items-center justify-center">
           <div className="text-center text-ink-tertiary">
@@ -168,7 +167,7 @@ export default function JobManager() {
                 <h3 className="font-serif font-bold text-ink-primary flex items-center gap-2">
                   <i className="fas fa-bug text-status-error"></i> Error Stack Trace
                 </h3>
-                <button 
+                <button
                   onClick={() => setSelectedStackTrace(null)}
                   className="text-ink-tertiary hover:text-ink-primary transition-colors p-2"
                 >
@@ -198,11 +197,10 @@ export default function JobManager() {
                   <button
                     key={t}
                     onClick={() => setType(t)}
-                    className={`px-4 py-2 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${
-                      type === t
+                    className={`px-4 py-2 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${type === t
                         ? "bg-white text-brand-600 shadow-sm"
                         : "text-ink-tertiary hover:text-ink-primary"
-                    }`}
+                      }`}
                   >
                     {t}
                   </button>
