@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchAdminTimers, fetchAdminDeadLetters, retryAdminDeadLetter } from "../../api";
+import { fetchAdminTimers, fetchAdminDeadLetters, retryAdminDeadLetter } from "./jobApi";
 import toast from "react-hot-toast";
 import DataGrid, { type Column } from "../../components/common/DataGrid";
 
