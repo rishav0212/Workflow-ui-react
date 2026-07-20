@@ -81,14 +81,14 @@ export default function AdminDashboard() {
       bg: "bg-status-error/10",
       secure: { resource: "module:admin_workflows", action: "view" },
     },
-    {
-      to: `/admin/dmn`,
-      icon: "fas fa-table",
-      title: "Business Rules",
-      desc: "Inspect DMN Decision Tables and business logic implementations.",
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-    },
+    // {
+    //   to: `/admin/dmn`,
+    //   icon: "fas fa-table",
+    //   title: "Business Rules",
+    //   desc: "Inspect DMN Decision Tables and business logic implementations.",
+    //   color: "text-indigo-600",
+    //   bg: "bg-indigo-50",
+    // },
   ];
 
   return (
