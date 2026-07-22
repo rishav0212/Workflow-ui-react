@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-// 🟢 Import the API function
-import { fetchAllForms } from "./api";
+// 🟢 Import the API function (resolves to src/api.ts)
+import { fetchAllForms } from "../../../api";
 
 interface ActionVariable {
   key: string;
@@ -231,6 +231,17 @@ const IconGridPicker = ({ label, value, onChange, icons, loading }: any) => {
   );
 };
 
+/**
+ * ActionEditorModal
+ * 
+ * Provides a UI for configuring custom action buttons attached to UserTasks.
+ * These buttons are serialized into JSON and stored in the Flowable XML extension elements
+ * under the `flowable:property` node with the name `externalActions`.
+ * 
+ * Users can configure the button's label, color, icon (via FontAwesome CDN integration),
+ * and target Form.IO form, as well as define outcome variables that will be injected
+ * into the process engine execution when clicked.
+ */
 export default function ActionEditorModal({
   isOpen,
   onClose,
@@ -619,8 +630,9 @@ export default function ActionEditorModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-          <p className="text-xs text-slate-400">
-            Changes are saved to a new process version automatically.
+          <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            <i className="fas fa-info-circle text-brand-400" />
+            Changes update the diagram. Click <strong className="text-slate-600">Deploy</strong> in the toolbar to publish.
           </p>
           <div className="flex gap-3">
             <button
@@ -633,7 +645,7 @@ export default function ActionEditorModal({
               onClick={handleSaveAll}
               className="px-6 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-2"
             >
-              <i className="fas fa-cloud-upload-alt"></i> Save & Deploy Workflow
+              <i className="fas fa-check"></i> Apply to Diagram
             </button>
           </div>
         </div>

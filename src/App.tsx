@@ -22,7 +22,7 @@ import "./App.css";
 // Admin Imports
 import AdminDashboard from "./AdminDashboard";
 import ProcessManager from "./ProcessManager";
-import ProcessViewer from "./ProcessViewer";
+import ProcessViewer from "./features/process/ProcessViewer";
 import InstanceManager from "./InstanceManager";
 import TaskSupervision from "./TaskSupervision";
 import InstanceInspector from "./InstanceInspector";
