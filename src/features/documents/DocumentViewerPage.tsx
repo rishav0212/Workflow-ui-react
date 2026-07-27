@@ -41,12 +41,28 @@ export default function DocumentViewerPage() {
   }
 
   // Reconstruct the full backend API preview URL.
-  // We use the configured API_BASE_URL from your api.ts file to ensure it works
+  // We use the configured API_BASE_URL from your config.ts file to ensure it works
   // perfectly in both local dev (localhost) and production (Cloud Run).
   const fullPreviewUrl = `${API_BASE_URL}/api/storage/gcs/preview/${objectKey}`;
   
   // Attempt to extract the original filename from the end of the objectKey for display purposes
   const fileName = objectKey.split('/').pop() || 'document.file';
+
+  // Guess the MIME type from the file extension so SecureFileViewer knows if it's an image or PDF
+  const getMimeType = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'gif': return 'image/gif';
+      case 'webp': return 'image/webp';
+      case 'pdf': return 'application/pdf';
+      default: return 'application/octet-stream';
+    }
+  };
+
+  const detectedMimeType = getMimeType(fileName);
 
   return (
     <div className="flex flex-col min-h-screen bg-canvas">
@@ -70,16 +86,10 @@ export default function DocumentViewerPage() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-auto p-6 md:p-12 flex justify-center">
         <div className="w-full max-w-5xl bg-surface border border-canvas-active rounded-2xl shadow-sm p-4 h-[calc(100vh-140px)] min-h-[600px] flex flex-col">
-          {/* 
-            We pass the reconstructed URL to the SecureFileViewer.
-            Note: We pass a generic mimeType ('application/octet-stream') if we don't know it,
-            but SecureFileViewer handles image vs pdf primarily by sniffing the extension or response headers 
-            in future upgrades. For now, it will use the URL string to guess or rely on the backend.
-          */}
           <SecureFileViewer 
             url={fullPreviewUrl}
             fileName={fileName}
-            mimeType="application/octet-stream" // Generic fallback
+            mimeType={detectedMimeType}
             mode="preview"
             className="flex-1 w-full h-full bg-canvas/30 rounded-xl"
           />
