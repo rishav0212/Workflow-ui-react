@@ -5,6 +5,7 @@ import {
   fetchHistoricTasks,
   reassignTask,
   bulkReassignTasks,
+  fetchAdminProcesses,
 } from "./api";
 import { fetchTenantUsers } from "./features/iam/api";
 import DataGrid, { type Column } from "./components/common/DataGrid";
@@ -40,18 +41,15 @@ export default function TaskSupervision() {
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [processFilter, setProcessFilter] = useState("");
 
+  const [definitions, setDefinitions] = useState<any[]>([]);
+
   /**
    * Optimized Task Loader
    * @param forceRefresh - If true, bypasses the global cache and fetches fresh data from the API.
-   *
-   * Logic:
-   * 1. Check if data exists in TASK_CACHE for the current viewMode.
-   * 2. If cached & !forceRefresh -> Use Cache (Instant Load).
-   * 3. Else -> Fetch from API -> Update Cache -> Update State.
    */
   const loadTasks = (forceRefresh = false) => {
     // 1. Check Global Cache
-    if (!forceRefresh && TASK_CACHE[viewMode]) {
+    if (!forceRefresh && TASK_CACHE[viewMode] && definitions.length > 0) {
       setTasks(TASK_CACHE[viewMode] || []);
       setLoading(false);
       return;
@@ -64,10 +62,11 @@ export default function TaskSupervision() {
         ? fetchAllSystemTasks({ size: 100000 })
         : fetchHistoricTasks({ size: 100000 });
 
-    apiCall
-      .then((res: any) => {
+    Promise.all([apiCall, fetchAdminProcesses()])
+      .then(([res, defs]) => {
         const data = res.data || [];
         setTasks(data);
+        setDefinitions(defs);
         // Update the global cache so subsequent visits are instant
         TASK_CACHE[viewMode] = data;
         setSelectedIds(new Set());
@@ -78,7 +77,6 @@ export default function TaskSupervision() {
 
   /**
    * Effect to trigger load on viewMode change.
-   * We rely on the loadTasks internal logic to decide whether to fetch or use cache.
    */
   useEffect(() => {
     loadTasks();
@@ -100,14 +98,24 @@ export default function TaskSupervision() {
     return Array.from(assignees).sort();
   }, [tasks]);
 
+  // Helper to resolve the neatest name
+  const getTaskProcessName = (t: any) => {
+    if (t.processDefinitionName) return t.processDefinitionName;
+    const baseId = t.processDefinitionId ? t.processDefinitionId.split(":")[0] : "";
+    const def = definitions.find(d => d.id === t.processDefinitionId || d.key === baseId);
+    if (def && def.name) return def.name;
+    if (def && def.key) return def.key;
+    return baseId;
+  };
+
   const uniqueProcesses = useMemo(() => {
     const processes = new Set<string>();
     tasks.forEach((t) => {
-      const pName = t.processDefinitionName || (t.processDefinitionId ? t.processDefinitionId.split(":")[0] : "");
+      const pName = getTaskProcessName(t);
       if (pName) processes.add(pName);
     });
     return Array.from(processes).sort();
-  }, [tasks]);
+  }, [tasks, definitions]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -125,12 +133,12 @@ export default function TaskSupervision() {
           ? !task.assignee
           : task.assignee === assigneeFilter || task.candidateUsers?.includes(assigneeFilter));
 
-      const pName = task.processDefinitionName || (task.processDefinitionId ? task.processDefinitionId.split(":")[0] : "");
+      const pName = getTaskProcessName(task);
       const matchesProcess = !processFilter || pName === processFilter;
 
       return matchesName && matchesAssignee && matchesProcess;
     });
-  }, [tasks, taskNameFilter, assigneeFilter, processFilter]);
+  }, [tasks, taskNameFilter, assigneeFilter, processFilter, definitions]);
 
   const handleModeChange = (mode: "active" | "completed") => {
     setViewMode(mode);
