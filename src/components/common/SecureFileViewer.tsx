@@ -54,7 +54,9 @@ export default function SecureFileViewer({
       })
         .then(response => {
           if (isMounted) {
-            const objectUrl = URL.createObjectURL(response.data);
+            // Force the explicit mime type so the browser doesn't interpret it as a generic binary download
+            const explicitBlob = new Blob([response.data], { type: mimeType });
+            const objectUrl = URL.createObjectURL(explicitBlob);
             setBlobUrl(objectUrl);
             setLoading(false);
           }
