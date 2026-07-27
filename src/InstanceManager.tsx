@@ -134,7 +134,7 @@ export default function InstanceManager() {
   }, [viewMode]);
 
   const uniqueKeys = useMemo(() => {
-    const keys = new Set(definitions.map((def) => def.key));
+    const keys = new Set(definitions.map((def) => def.name || def.key));
     return Array.from(keys).filter(Boolean).sort();
   }, [definitions]);
 
@@ -156,6 +156,7 @@ export default function InstanceManager() {
     if (filterKey !== "ALL") {
       result = result.filter((i) => {
         const instKey =
+          i.processDefinitionName ||
           i.processDefinitionKey ||
           (i.processDefinitionId ? i.processDefinitionId.split(":")[0] : "");
         return instKey === filterKey;

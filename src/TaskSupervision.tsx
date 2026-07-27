@@ -103,7 +103,7 @@ export default function TaskSupervision() {
   const uniqueProcesses = useMemo(() => {
     const processes = new Set<string>();
     tasks.forEach((t) => {
-      const pName = t.processDefinitionName || t.processDefinitionId;
+      const pName = t.processDefinitionName || (t.processDefinitionId ? t.processDefinitionId.split(":")[0] : "");
       if (pName) processes.add(pName);
     });
     return Array.from(processes).sort();
@@ -125,7 +125,7 @@ export default function TaskSupervision() {
           ? !task.assignee
           : task.assignee === assigneeFilter || task.candidateUsers?.includes(assigneeFilter));
 
-      const pName = task.processDefinitionName || task.processDefinitionId;
+      const pName = task.processDefinitionName || (task.processDefinitionId ? task.processDefinitionId.split(":")[0] : "");
       const matchesProcess = !processFilter || pName === processFilter;
 
       return matchesName && matchesAssignee && matchesProcess;

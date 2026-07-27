@@ -79,10 +79,13 @@ export default function JobManager() {
       render: (job) => (
         <div>
           <div className="text-[10px] font-black uppercase text-ink-tertiary">
-            Instance ID
+            Process / Instance
           </div>
-          <div className="text-xs font-mono">
-            {job.processInstanceId ? `${job.processInstanceId.substring(0, 8)}...` : "N/A"}
+          <div className="text-xs font-bold text-brand-600 truncate max-w-[150px]" title={job.processName || job.processDefinitionId}>
+            {job.processName || job.processDefinitionId || "System Job"}
+          </div>
+          <div className="text-[10px] font-mono text-ink-secondary mt-0.5">
+            {job.processInstanceId ? `ID: ${job.processInstanceId.substring(0, 8)}...` : ""}
           </div>
         </div>
       ),
