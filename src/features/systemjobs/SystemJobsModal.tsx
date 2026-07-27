@@ -76,12 +76,23 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
    */
   const timerColumns: Column<any>[] = [
     { header: "Job ID", key: "id", sortable: true },
-    { header: "Process Def ID", key: "processDefinitionId", sortable: true },
+    { 
+      header: "Process Name", 
+      key: "processName", 
+      sortable: true,
+      render: (p: any) => p.processName || p.processDefinitionId 
+    },
+    { 
+      header: "Created At", 
+      key: "createTime", 
+      sortable: true,
+      render: (p: any) => p.createTime ? new Date(p.createTime).toLocaleString() : "-" 
+    },
     { 
       header: "Due Date", 
       key: "dueDate", 
       sortable: true,
-      render: (p: any) => new Date(p.dueDate).toLocaleString() 
+      render: (p: any) => p.dueDate ? new Date(p.dueDate).toLocaleString() : "-" 
     },
     { header: "Retries", key: "retries" },
   ];
@@ -91,7 +102,17 @@ export default function SystemJobsModal({ onClose }: SystemJobsModalProps) {
    */
   const deadLetterColumns: Column<any>[] = [
     { header: "Job ID", key: "id", sortable: true },
-    { header: "Process Def ID", key: "processDefinitionId" },
+    { 
+      header: "Process Name", 
+      key: "processName",
+      render: (p: any) => p.processName || p.processDefinitionId
+    },
+    { 
+      header: "Failed At", 
+      key: "createTime", 
+      sortable: true,
+      render: (p: any) => p.createTime ? new Date(p.createTime).toLocaleString() : "-" 
+    },
     { 
       header: "Exception", 
       key: "exceptionMessage",

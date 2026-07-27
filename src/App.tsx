@@ -38,6 +38,7 @@ import { Secure } from "./components/common/Secure";
 import FormManager from "./components/formio/FormManager";
 import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 import TaskResolver from "./TaskResolver";
+import DocumentViewerPage from "./features/documents/DocumentViewerPage";
 
 interface User {
   username: string;
@@ -929,6 +930,7 @@ export default function App() {
               path="task/:processKey/:businessKey"
               element={<TaskResolver currentUser={user.username} />}
             />
+            <Route path="storage/preview/*" element={<DocumentViewerPage />} />
             <Route
               path="/:tenantId/login"
               element={<Navigate to="../inbox" replace />}
