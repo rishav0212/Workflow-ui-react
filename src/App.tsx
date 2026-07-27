@@ -909,7 +909,7 @@ export default function App() {
           />
 
           {/* Standalone Document Viewer (Fast, Full Screen, No Sidebar) */}
-          <Route path="/storage/preview/*" element={<DocumentViewerPage />} />
+          <Route path="/:tenantId/storage/preview/*" element={<DocumentViewerPage />} />
 
           <Route
             path="/:tenantId"
