@@ -375,12 +375,12 @@ export default function TaskSupervision() {
             </button>
 
             {/* Inline Process Filter */}
-            <div className="relative w-40">
+            <div className="relative w-64">
               <i className="fas fa-project-diagram absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px]"></i>
               <select
                 value={processFilter}
                 onChange={(e) => setProcessFilter(e.target.value)}
-                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer"
+                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer truncate"
               >
                 <option value="">All Processes</option>
                 {uniqueProcesses.map((p) => (
@@ -393,12 +393,12 @@ export default function TaskSupervision() {
             </div>
 
             {/* Inline Assignee Filter */}
-            <div className="relative w-40">
+            <div className="relative w-48">
               <i className="fas fa-user absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px]"></i>
               <select
                 value={assigneeFilter}
                 onChange={(e) => setAssigneeFilter(e.target.value)}
-                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer"
+                className="w-full pl-7 pr-8 py-1.5 bg-canvas-subtle/50 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-xs transition-all appearance-none cursor-pointer truncate"
               >
                 <option value="">All Assignees</option>
                 <option value="unassigned">Unassigned</option>

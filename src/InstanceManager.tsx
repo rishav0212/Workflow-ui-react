@@ -574,7 +574,7 @@ export default function InstanceManager() {
               <select
                 value={taskFilter}
                 onChange={(e) => setTaskFilter(e.target.value)}
-                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap max-w-[200px] truncate"
               >
                 <option value="ALL">All Tasks</option>
                 {uniqueTasks.map((tName) => (
@@ -606,7 +606,7 @@ export default function InstanceManager() {
                     e.target.value === "ALL" ? {} : { key: e.target.value },
                   );
                 }}
-                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap"
+                className="px-3 py-2 bg-surface border border-canvas-active rounded-lg text-xs text-ink-primary focus:border-brand-300 outline-none cursor-pointer shadow-soft whitespace-nowrap max-w-[250px] truncate"
               >
                 <option value="ALL">All Definitions</option>
                 {uniqueKeys.map((key) => (
