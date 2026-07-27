@@ -930,7 +930,7 @@ export default function App() {
               path="task/:processKey/:businessKey"
               element={<TaskResolver currentUser={user.username} />}
             />
-            <Route path="documents/preview/*" element={<DocumentViewerPage />} />
+            <Route path="view/*" element={<DocumentViewerPage />} />
             <Route
               path="/:tenantId/login"
               element={<Navigate to="../inbox" replace />}
