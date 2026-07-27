@@ -153,7 +153,7 @@ export default function SecureFileViewer({
             <iframe 
               src={blobUrl} 
               title={fileName}
-              className="w-full h-[500px] border-none"
+              className="w-full h-full border-none"
             />
           )}
 

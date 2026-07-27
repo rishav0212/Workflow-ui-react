@@ -65,35 +65,40 @@ export default function DocumentViewerPage() {
   const detectedMimeType = getMimeType(fileName);
 
   return (
-    <div className="flex flex-col min-h-screen bg-canvas">
-      {/* Header */}
-      <header className="bg-surface border-b border-canvas-active px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+    <div className="flex flex-col h-screen w-screen bg-neutral-900 text-neutral-200 overflow-hidden font-sans">
+      {/* Header - Minimal, Dark, Professional */}
+      <header className="bg-neutral-950 border-b border-neutral-800 px-4 py-3 flex items-center justify-between shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-canvas-active rounded-lg transition-colors text-ink-secondary hover:text-ink"
-            title="Go Back"
+            onClick={() => {
+              // Attempt to close tab, fallback to going back if it fails
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                window.close();
+              }
+            }}
+            className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 hover:text-white"
+            title="Close or Go Back"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex flex-col">
-            <h1 className="text-lg font-semibold text-ink">Document Viewer</h1>
-            <span className="text-xs text-ink-tertiary truncate max-w-md">{objectKey}</span>
+            <h1 className="text-sm font-semibold text-neutral-100">{fileName}</h1>
+            <span className="text-xs text-neutral-500 truncate max-w-xl">{objectKey}</span>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-auto p-6 md:p-12 flex justify-center">
-        <div className="w-full max-w-5xl bg-surface border border-canvas-active rounded-2xl shadow-sm p-4 h-[calc(100vh-140px)] min-h-[600px] flex flex-col">
-          <SecureFileViewer 
-            url={fullPreviewUrl}
-            fileName={fileName}
-            mimeType={detectedMimeType}
-            mode="preview"
-            className="flex-1 w-full h-full bg-canvas/30 rounded-xl"
-          />
-        </div>
+      {/* Main Content Area - Full screen, no borders */}
+      <main className="flex-1 overflow-hidden flex justify-center items-center bg-[#2b2b2b]">
+        <SecureFileViewer 
+          url={fullPreviewUrl}
+          fileName={fileName}
+          mimeType={detectedMimeType}
+          mode="preview"
+          className="w-full h-full border-none bg-transparent rounded-none"
+        />
       </main>
     </div>
   );

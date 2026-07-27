@@ -908,6 +908,9 @@ export default function App() {
             }
           />
 
+          {/* Standalone Document Viewer (Fast, Full Screen, No Sidebar) */}
+          <Route path="/storage/preview/*" element={<DocumentViewerPage />} />
+
           <Route
             path="/:tenantId"
             element={
@@ -930,7 +933,6 @@ export default function App() {
               path="task/:processKey/:businessKey"
               element={<TaskResolver currentUser={user.username} />}
             />
-            <Route path="storage/preview/*" element={<DocumentViewerPage />} />
             <Route
               path="/:tenantId/login"
               element={<Navigate to="../inbox" replace />}
