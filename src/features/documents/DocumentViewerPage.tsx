@@ -43,7 +43,8 @@ export default function DocumentViewerPage() {
   // Reconstruct the full backend API preview URL.
   // We use the configured API_BASE_URL from your config.ts file to ensure it works
   // perfectly in both local dev (localhost) and production (Cloud Run).
-  const fullPreviewUrl = `${API_BASE_URL}/api/storage/gcs/preview/${objectKey}`;
+  // Now using the /url endpoint to fetch a Signed URL for direct GCS access
+  const fullPreviewUrl = `${API_BASE_URL}/api/storage/gcs/url/${objectKey}`;
   
   // Attempt to extract the original filename from the end of the objectKey for display purposes
   const fileName = objectKey.split('/').pop() || 'document.file';

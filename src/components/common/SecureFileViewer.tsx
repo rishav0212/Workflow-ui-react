@@ -47,19 +47,25 @@ export default function SecureFileViewer({
 
       // We manually get the token here just in case the global axios interceptor isn't configured yet.
       const token = localStorage.getItem('jwt_token');
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       
-      axios.get(url, {
-        responseType: 'blob',
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      // HOP 1: Ask the backend for the Signed URL (JSON response)
+      axios.get(url, { headers: authHeaders })
         .then(response => {
-          if (isMounted) {
-            // Force the explicit mime type so the browser doesn't interpret it as a generic binary download
-            const explicitBlob = new Blob([response.data], { type: mimeType });
-            const objectUrl = URL.createObjectURL(explicitBlob);
-            setBlobUrl(objectUrl);
-            setLoading(false);
-          }
+          if (!isMounted) return null;
+          const signedUrl = response.data.signedUrl;
+          
+          // HOP 2: Fetch the actual file blob directly from Google Cloud (No JWT!)
+          return axios.get(signedUrl, { responseType: 'blob' });
+        })
+        .then(response => {
+          if (!response || !isMounted) return;
+          
+          // Force the explicit mime type so the browser doesn't interpret it as a generic binary download
+          const explicitBlob = new Blob([response.data], { type: mimeType });
+          const objectUrl = URL.createObjectURL(explicitBlob);
+          setBlobUrl(objectUrl);
+          setLoading(false);
         })
         .catch(err => {
           if (isMounted) {
@@ -85,10 +91,14 @@ export default function SecureFileViewer({
     setError(null);
     try {
       const token = localStorage.getItem('jwt_token');
-      const response = await axios.get(url, {
-        responseType: 'blob',
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // HOP 1: Get Signed URL (forcing attachment disposition via ?download=true)
+      const urlResponse = await axios.get(`${url}?download=true`, { headers: authHeaders });
+      const signedUrl = urlResponse.data.signedUrl;
+      
+      // HOP 2: Fetch the actual file blob
+      const response = await axios.get(signedUrl, { responseType: 'blob' });
       
       const objectUrl = URL.createObjectURL(response.data);
       const link = document.createElement('a');
