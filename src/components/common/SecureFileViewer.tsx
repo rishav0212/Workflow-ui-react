@@ -45,7 +45,6 @@ export default function SecureFileViewer({
       setLoading(true);
       setError(null);
 
-      // We manually get the token here just in case the global axios interceptor isn't configured yet.
       const token = localStorage.getItem('jwt_token');
       const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       
@@ -55,16 +54,9 @@ export default function SecureFileViewer({
           if (!isMounted) return null;
           const signedUrl = response.data.signedUrl;
           
-          // HOP 2: Fetch the actual file blob directly from Google Cloud (No JWT!)
-          return axios.get(signedUrl, { responseType: 'blob' });
-        })
-        .then(response => {
-          if (!response || !isMounted) return;
-          
-          // Force the explicit mime type so the browser doesn't interpret it as a generic binary download
-          const explicitBlob = new Blob([response.data], { type: mimeType });
-          const objectUrl = URL.createObjectURL(explicitBlob);
-          setBlobUrl(objectUrl);
+          // Since we have a Signed URL, we don't need to fetch the blob into JS memory!
+          // We can just give the URL directly to the <img> or <iframe> tags.
+          setBlobUrl(signedUrl);
           setLoading(false);
         })
         .catch(err => {
@@ -77,10 +69,6 @@ export default function SecureFileViewer({
 
       return () => {
         isMounted = false;
-        // Cleanup the object URL to prevent memory leaks!
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-        }
       };
     }
   }, [url, mode]);
@@ -97,19 +85,15 @@ export default function SecureFileViewer({
       const urlResponse = await axios.get(`${url}?download=true`, { headers: authHeaders });
       const signedUrl = urlResponse.data.signedUrl;
       
-      // HOP 2: Fetch the actual file blob
-      const response = await axios.get(signedUrl, { responseType: 'blob' });
-      
-      const objectUrl = URL.createObjectURL(response.data);
+      // Since the backend added response-content-disposition=attachment,
+      // navigating to this URL will securely trigger a native browser download!
       const link = document.createElement('a');
-      link.href = objectUrl;
+      link.href = signedUrl;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      
-      // Immediately clean up memory after download prompt
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
     } catch (err) {
       console.error("Download failed:", err);
       setError("Failed to download file.");
