@@ -1,22 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../api';
+import { documentTypeApi } from './api';
+import { DocumentType } from './types';
 import { FileText, Plus, Edit2, Trash2, Loader2, AlertCircle, Save, X, Check, Server, FileSignature, Layers, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface DocumentType {
-  documentTypeId: string;
-  code: string;
-  label: string;
-  entityType: string;
-  cardinalityMode: string;
-  requiresSubcategory: boolean;
-  hasExpiry: boolean;
-  storageProvider: string;
-  namingTemplate: string;
-  metadataSchema?: string;
-  active: boolean;
-  updatedTs?: string;
-}
 
 export default function DocumentTypeManager() {
   const [types, setTypes] = useState<DocumentType[]>([]);
@@ -31,7 +17,7 @@ export default function DocumentTypeManager() {
   const fetchTypes = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/admin/document-types');
+      const res = await documentTypeApi.getAll();
       setTypes(res.data.data || []);
     } catch (err: any) {
       toast.error('Failed to load document types');
@@ -47,10 +33,10 @@ export default function DocumentTypeManager() {
     try {
       setSaving(true);
       if (editingType.documentTypeId) {
-        await api.put(`/api/admin/document-types/${editingType.documentTypeId}`, editingType);
+        await documentTypeApi.update(editingType.documentTypeId, editingType);
         toast.success('Document type updated');
       } else {
-        await api.post('/api/admin/document-types', editingType);
+        await documentTypeApi.create(editingType);
         toast.success('Document type created');
       }
       setEditingType(null);
@@ -66,7 +52,7 @@ export default function DocumentTypeManager() {
     if (!window.confirm('Are you sure you want to delete this document type? This action cannot be undone.')) return;
 
     try {
-      await api.delete(`/api/admin/document-types/${id}`);
+      await documentTypeApi.delete(id);
       toast.success('Document type deleted');
       fetchTypes();
     } catch (err: any) {
