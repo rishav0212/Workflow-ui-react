@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
-// 🟢 Change import from 'startProcess' to 'batchStartProcess'
-import { batchStartProcess } from "../../api";
+import { batchStartProcess, parseApiError } from "../../api";
 import { toast } from "react-hot-toast";
 
 interface BatchStartModalProps {
@@ -71,8 +70,8 @@ export default function BatchStartModal({
 
         setData(parsedData);
         toast.success(`Loaded ${parsedData.length} rows from CSV`);
-      } catch (err) {
-        toast.error("Failed to parse CSV");
+      } catch (err: any) {
+        toast.error(`CSV parse error: ${err.message || 'Failed to read file'}`);
       }
     };
     reader.readAsText(file);
@@ -109,8 +108,9 @@ export default function BatchStartModal({
         toast.error("Batch failed. Check logs.");
       }
     } catch (err: any) {
-      setLogs((prev) => [`❌ NETWORK ERROR: ${err.message}`, ...prev]);
-      toast.error("Failed to send batch request");
+      const apiMsg = parseApiError(err);
+      setLogs((prev) => [`❌ NETWORK ERROR: ${apiMsg}`, ...prev]);
+      toast.error(`Batch request failed: ${apiMsg}`);
     } finally {
       setIsProcessing(false);
     }

@@ -9,6 +9,7 @@ import {
     deleteToolJetApp,
     reorderToolJetApps
 } from '../../api/tooljetAdmin';
+import { parseApiError } from '../../api';
 import { Secure } from '../../components/common/Secure';
 import AppRow from './AppRow';
 import AppFormModal from './AppFormModal';
@@ -37,7 +38,7 @@ export default function ToolJetAppManager() {
             setApps(data);
         } catch (error) {
             console.error("Failed to load ToolJet apps:", error);
-            toast.error("Failed to load applications");
+            toast.error(`Failed to load applications: ${parseApiError(error)}`);
         } finally {
             setIsLoading(false);
         }
@@ -78,7 +79,7 @@ export default function ToolJetAppManager() {
                 loadApps();
             } catch (error) {
                 console.error("Delete failed:", error);
-                toast.error("Failed to delete application");
+                toast.error(`Failed to delete "${app.displayName}": ${parseApiError(error)}`);
             }
         }
     };
@@ -103,8 +104,7 @@ export default function ToolJetAppManager() {
             loadApps(); // Reload to get new sortOrder etc.
         } catch (error: any) {
             console.error("Save failed:", error);
-            const msg = error.response?.data?.error || "Failed to save application";
-            toast.error(msg);
+            toast.error(`Save failed: ${parseApiError(error)}`);
             throw error; // Let modal stay open
         }
     };
@@ -133,7 +133,7 @@ export default function ToolJetAppManager() {
             toast.success("Order updated");
         } catch (error) {
             console.error("Reorder failed:", error);
-            toast.error("Failed to update order");
+            toast.error(`Failed to update order: ${parseApiError(error)}`);
             loadApps(); // Revert to original order
         } finally {
             setIsReordering(false);

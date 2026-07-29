@@ -3,6 +3,7 @@ import { documentTypeApi } from './api';
 import { type DocumentType } from './types';
 import { FileText, Plus, Edit2, Trash2, Loader2, Server, FileSignature, Layers, Clock, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseApiError } from '../../api';
 import DataGrid, { type Column } from '../../components/common/DataGrid';
 import Modal from '../../components/common/Modal';
 import MetadataSchemaBuilder from './MetadataSchemaBuilder';
@@ -24,8 +25,7 @@ export default function DocumentTypeManager() {
       setTypes(res.data.data || []);
     } catch (err: any) {
       console.error('Failed to fetch document types:', err);
-      const msg = err.response?.data?.message || err.message || 'Failed to load document types';
-      toast.error(`Error loading types: ${msg}`);
+      toast.error(`Error loading types: ${parseApiError(err)}`);
     } finally {
       setLoading(false);
     }
@@ -48,8 +48,7 @@ export default function DocumentTypeManager() {
       fetchTypes();
     } catch (err: any) {
       console.error('Failed to save document type:', err);
-      const msg = err.response?.data?.message || err.message || 'Failed to save document type';
-      toast.error(`Save failed: ${msg}`);
+      toast.error(`Save failed: ${parseApiError(err)}`);
     } finally {
       setSaving(false);
     }
@@ -64,8 +63,7 @@ export default function DocumentTypeManager() {
       fetchTypes();
     } catch (err: any) {
       console.error('Failed to delete document type:', err);
-      const msg = err.response?.data?.message || err.message || 'Failed to delete document type';
-      toast.error(`Delete failed: ${msg}`);
+      toast.error(`Delete failed: ${parseApiError(err)}`);
     }
   };
 
