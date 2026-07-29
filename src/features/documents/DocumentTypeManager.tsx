@@ -5,6 +5,7 @@ import { FileText, Plus, Edit2, Trash2, Loader2, Server, FileSignature, Layers, 
 import toast from 'react-hot-toast';
 import DataGrid, { type Column } from '../../components/common/DataGrid';
 import Modal from '../../components/common/Modal';
+import MetadataSchemaBuilder from './MetadataSchemaBuilder';
 
 export default function DocumentTypeManager() {
   const [types, setTypes] = useState<DocumentType[]>([]);
@@ -292,7 +293,7 @@ export default function DocumentTypeManager() {
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-canvas-active bg-canvas focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-mono text-xs"
                 />
               </div>
-              <p className="text-[10px] text-neutral-500 mt-1.5">Available variables: {'{entityId}'}, {'{entityType}'}, {'{documentType}'}, {'{yyyyMMdd}'}</p>
+              <p className="text-[10px] text-neutral-500 mt-1.5">Available variables: {'{entityId}'}, {'{entityType}'}, {'{documentType}'}, {'{yyyyMMdd}'}, and any custom metadata {'{keys}'}</p>
             </div>
 
             <div className="space-y-3 pt-2">
@@ -334,6 +335,20 @@ export default function DocumentTypeManager() {
                   <div className="text-xs text-neutral-500">Document type is visible and usable</div>
                 </div>
               </label>
+            </div>
+
+            {/* ── Metadata Schema Builder ─────────────────────────────── */}
+            <div className="pt-4 border-t border-canvas-subtle">
+              <div className="mb-3">
+                <div className="text-xs font-bold text-ink-secondary">Metadata Fields</div>
+                <div className="text-[10px] text-neutral-400 mt-0.5">
+                  Define what extra information must be captured when uploading a document of this type.
+                </div>
+              </div>
+              <MetadataSchemaBuilder
+                value={editingType.metadataSchema}
+                onChange={json => setEditingType({ ...editingType, metadataSchema: json })}
+              />
             </div>
           </form>
         )}
