@@ -23,7 +23,9 @@ export default function DocumentTypeManager() {
       const res = await documentTypeApi.getAll();
       setTypes(res.data.data || []);
     } catch (err: any) {
-      toast.error('Failed to load document types');
+      console.error('Failed to fetch document types:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to load document types';
+      toast.error(`Error loading types: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -45,7 +47,9 @@ export default function DocumentTypeManager() {
       setEditingType(null);
       fetchTypes();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save document type');
+      console.error('Failed to save document type:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to save document type';
+      toast.error(`Save failed: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -59,7 +63,9 @@ export default function DocumentTypeManager() {
       toast.success('Document type deleted');
       fetchTypes();
     } catch (err: any) {
-      toast.error('Failed to delete document type');
+      console.error('Failed to delete document type:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to delete document type';
+      toast.error(`Delete failed: ${msg}`);
     }
   };
 
