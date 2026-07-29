@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { documentTypeApi } from './api';
-import { DocumentType } from './types';
+import { type DocumentType } from './types';
 import { FileText, Plus, Edit2, Trash2, Loader2, AlertCircle, Save, X, Check, Server, FileSignature, Layers, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
