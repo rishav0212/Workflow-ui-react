@@ -233,7 +233,6 @@ export default function DocumentTypeManager() {
                     className="w-full px-3 py-2 rounded-lg border border-canvas-active bg-canvas focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm font-medium"
                   >
                     <option value="gcs">Google Cloud Storage (gcs)</option>
-                    <option value="aws" disabled>AWS S3 (aws) - Coming Soon</option>
                   </select>
                 </div>
               </div>
