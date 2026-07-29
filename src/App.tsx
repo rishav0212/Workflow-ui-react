@@ -39,6 +39,7 @@ import FormManager from "./components/formio/FormManager";
 import ToolJetAppManager from "./features/tooljet/ToolJetAppManager";
 import TaskResolver from "./TaskResolver";
 import DocumentViewerPage from "./features/documents/DocumentViewerPage";
+import DocumentTypeManager from "./features/documents/DocumentTypeManager";
 
 interface User {
   username: string;
@@ -909,7 +910,7 @@ export default function App() {
           />
 
           {/* Standalone Document Viewer (Fast, Full Screen, No Sidebar) */}
-          <Route path="/:tenantId/storage/preview/*" element={<DocumentViewerPage />} />
+          <Route path="/:tenantId/documents/:documentId/preview" element={<DocumentViewerPage />} />
 
           <Route
             path="/:tenantId"
@@ -993,6 +994,7 @@ export default function App() {
             <Route path="admin/tasks" element={<TaskSupervision />} />
             <Route path="admin/process-groups" element={<ProcessGroups />} />
             <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route path="admin/document-types" element={<DocumentTypeManager />} />
             <Route
               path="admin/tooljet-apps"
               element={

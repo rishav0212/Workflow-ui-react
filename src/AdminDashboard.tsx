@@ -65,6 +65,14 @@ export default function AdminDashboard() {
       bg: "bg-sage-50",
     },
     {
+      to: `/admin/document-types`,
+      icon: "fas fa-file-signature",
+      title: "Document Types",
+      desc: "Configure allowed document categories, naming rules, and storage providers.",
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+    },
+    {
       to: `/admin/process-groups`,
       icon: "fas fa-layer-group",
       title: "Process Groups",

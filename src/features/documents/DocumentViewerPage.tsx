@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import SecureFileViewer from '../../components/common/SecureFileViewer';
 import { API_BASE_URL } from '../../config';
@@ -7,22 +7,17 @@ import { API_BASE_URL } from '../../config';
 /**
  * DocumentViewerPage
  * 
- * A dedicated, production-ready route for viewing documents stored in GCS.
+ * A dedicated, production-ready route for viewing documents stored in the backend.
  * 
- * Expected Route: /documents/preview/*
- * Example URL: /documents/preview/uploads/documents/2026-07-28/Derma-123.jpeg
- * 
- * It extracts the wildcard path ('*') which represents the GCS objectKey,
- * reconstructs the secure backend preview URL, and feeds it to SecureFileViewer.
+ * Expected Route: /:tenantId/documents/:documentId/preview
  */
 export default function DocumentViewerPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
-  // React Router puts the matched wildcard path into the splat ('*') parameter.
-  const params = useParams();
-  const objectKey = params['*'];
+  const { documentId } = useParams();
 
-  if (!objectKey) {
+  if (!documentId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-canvas text-ink">
         <div className="p-8 bg-surface border border-canvas-active rounded-xl text-center shadow-sm">
@@ -41,13 +36,11 @@ export default function DocumentViewerPage() {
   }
 
   // Reconstruct the full backend API preview URL.
-  // We use the configured API_BASE_URL from your config.ts file to ensure it works
-  // perfectly in both local dev (localhost) and production (Cloud Run).
-  // Now using the /url endpoint to fetch a Signed URL for direct GCS access
-  const fullPreviewUrl = `${API_BASE_URL}/api/storage/gcs/url/${objectKey}`;
+  // Now using the /url endpoint to fetch a Signed URL for direct cloud storage access
+  const fullPreviewUrl = `${API_BASE_URL}/api/storage/documents/${documentId}/url`;
   
-  // Attempt to extract the original filename from the end of the objectKey for display purposes
-  const fileName = objectKey.split('/').pop() || 'document.file';
+  // Extract the original filename from the query parameters
+  const fileName = searchParams.get('f') || 'document.file';
 
   // Guess the MIME type from the file extension so SecureFileViewer knows if it's an image or PDF
   const getMimeType = (name: string) => {
@@ -86,8 +79,17 @@ export default function DocumentViewerPage() {
           </button>
           <div className="flex flex-col">
             <h1 className="text-sm font-semibold text-neutral-100">{fileName}</h1>
-            <span className="text-xs text-neutral-500 truncate max-w-xl">{objectKey}</span>
+            <span className="text-xs text-neutral-500 truncate max-w-xl">{documentId}</span>
           </div>
+        </div>
+        
+        <div className="flex items-center">
+          <SecureFileViewer 
+            url={fullPreviewUrl}
+            fileName={fileName}
+            mimeType={detectedMimeType}
+            mode="download"
+          />
         </div>
       </header>
 
