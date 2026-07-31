@@ -105,7 +105,8 @@ export default function SecureFileViewer({
       // HOP 2: Fetch the actual file blob from GCS
       // This bypasses cross-origin <a download> restrictions because we create a local blob URL!
       const fileResponse = await axios.get(signedUrl, { responseType: 'blob' });
-      const localBlobUrl = window.URL.createObjectURL(new Blob([fileResponse.data]));
+      // Ensure the Blob has the correct MIME type so the browser doesn't append .txt
+      const localBlobUrl = window.URL.createObjectURL(new Blob([fileResponse.data], { type: activeMimeType }));
       
       // HOP 3: Trigger the download
       const link = document.createElement('a');
