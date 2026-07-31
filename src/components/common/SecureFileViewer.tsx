@@ -13,6 +13,8 @@ interface SecureFileViewerProps {
   mode?: 'preview' | 'download';
   /** Optional CSS classes for the container */
   className?: string;
+  /** Callback fired when the backend returns the file metadata */
+  onLoadMetadata?: (fileName: string, mimeType: string) => void;
 }
 
 /**
@@ -27,15 +29,21 @@ export default function SecureFileViewer({
   fileName,
   mimeType,
   mode = 'preview',
-  className = ''
+  className = '',
+  onLoadMetadata
 }: SecureFileViewerProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedFileName, setFetchedFileName] = useState<string | null>(null);
+  const [fetchedMimeType, setFetchedMimeType] = useState<string | null>(null);
 
-  // Determine file category
-  const isImage = mimeType.startsWith('image/');
-  const isPdf = mimeType === 'application/pdf';
+  // Determine file category using fetched type if available, fallback to prop
+  const activeMimeType = fetchedMimeType || mimeType || '';
+  const activeFileName = fetchedFileName || fileName || 'document.file';
+  
+  const isImage = activeMimeType.startsWith('image/');
+  const isPdf = activeMimeType === 'application/pdf';
 
   useEffect(() => {
     // Only automatically fetch the blob if we are in preview mode.
@@ -57,6 +65,14 @@ export default function SecureFileViewer({
           // Since we have a Signed URL, we don't need to fetch the blob into JS memory!
           // We can just give the URL directly to the <img> or <iframe> tags.
           setBlobUrl(signedUrl);
+          
+          if (response.data.fileName) setFetchedFileName(response.data.fileName);
+          if (response.data.mimeType) setFetchedMimeType(response.data.mimeType);
+          
+          if (onLoadMetadata && response.data.fileName && response.data.mimeType) {
+            onLoadMetadata(response.data.fileName, response.data.mimeType);
+          }
+          
           setLoading(false);
         })
         .catch(err => {
@@ -89,7 +105,7 @@ export default function SecureFileViewer({
       // navigating to this URL will securely trigger a native browser download!
       const link = document.createElement('a');
       link.href = signedUrl;
-      link.setAttribute('download', fileName);
+      link.setAttribute('download', urlResponse.data.fileName || activeFileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -112,7 +128,7 @@ export default function SecureFileViewer({
         className={`flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${className}`}
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        <span>{loading ? 'Downloading...' : `Download ${fileName}`}</span>
+        <span>{loading ? 'Downloading...' : `Download ${activeFileName}`}</span>
       </button>
     );
   }
@@ -140,7 +156,7 @@ export default function SecureFileViewer({
           {isImage && (
             <img 
               src={blobUrl} 
-              alt={fileName} 
+              alt={activeFileName} 
               className="max-w-full max-h-full object-contain"
             />
           )}
@@ -148,7 +164,7 @@ export default function SecureFileViewer({
           {isPdf && (
             <iframe 
               src={blobUrl} 
-              title={fileName}
+              title={activeFileName}
               className="w-full h-full border-none"
             />
           )}
@@ -157,7 +173,7 @@ export default function SecureFileViewer({
             <div className="flex flex-col items-center justify-center p-8 text-ink-secondary">
               <File className="w-12 h-12 mb-3 text-neutral-400" />
               <p className="text-sm font-medium mb-1">Preview not available</p>
-              <p className="text-xs text-ink-tertiary mb-4">{fileName} ({mimeType})</p>
+              <p className="text-xs text-ink-tertiary mb-4">{activeFileName} ({activeMimeType})</p>
               <button 
                 onClick={handleDownload}
                 className="flex items-center gap-2 px-4 py-2 bg-canvas border border-canvas-active hover:bg-canvas-active rounded-lg text-sm transition-colors"

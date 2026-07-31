@@ -39,24 +39,14 @@ export default function DocumentViewerPage() {
   // Now using the /url endpoint to fetch a Signed URL for direct cloud storage access
   const fullPreviewUrl = `${API_BASE_URL}/api/storage/documents/${documentId}/url`;
   
-  // Extract the original filename from the query parameters
-  const fileName = searchParams.get('f') || 'document.file';
+  // State to hold the metadata returned by the backend via SecureFileViewer
+  const [fileName, setFileName] = React.useState('Loading...');
+  const [detectedMimeType, setDetectedMimeType] = React.useState('application/octet-stream');
 
-  // Guess the MIME type from the file extension so SecureFileViewer knows if it's an image or PDF
-  const getMimeType = (name: string) => {
-    const ext = name.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'webp': return 'image/webp';
-      case 'pdf': return 'application/pdf';
-      default: return 'application/octet-stream';
-    }
+  const handleMetadataLoaded = (name: string, mime: string) => {
+    setFileName(name);
+    setDetectedMimeType(mime);
   };
-
-  const detectedMimeType = getMimeType(fileName);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-neutral-900 text-neutral-200 overflow-hidden font-sans">
@@ -89,6 +79,7 @@ export default function DocumentViewerPage() {
             fileName={fileName}
             mimeType={detectedMimeType}
             mode="download"
+            onLoadMetadata={handleMetadataLoaded}
           />
         </div>
       </header>
@@ -100,6 +91,7 @@ export default function DocumentViewerPage() {
           fileName={fileName}
           mimeType={detectedMimeType}
           mode="preview"
+          onLoadMetadata={handleMetadataLoaded}
           className="w-full h-full border-none bg-transparent rounded-none"
         />
       </main>
