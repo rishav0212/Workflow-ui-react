@@ -97,18 +97,26 @@ export default function SecureFileViewer({
       const token = localStorage.getItem('jwt_token');
       const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // HOP 1: Get Signed URL (forcing attachment disposition via ?download=true)
-      const urlResponse = await axios.get(`${url}?download=true`, { headers: authHeaders });
+      // HOP 1: Get Signed URL (no need for ?download=true anymore!)
+      const urlResponse = await axios.get(`${url}`, { headers: authHeaders });
       const signedUrl = urlResponse.data.signedUrl;
+      const downloadName = urlResponse.data.fileName || activeFileName;
       
-      // Since the backend added response-content-disposition=attachment,
-      // navigating to this URL will securely trigger a native browser download!
+      // HOP 2: Fetch the actual file blob from GCS
+      // This bypasses cross-origin <a download> restrictions because we create a local blob URL!
+      const fileResponse = await axios.get(signedUrl, { responseType: 'blob' });
+      const localBlobUrl = window.URL.createObjectURL(new Blob([fileResponse.data]));
+      
+      // HOP 3: Trigger the download
       const link = document.createElement('a');
-      link.href = signedUrl;
-      link.setAttribute('download', urlResponse.data.fileName || activeFileName);
+      link.href = localBlobUrl;
+      link.setAttribute('download', downloadName);
       document.body.appendChild(link);
       link.click();
+      
+      // Cleanup
       link.remove();
+      window.URL.revokeObjectURL(localBlobUrl);
 
     } catch (err) {
       console.error("Download failed:", err);
