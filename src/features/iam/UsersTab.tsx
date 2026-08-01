@@ -101,14 +101,19 @@ export default function UsersTab({
 
   const openEdit = (u: any) => {
     setIsEditing(true);
-    const rawMeta = u.metadata || {};
+    let parsedMeta = {};
+    if (typeof u.metadata === 'string') {
+      try { parsedMeta = JSON.parse(u.metadata); } catch {}
+    } else if (typeof u.metadata === 'object' && u.metadata !== null) {
+      parsedMeta = { ...u.metadata };
+    }
 
     setForm({
       userId: u.user_id,
       email: u.email,
       firstName: u.first_name,
       lastName: u.last_name,
-      metadata: typeof rawMeta === 'object' ? { ...rawMeta } : {},
+      metadata: parsedMeta,
     });
     setModal("createEdit");
   };
