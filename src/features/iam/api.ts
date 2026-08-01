@@ -22,6 +22,14 @@ export const reactivateTenantUser = async (userId: string) =>
 export const deleteTenantUser = async (userId: string) =>
   await api.delete(`/api/tenant/admin/users/${userId}`);
 
+export const fetchUserMetadataSchema = async () =>
+  unwrapData(await api.get("/api/tenant/admin/settings/user-metadata-schema"));
+
+export const updateUserMetadataSchema = async (payload: string) =>
+  await api.put("/api/tenant/admin/settings/user-metadata-schema", payload, {
+    headers: { "Content-Type": "text/plain" },
+  });
+
 // ─── USER ROLES & ACCESS ──────────────────────────────────────────
 
 export const fetchUserRoles = async (userId: string): Promise<string[]> =>

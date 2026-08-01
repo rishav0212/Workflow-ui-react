@@ -20,6 +20,9 @@ import {
 } from "./IamShared";
 import { Secure } from "../../components/common/Secure";
 import { usePermissions } from "../../hooks/PermissionContext"; // 🟢 1. Import permissions hook
+import { fetchUserMetadataSchema, updateUserMetadataSchema } from "./api";
+import { parseMetadataSchema, type MetadataSchema } from "../documents/types";
+import MetadataSchemaBuilder from "../documents/MetadataSchemaBuilder";
 
 interface UsersTabProps {
   users: any[];
@@ -33,7 +36,7 @@ interface UsersTabProps {
   getEffectiveRoles: (startRoles: string[]) => string[];
 }
 
-type UserModal = "createEdit" | "manageRoles" | "delete" | null;
+type UserModal = "createEdit" | "manageRoles" | "delete" | "settings" | null;
 
 export default function UsersTab({
   users,
@@ -52,33 +55,60 @@ export default function UsersTab({
   const [roleTarget, setRoleTarget] = useState<any>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [schemaStr, setSchemaStr] = useState<string>("");
+  const [schemaObj, setSchemaObj] = useState<MetadataSchema>({ fields: [] });
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // 🟢 2. Check if the current user has permission to MANAGE roles
   const { hasPermission } = usePermissions();
   const canManageRoles = hasPermission("module:access_control", "manage");
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    userId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    metadata: Record<string, string>;
+  }>({
     userId: "",
     email: "",
     firstName: "",
     lastName: "",
+    metadata: {},
   });
+
+  React.useEffect(() => {
+    loadSchema();
+  }, []);
+
+  const loadSchema = async () => {
+    try {
+      const data = await fetchUserMetadataSchema();
+      setSchemaStr(data);
+      setSchemaObj(parseMetadataSchema(data));
+    } catch {
+      // ignore
+    }
+  };
 
   // ─── Modal openers ──────────────────────────────────────────────────────
 
   const openCreate = () => {
     setIsEditing(false);
-    setForm({ userId: "", email: "", firstName: "", lastName: "" });
+    setForm({ userId: "", email: "", firstName: "", lastName: "", metadata: {} });
     setModal("createEdit");
   };
 
   const openEdit = (u: any) => {
     setIsEditing(true);
+    const rawMeta = u.metadata || {};
+
     setForm({
       userId: u.user_id,
       email: u.email,
       firstName: u.first_name,
       lastName: u.last_name,
+      metadata: typeof rawMeta === 'object' ? { ...rawMeta } : {},
     });
     setModal("createEdit");
   };
@@ -122,6 +152,13 @@ export default function UsersTab({
     );
     if (emailTaken) return onNotify("Email already taken.", "error");
 
+    // Validate required schema fields
+    for (const field of schemaObj.fields) {
+      if (field.required && !form.metadata[field.key]) {
+        return onNotify(`Field "${field.label}" is required.`, "error");
+      }
+    }
+
     setSaving(true);
     try {
       if (isEditing) {
@@ -129,10 +166,11 @@ export default function UsersTab({
           email: form.email,
           firstName: form.firstName,
           lastName: form.lastName,
+          metadata: form.metadata,
         });
         onNotify("User updated successfully", "success");
       } else {
-        await createTenantUser({ ...form, metadata: {} });
+        await createTenantUser({ ...form });
         onNotify("User created successfully", "success");
       }
       closeModal();
@@ -207,6 +245,20 @@ export default function UsersTab({
       onNotify("Failed to reactivate", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      await updateUserMetadataSchema(schemaStr);
+      onNotify("Settings saved successfully", "success");
+      setSchemaObj(parseMetadataSchema(schemaStr));
+      closeModal();
+    } catch {
+      onNotify("Failed to save settings", "error");
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -384,14 +436,25 @@ export default function UsersTab({
             "rolesStr",
           ]}
           headerActions={
-            <Secure resource="module:users" action="manage">
-              <button
-                onClick={openCreate}
-                className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
-              >
-                <i className="fas fa-plus" /> New User
-              </button>
-            </Secure>
+            <div className="flex gap-2">
+              <Secure resource="module:users" action="manage_settings">
+                <button
+                  onClick={() => setModal("settings")}
+                  className="bg-canvas-subtle text-ink-primary px-4 py-2 rounded-lg text-sm font-bold hover:bg-neutral-200 transition-colors flex items-center gap-2 border border-canvas-subtle"
+                  title="Configure Metadata Schema"
+                >
+                  <i className="fas fa-cog" /> Settings
+                </button>
+              </Secure>
+              <Secure resource="module:users" action="manage">
+                <button
+                  onClick={openCreate}
+                  className="bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2"
+                >
+                  <i className="fas fa-plus" /> New User
+                </button>
+              </Secure>
+            </div>
           }
         />
       </div>
@@ -456,7 +519,69 @@ export default function UsersTab({
                   }
                 />
               </div>
+
+              {/* Custom Metadata Dynamic Fields */}
+              {schemaObj.fields.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-canvas-subtle space-y-3">
+                  <label className="text-sm font-bold text-ink-primary block mb-2">Additional Details</label>
+                  {schemaObj.fields.map((field) => (
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <label className="text-xs font-bold text-ink-secondary">
+                        {field.label} {field.required && <span className="text-rose-500">*</span>}
+                      </label>
+                      {field.type === "select" ? (
+                        <select
+                          required={field.required}
+                          className="border border-canvas-subtle p-3 rounded-xl text-sm bg-white"
+                          value={form.metadata[field.key] || ""}
+                          onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, [field.key]: e.target.value } })}
+                        >
+                          <option value="" disabled>Select {field.label}</option>
+                          {field.options?.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
+                          required={field.required}
+                          placeholder={`Enter ${field.label}`}
+                          className="border border-canvas-subtle p-3 rounded-xl text-sm"
+                          value={form.metadata[field.key] || ""}
+                          onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, [field.key]: e.target.value } })}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </form>
+          </Modal>
+        </Secure>
+      )}
+
+      {/* Settings Modal */}
+      {modal === "settings" && (
+        <Secure resource="module:users" action="manage_settings">
+          <Modal
+            title="User Metadata Schema"
+            subtitle="Configure extra fields to collect for users in your tenant."
+            onClose={closeModal}
+            footer={
+              <ModalFooter
+                onCancel={closeModal}
+                onSubmit={handleSaveSettings}
+                saving={settingsSaving}
+                label="Save Schema"
+              />
+            }
+          >
+            <div className="p-4 bg-canvas-subtle rounded-xl border border-canvas-subtle">
+              <MetadataSchemaBuilder
+                value={schemaStr}
+                onChange={(newSchema) => setSchemaStr(newSchema)}
+              />
+            </div>
           </Modal>
         </Secure>
       )}
