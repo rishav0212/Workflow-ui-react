@@ -524,10 +524,12 @@ export default function UsersTab({
               {schemaObj.fields.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-canvas-subtle space-y-3">
                   <label className="text-sm font-bold text-ink-primary block mb-2">Additional Details</label>
-                  {schemaObj.fields.map((field) => (
+                  {schemaObj.fields.map((field) => {
+                    const displayLabel = field.label || field.key || "Unnamed Field";
+                    return (
                     <div key={field.key} className="flex flex-col gap-1">
                       <label className="text-xs font-bold text-ink-secondary">
-                        {field.label} {field.required && <span className="text-rose-500">*</span>}
+                        {displayLabel} {field.required && <span className="text-rose-500">*</span>}
                       </label>
                       {field.type === "select" ? (
                         <select
@@ -536,7 +538,7 @@ export default function UsersTab({
                           value={form.metadata[field.key] || ""}
                           onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, [field.key]: e.target.value } })}
                         >
-                          <option value="" disabled>Select {field.label}</option>
+                          <option value="" disabled>Select {displayLabel}</option>
                           {field.options?.map(opt => (
                             <option key={opt} value={opt}>{opt}</option>
                           ))}
@@ -545,14 +547,15 @@ export default function UsersTab({
                         <input
                           type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
                           required={field.required}
-                          placeholder={`Enter ${field.label}`}
+                          placeholder={`Enter ${displayLabel}`}
                           className="border border-canvas-subtle p-3 rounded-xl text-sm"
                           value={form.metadata[field.key] || ""}
                           onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, [field.key]: e.target.value } })}
                         />
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </form>
