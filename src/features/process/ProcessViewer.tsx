@@ -729,6 +729,83 @@ export default function ProcessViewer({
     <div className="h-full flex flex-col bg-canvas overflow-hidden font-sans">
       <style>{`
         /* ── GLOBAL BPMN-JS PREMIUM OVERRIDES ── */
+
+        /* ── Canvas background ── */
+        .djs-container svg {
+          background-color: transparent !important;
+        }
+
+        /* ── Task / Activity boxes (ServiceTask, UserTask, etc.) ── */
+        .djs-shape[data-element-id] .djs-visual rect {
+          rx: 10px !important;
+          ry: 10px !important;
+          fill: #ffffff !important;
+          stroke: #c7d2fe !important;
+          stroke-width: 1.5px !important;
+          filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.10)) !important;
+        }
+        /* Hover on tasks */
+        .djs-shape[data-element-id]:hover .djs-visual rect {
+          stroke: #6366f1 !important;
+          stroke-width: 2px !important;
+          filter: drop-shadow(0 4px 8px rgba(99, 102, 241, 0.20)) !important;
+        }
+        /* Selected task */
+        .djs-shape.selected .djs-visual rect {
+          stroke: #4f46e5 !important;
+          stroke-width: 2.5px !important;
+          fill: #f5f3ff !important;
+        }
+
+        /* ── Start / End events (circles) ── */
+        .djs-shape .djs-visual circle {
+          fill: #f0fdf4 !important;
+          stroke: #86efac !important;
+          stroke-width: 2px !important;
+        }
+        /* End event (thick ring) */
+        .djs-shape .djs-visual circle:last-child {
+          stroke: #4ade80 !important;
+          stroke-width: 3px !important;
+        }
+
+        /* ── Gateways (diamonds) ── */
+        .djs-shape .djs-visual polygon,
+        .djs-shape .djs-visual path.djs-hit {
+          fill: #fffbeb !important;
+          stroke: #fcd34d !important;
+          stroke-width: 1.5px !important;
+        }
+
+        /* ── Sequence flow arrows ── */
+        .djs-connection .djs-visual path {
+          stroke: #94a3b8 !important;
+          stroke-width: 1.5px !important;
+        }
+        .djs-connection:hover .djs-visual path {
+          stroke: #6366f1 !important;
+          stroke-width: 2px !important;
+        }
+        .djs-connection .djs-visual .djs-hit {
+          stroke: transparent !important;
+          stroke-width: 10px !important;
+          fill: none !important;
+        }
+
+        /* ── Labels on all shapes ── */
+        .djs-label {
+          font-family: 'Inter', 'Segoe UI', sans-serif !important;
+          font-size: 12px !important;
+          font-weight: 500 !important;
+          fill: #374151 !important;
+        }
+
+        /* ── Text annotations ── */
+        .djs-shape .djs-visual path[data-element-id] {
+          stroke: #e2e8f0 !important;
+        }
+
+        /* ── PALETTE ── */
         .djs-palette {
           background: rgba(255, 255, 255, 0.95) !important;
           backdrop-filter: blur(8px) !important;
@@ -752,27 +829,44 @@ export default function ProcessViewer({
           justify-content: center !important;
         }
         .djs-palette .entry:hover {
-          background-color: #f1f5f9 !important;
-          color: #3b82f6 !important;
+          background-color: #eef2ff !important;
+          color: #4f46e5 !important;
+          transform: translateY(-1px) !important;
+          box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15) !important;
+        }
+
+        /* ── Infinity Email Task icon ── */
+        .djs-palette .infinity-email-task-icon {
+          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+          color: white !important;
+          border-radius: 8px !important;
+          font-size: 18px !important;
+          box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4) !important;
+        }
+        .djs-palette .infinity-email-task-icon::before {
+          font-family: 'bpmn' !important;
+          content: '\e863' !important; /* bpmn send icon codepoint */
+        }
+        .djs-palette .infinity-email-task-icon::after {
+          content: 'Email' !important;
+          display: block !important;
+          position: absolute !important;
+          bottom: -16px !important;
+          left: 50% !important;
+          transform: translateX(-50%) !important;
+          font-family: 'Inter', sans-serif !important;
+          font-size: 9px !important;
+          font-weight: 600 !important;
+          color: #4f46e5 !important;
+          white-space: nowrap !important;
+          letter-spacing: 0.5px !important;
+          text-transform: uppercase !important;
+        }
+        .djs-palette .infinity-email-task-icon:hover {
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+          color: white !important;
           transform: translateY(-2px) scale(1.1) !important;
-          box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2) !important;
-        }
-        
-        /* Ensure our custom HTML button doesn't get squished by the global 38px limits */
-        .djs-palette .entry[data-action="create.email-task"] {
-           width: 140px !important;
-           height: 40px !important;
-           font-size: 12px !important;
-           justify-content: flex-start !important;
-           padding-left: 10px !important;
-           color: white !important;
-        }
-        
-        /* The inner div we injected */
-        .djs-palette .entry[data-action="create.email-task"] > div {
-           width: 100% !important;
-           height: 100% !important;
-           margin: 0 !important;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.5) !important;
         }
       `}</style>
       
