@@ -757,10 +757,22 @@ export default function ProcessViewer({
           transform: translateY(-2px) scale(1.1) !important;
           box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2) !important;
         }
-        .djs-palette .entry.bpmn-icon-send {
-           /* Reset specific properties for our custom HTML button so it doesn't get squished */
-           width: auto !important;
-           height: auto !important;
+        
+        /* Ensure our custom HTML button doesn't get squished by the global 38px limits */
+        .djs-palette .entry[data-action="create.email-task"] {
+           width: 140px !important;
+           height: 40px !important;
+           font-size: 12px !important;
+           justify-content: flex-start !important;
+           padding-left: 10px !important;
+           color: white !important;
+        }
+        
+        /* The inner div we injected */
+        .djs-palette .entry[data-action="create.email-task"] > div {
+           width: 100% !important;
+           height: 100% !important;
+           margin: 0 !important;
         }
       `}</style>
       
