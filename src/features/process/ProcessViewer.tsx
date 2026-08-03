@@ -39,6 +39,7 @@ import {
 import ActionEditorModal from "./components/ActionEditorModal";
 import DeployCommentModal from "./components/DeployCommentModal";
 import FlowablePropertiesProvider from "./components/FlowablePropertiesProvider";
+import CustomPaletteProvider from "./components/CustomPaletteProvider";
 import { LoadingOverlay } from "../../components/common/LoadingOverlay";
 import { UnsavedBadge } from "../../components/common/UnsavedBadge";
 
@@ -47,8 +48,9 @@ import { UnsavedBadge } from "../../components/common/UnsavedBadge";
 // Packages our custom provider into a bpmn-js-compatible module descriptor
 // ============================================================================
 const FlowablePropertiesProviderModule = {
-  __init__: ["flowablePropertiesProvider"],
+  __init__: ["flowablePropertiesProvider", "customPaletteProvider"],
   flowablePropertiesProvider: ["type", FlowablePropertiesProvider],
+  customPaletteProvider: ["type", CustomPaletteProvider]
 };
 
 // ============================================================================

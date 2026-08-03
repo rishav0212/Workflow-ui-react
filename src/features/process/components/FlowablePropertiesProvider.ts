@@ -8,6 +8,7 @@
  *                           candidateGroups, dueDate, priority
  *  - ServiceTask / SendTask / BusinessRuleTask:
  *                           class, expression, delegateExpression, resultVariable
+ *  - Infinity Email Task:   toEmail, subject, templateName, isReply
  *  - All Activities:        asyncBefore, asyncAfter, exclusive
  *
  * It integrates with the @bpmn-io/properties-panel framework by returning
@@ -59,6 +60,41 @@ function setAttr(element: any, attr: string, value: string, modeling: any) {
   });
 }
 
+// Helper to get/set flowable:Field in extensionElements
+function getFieldString(element: any, name: string): string {
+  const bo = element.businessObject;
+  const ext = bo.extensionElements;
+  if (!ext || !ext.values) return "";
+  const field = ext.values.find((v: any) => v.$type === "flowable:Field" && v.name === name);
+  return field ? (field.stringValue || field.string || "") : "";
+}
+
+function setFieldString(element: any, name: string, value: string, modeling: any, bpmnFactory: any) {
+  const bo = element.businessObject;
+  let ext = bo.extensionElements;
+  
+  if (!ext) {
+    ext = bpmnFactory.create("bpmn:ExtensionElements", { values: [] });
+    modeling.updateModdleProperties(element, bo, { extensionElements: ext });
+  }
+  
+  let fields = ext.values.filter((v: any) => v.$type === "flowable:Field");
+  const otherExts = ext.values.filter((v: any) => v.$type !== "flowable:Field");
+  
+  // Remove existing
+  fields = fields.filter((v: any) => v.name !== name);
+  
+  if (value) {
+    const newField = bpmnFactory.create("flowable:Field", {
+      name: name,
+      stringValue: value
+    });
+    fields.push(newField);
+  }
+  
+  modeling.updateModdleProperties(element, ext, { values: [...otherExts, ...fields] });
+}
+
 // ── Entry builders ───────────────────────────────────────────────────────────
 
 function textEntry(opts: {
@@ -103,6 +139,30 @@ function checkboxEntry(opts: {
         [attr]: values[id] === true ? true : undefined,
       }),
     label,
+  };
+}
+
+function fieldTextEntry(opts: {
+  id: string;
+  label: string;
+  fieldName: string;
+  placeholder?: string;
+  description?: string;
+  element: any;
+  modeling: any;
+  bpmnFactory: any;
+}) {
+  const { id, label, fieldName, placeholder, description, element, modeling, bpmnFactory } = opts;
+  return {
+    id,
+    element,
+    component: "textField" as const,
+    isEdited: () => !!getFieldString(element, fieldName),
+    getValue: () => ({ [id]: getFieldString(element, fieldName) }),
+    setValue: (values: any) => setFieldString(element, fieldName, values[id] ?? "", modeling, bpmnFactory),
+    label,
+    description,
+    placeholder,
   };
 }
 
@@ -257,6 +317,57 @@ function buildAsyncGroup(element: any, modeling: any) {
   };
 }
 
+function buildInfinityEmailGroup(element: any, modeling: any, bpmnFactory: any) {
+  if (element.businessObject?.delegateExpression !== "${infinityEmailTaskDelegate}") {
+    return null;
+  }
+
+  return {
+    id: "flowable-infinity-email",
+    label: "Infinity Email Settings",
+    component: "Group",
+    entries: [
+      fieldTextEntry({
+        id: "email-toEmail",
+        label: "To Email Address",
+        fieldName: "toEmail",
+        placeholder: "${customerEmail}",
+        description: "Recipient email",
+        element,
+        modeling,
+        bpmnFactory
+      }),
+      fieldTextEntry({
+        id: "email-subject",
+        label: "Subject",
+        fieldName: "subject",
+        placeholder: "Alert!",
+        element,
+        modeling,
+        bpmnFactory
+      }),
+      fieldTextEntry({
+        id: "email-templateName",
+        label: "Template Name",
+        fieldName: "templateName",
+        placeholder: "invoice.html",
+        element,
+        modeling,
+        bpmnFactory
+      }),
+      fieldTextEntry({
+        id: "email-isReply",
+        label: "Is Reply? (true/false)",
+        fieldName: "isReply",
+        placeholder: "true",
+        element,
+        modeling,
+        bpmnFactory
+      })
+    ]
+  };
+}
+
 // ── Provider class ───────────────────────────────────────────────────────────
 
 export default class FlowablePropertiesProvider {
@@ -272,15 +383,18 @@ export default class FlowablePropertiesProvider {
   getGroups(element: any) {
     return (groups: any[]) => {
       const modeling = this._injector.get("modeling");
+      const bpmnFactory = this._injector.get("bpmnFactory");
 
       const userTaskGroup = buildUserTaskGroup(element, modeling);
       const formKeyGroup = buildFormKeyGroup(element, modeling);
       const serviceTaskGroup = buildServiceTaskGroup(element, modeling);
       const asyncGroup = buildAsyncGroup(element, modeling);
+      const emailGroup = buildInfinityEmailGroup(element, modeling, bpmnFactory);
 
       const newGroups: any[] = [];
       if (formKeyGroup) newGroups.push(formKeyGroup);
       if (userTaskGroup) newGroups.push(userTaskGroup);
+      if (emailGroup) newGroups.push(emailGroup); // Show email settings first!
       if (serviceTaskGroup) newGroups.push(serviceTaskGroup);
       if (asyncGroup) newGroups.push(asyncGroup);
 
