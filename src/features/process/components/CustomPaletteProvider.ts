@@ -35,8 +35,27 @@ export default class CustomPaletteProvider {
     return {
       "create.email-task": {
         group: "activity",
-        className: "bpmn-icon-send",
-        title: "Create Infinity Email Task",
+        html: `<div class="entry" draggable="true" style="
+          display: flex; 
+          align-items: center; 
+          width: 130px; 
+          padding: 8px; 
+          margin-bottom: 5px;
+          margin-left: -5px;
+          border-radius: 6px; 
+          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+          color: white; 
+          cursor: grab; 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+          font-family: 'Inter', sans-serif; 
+          font-size: 12px; 
+          font-weight: 600;
+          transition: transform 0.2s;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          <span class="bpmn-icon-send" style="margin-right: 8px; font-size: 16px;"></span>
+          Email Task
+        </div>`,
+        title: "Drag and drop to create an Infinity Email Task",
         action: {
           dragstart: createEmailTask,
           click: createEmailTask

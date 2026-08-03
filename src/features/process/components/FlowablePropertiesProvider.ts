@@ -318,13 +318,22 @@ function buildAsyncGroup(element: any, modeling: any) {
 }
 
 function buildInfinityEmailGroup(element: any, modeling: any, bpmnFactory: any) {
-  if (element.businessObject?.delegateExpression !== "${infinityEmailTaskDelegate}") {
+  const bo = element.businessObject;
+  if (!bo || !isServiceLike(element)) return null;
+
+  // Moddle might store it under different keys depending on how it was created (palette vs xml import)
+  const delExp = bo.delegateExpression || 
+                 (bo.get && bo.get("flowable:delegateExpression")) || 
+                 bo.get?.("camunda:delegateExpression") || 
+                 bo.$attrs?.["flowable:delegateExpression"];
+
+  if (delExp !== "${infinityEmailTaskDelegate}") {
     return null;
   }
 
   return {
     id: "flowable-infinity-email",
-    label: "Infinity Email Settings",
+    label: "📧 Infinity Email Settings",
     component: "Group",
     entries: [
       fieldTextEntry({

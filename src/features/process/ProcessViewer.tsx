@@ -727,6 +727,43 @@ export default function ProcessViewer({
   // ═════════════════════════════════════════════════════════════════════════
   return (
     <div className="h-full flex flex-col bg-canvas overflow-hidden font-sans">
+      <style>{`
+        /* ── GLOBAL BPMN-JS PREMIUM OVERRIDES ── */
+        .djs-palette {
+          background: rgba(255, 255, 255, 0.95) !important;
+          backdrop-filter: blur(8px) !important;
+          border: 1px solid rgba(226, 232, 240, 0.8) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+          padding: 8px !important;
+          left: 15px !important;
+          top: 15px !important;
+        }
+        .djs-palette .entry {
+          color: #64748b !important;
+          border-radius: 8px !important;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          margin-bottom: 4px !important;
+          font-size: 20px !important;
+          width: 38px !important;
+          height: 38px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        .djs-palette .entry:hover {
+          background-color: #f1f5f9 !important;
+          color: #3b82f6 !important;
+          transform: translateY(-2px) scale(1.1) !important;
+          box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2) !important;
+        }
+        .djs-palette .entry.bpmn-icon-send {
+           /* Reset specific properties for our custom HTML button so it doesn't get squished */
+           width: auto !important;
+           height: auto !important;
+        }
+      `}</style>
+      
       {/* ── DEPLOY COMMENT MODAL ─────────────────────────────────────────── */}
       <DeployCommentModal
         isOpen={showDeployModal}
