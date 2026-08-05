@@ -256,6 +256,33 @@ const onFormReady = useCallback(
                 Close
               </button>
             </div>
+          ) : formKey === "tooljet-history" ? (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-brand-50 border border-brand-100 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-bold text-brand-700 flex items-center gap-2">
+                  <i className="fas fa-plug text-brand-500"></i> External System Submission
+                </h3>
+                <p className="text-xs text-brand-600 mt-1">
+                  This task was completed via an external system (ToolJet). The data below represents the historical summary of that action.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {submission?.data && Object.keys(submission.data).length > 0 ? (
+                  Object.entries(submission.data).map(([key, value]) => (
+                    <div key={key} className="bg-white border border-canvas-active rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-[10px] font-bold text-ink-secondary mb-1 uppercase tracking-wider">{key}</p>
+                      <p className="text-sm font-medium text-ink-primary break-words">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-8 text-center border-2 border-dashed border-canvas-active rounded-xl">
+                    <p className="text-sm text-neutral-500 italic">No summary data provided.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <Form
               key={submissionId || "new-submission"}
