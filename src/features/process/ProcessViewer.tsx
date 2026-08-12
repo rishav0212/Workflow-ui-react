@@ -376,7 +376,12 @@ export default function ProcessViewer({
           // ─────────────────────────────────────────────────────────────
           // VIEWER MODE — Read-only diagram
           // ─────────────────────────────────────────────────────────────
-          instance = new BpmnViewer({ container });
+          instance = new BpmnViewer({ 
+            container,
+            additionalModules: [
+              FlowablePropertiesProviderModule
+            ]
+          });
           await instance.importXML(designerXml);
           const canvas: any = instance.get("canvas");
           canvas.zoom("fit-viewport");

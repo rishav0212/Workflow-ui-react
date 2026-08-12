@@ -40,9 +40,9 @@ export default class CustomRenderer extends BaseRenderer {
         stroke: '#374151',
         strokeWidth: '1.5px'
       });
-      // Adjust translation to place it in the top left corner (typical task icon position)
+      // Adjust translation and scale it down so it's not too big
       svgAttr(envelope, {
-        transform: 'translate(-5, -15)' 
+        transform: 'translate(4, 4) scale(0.5)' 
       });
       svgAppend(parentNode, envelope);
 
