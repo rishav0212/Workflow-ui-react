@@ -48,6 +48,11 @@ import { UnsavedBadge } from "../../components/common/UnsavedBadge";
 // FLOWABLE PROPERTIES PROVIDER MODULE
 // Packages our custom provider into a bpmn-js-compatible module descriptor
 // ============================================================================
+const FlowableRendererModule = {
+  __init__: ["customRenderer"],
+  customRenderer: ["type", CustomRenderer]
+};
+
 const FlowablePropertiesProviderModule = {
   __init__: ["flowablePropertiesProvider", "customPaletteProvider", "customRenderer"],
   flowablePropertiesProvider: ["type", FlowablePropertiesProvider],
@@ -379,7 +384,7 @@ export default function ProcessViewer({
           instance = new BpmnViewer({ 
             container,
             additionalModules: [
-              FlowablePropertiesProviderModule
+              FlowableRendererModule
             ]
           });
           await instance.importXML(designerXml);
