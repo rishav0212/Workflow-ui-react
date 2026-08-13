@@ -283,7 +283,7 @@ const onFormReady = useCallback(
                 )}
               </div>
             </div>
-          ) : (
+          ) : schema && schema.components && schema.components.length > 0 ? (
             <Form
               key={submissionId || "new-submission"}
               form={schema}
@@ -293,6 +293,33 @@ const onFormReady = useCallback(
               onSubmit={onSubmit}
               options={{ noAlerts: true, readOnly: isReadOnly }}
             />
+          ) : (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <i className="fas fa-database text-slate-500"></i> Task Data Summary
+                </h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  This task does not have a visual form associated with it. The data below represents the stored variables.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {submission?.data && Object.keys(submission.data).length > 0 ? (
+                  Object.entries(submission.data).map(([key, value]) => (
+                    <div key={key} className="bg-white border border-canvas-active rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-[10px] font-bold text-ink-secondary mb-1 uppercase tracking-wider">{key}</p>
+                      <p className="text-sm font-medium text-ink-primary break-words">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-8 text-center border-2 border-dashed border-canvas-active rounded-xl">
+                    <p className="text-sm text-neutral-500 italic">No variables found for this task.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
