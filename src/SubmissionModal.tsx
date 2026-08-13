@@ -256,7 +256,7 @@ const onFormReady = useCallback(
                 Close
               </button>
             </div>
-          ) : formKey === "tooljet-history" ? (
+          ) : formKey && formKey.includes("tooljet-history") ? (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-brand-50 border border-brand-100 rounded-lg p-4 mb-4">
                 <h3 className="text-sm font-bold text-brand-700 flex items-center gap-2">

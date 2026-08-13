@@ -13,6 +13,7 @@ export interface HistoryEvent {
   formSubmissionId?: string;
   completedBy?: string;
   submittedFormKey?: string;
+  variables?: Record<string, any>;
 }
 
 interface HistoryTimelineProps {
@@ -38,6 +39,7 @@ const HistoryTimeline = memo(
       id: string;
       formKey: string;
       title: string;
+      initialData?: any;
     } | null>(null);
     const [viewingLoading, setViewingLoading] = useState(false);
     useEffect(() => {
@@ -73,10 +75,11 @@ const HistoryTimeline = memo(
     }, [processInstanceId]);
 
     const handleViewEvent = async (event: HistoryEvent) => {
-      if (!event.formSubmissionId) return;
+      let formKey = event.formKey || event.submittedFormKey;
+
+      if (!formKey && !event.formSubmissionId) return;
 
       setViewingLoading(true);
-      let formKey = event.formKey || event.submittedFormKey;
 
       if (!formKey && event.taskId) {
         try {
@@ -91,9 +94,10 @@ const HistoryTimeline = memo(
 
       if (formKey) {
         setSelectedSubmission({
-          id: event.formSubmissionId,
+          id: event.formSubmissionId || "",
           formKey: formKey,
           title: `View: ${event.taskName}`,
+          initialData: event.variables ? { data: event.variables } : undefined
         });
       } else {
         alert("Could not load form details for this event.");
@@ -270,32 +274,52 @@ const HistoryTimeline = memo(
                       </div>
                     </div>
 
-                    {(isCompleted || hasData || event.completedBy) && (
-                      <div className="mt-2.5 flex items-center justify-between border-t border-slate-50 pt-2">
-                        <div className="flex items-center gap-2">
-                          {duration && (
-                            <span className="text-[10px] text-neutral-400 flex items-center gap-1 font-medium">
-                              <i className="far fa-hourglass text-[9px]"></i>{" "}
-                              {duration}
-                            </span>
-                          )}
+                    <div className="mt-2.5 flex items-center justify-between border-t border-slate-50 pt-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {event.endTime ? (
+                          <span className="text-[10px] text-neutral-400 flex items-center gap-1 font-medium" title="Time of Submission">
+                            <i className="far fa-calendar-check text-[9px]"></i>{" "}
+                            {new Date(event.endTime).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-neutral-400 flex items-center gap-1 font-medium" title="Time Started">
+                            <i className="far fa-clock text-[9px]"></i>{" "}
+                            {new Date(event.startTime).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        )}
 
-                          {/* 👇 CHANGED: Removed '!compact' check so it always shows */}
-                          {event.completedBy && (
-                            <span className="text-[10px] text-neutral-500 flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                              <i className="fas fa-user-check text-[9px]"></i>{" "}
-                              {event.completedBy}
-                            </span>
-                          )}
-                        </div>
+                        {duration && (
+                          <span className="text-[10px] text-neutral-400 flex items-center gap-1 font-medium" title="Time Taken">
+                            <i className="far fa-hourglass text-[9px]"></i>{" "}
+                            {duration}
+                          </span>
+                        )}
 
-                        {hasData && (
-                          <span className="text-[9px] font-bold text-brand-600 flex items-center gap-1 hover:underline">
-                            DATA <i className="fas fa-arrow-right"></i>
+                        {/* 👇 CHANGED: Removed '!compact' check so it always shows */}
+                        {event.completedBy && (
+                          <span className="text-[10px] text-neutral-500 flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                            <i className="fas fa-user-check text-[9px]"></i>{" "}
+                            {event.completedBy}
                           </span>
                         )}
                       </div>
-                    )}
+
+                      {hasData && (
+                        <span className="text-[9px] font-bold text-brand-600 flex items-center gap-1 hover:underline cursor-pointer">
+                          DATA <i className="fas fa-arrow-right"></i>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -310,6 +334,7 @@ const HistoryTimeline = memo(
           title={selectedSubmission?.title || "View Data"}
           formKey={selectedSubmission?.formKey || ""}
           submissionId={selectedSubmission?.id || ""}
+          initialData={selectedSubmission?.initialData}
           isReadOnly={true}
         />
       </>
